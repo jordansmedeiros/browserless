@@ -1,0 +1,122 @@
+###############################################################################
+# Browserless - Docker Compose Configuration
+#
+# Este arquivo facilita a execução do Browserless com Docker Compose
+#
+# Uso:
+#   docker compose up -d           # Iniciar em background
+#   docker compose up              # Iniciar com logs
+#   docker compose down            # Parar e remover containers
+#   docker compose logs -f         # Ver logs
+#   docker compose restart         # Reiniciar
+#
+# Troubleshooting:
+#   - Se o pull da imagem estiver lento, tente: docker pull ghcr.io/browserless/chromium:latest
+#   - Execute ./diagnose-docker.bat para diagnóstico completo
+###############################################################################
+
+services:
+  # Chromium (padrão)
+  chromium:
+    image: ghcr.io/browserless/chromium:latest
+    container_name: browserless-chromium
+    pull_policy: missing  # Só faz pull se a imagem não existir localmente
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Token de autenticação (MUDE EM PRODUÇÃO!)
+      - TOKEN=6R0W53R135510
+      # Nível de debug
+      - DEBUG=browserless*,-**:verbose
+      # Máximo de sessões concorrentes
+      - MAX_CONCURRENT_SESSIONS=10
+      # Timeout de conexão (ms)
+      - CONNECTION_TIMEOUT=30000
+      # Modo headless
+      - HEADLESS=true
+    volumes:
+      # Volume para downloads
+      - ./downloads:/app/downloads
+      # Volume para logs (opcional)
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Limites de recursos (ajuste conforme necessário)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Firefox (desabilitado por padrão, remova o comentário para usar)
+  # firefox:
+  #   image: ghcr.io/browserless/firefox:latest
+  #   container_name: browserless-firefox
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3001:3000"
+  #   environment:
+  #     - TOKEN=6R0W53R135510
+  #     - DEBUG=browserless*,-**:verbose
+  #     - MAX_CONCURRENT_SESSIONS=10
+  #   volumes:
+  #     - ./downloads:/app/downloads
+  #   healthcheck:
+  #     test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+  # WebKit (desabilitado por padrão, remova o comentário para usar)
+  # webkit:
+  #   image: ghcr.io/browserless/webkit:latest
+  #   container_name: browserless-webkit
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3002:3000"
+  #   environment:
+  #     - TOKEN=6R0W53R135510
+  #     - DEBUG=browserless*,-**:verbose
+  #     - MAX_CONCURRENT_SESSIONS=10
+  #   volumes:
+  #     - ./downloads:/app/downloads
+
+  # Multi-Browser (todos os navegadores, desabilitado por padrão)
+  # multi:
+  #   image: ghcr.io/browserless/multi:latest
+  #   container_name: browserless-multi
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3003:3000"
+  #   environment:
+  #     - TOKEN=6R0W53R135510
+  #     - DEBUG=browserless*,-**:verbose
+  #     - MAX_CONCURRENT_SESSIONS=10
+  #   volumes:
+  #     - ./downloads:/app/downloads
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '4.0'
+  #         memory: 4G
+
+# Volumes nomeados (opcional)
+volumes:
+  downloads:
+    driver: local
+  logs:
+    driver: local
+
+# Rede customizada (opcional)
+networks:
+  default:
+    name: browserless-network
+    driver: bridge
