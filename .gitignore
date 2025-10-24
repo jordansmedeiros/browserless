@@ -1,6 +1,8 @@
 # Built Assets
 node_modules/
 build/
+server/build/
+.next/
 metrics.json
 extensions/ublocklite
 

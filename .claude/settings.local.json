@@ -43,7 +43,12 @@
       "Bash(node:*)",
       "Bash(openspec list:*)",
       "Bash(openspec validate:*)",
-      "Bash(openspec archive:*)"
+      "Bash(openspec archive:*)",
+      "Bash(mkdir:*)",
+      "Bash(move:*)",
+      "Bash(move scripts serverscripts)",
+      "Bash(move external serverexternal)",
+      "Bash(npx shadcn@latest add:*)"
     ],
     "deny": [],
     "ask": []

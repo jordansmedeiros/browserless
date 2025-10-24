@@ -1,28 +1,41 @@
 {
   "compilerOptions": {
-    "rootDirs": ["src"],
-    "outDir": "build",
-    "baseUrl": ".",
-    "module": "es2022",
-    "moduleResolution": "Node",
-    "target": "es2022",
-    "paths": {
-      "@browserless.io/*": ["src/exports.ts"]
-    },
-    "lib": ["dom", "dom.iterable", "es2022"],
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
     "strict": true,
-    "removeComments": false,
-    "noImplicitAny": true,
-    "noEmitOnError": false,
-    "strictNullChecks": true,
-    "noImplicitReturns": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "declaration": true,
+    "noEmit": true,
     "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true,
-    "skipLibCheck": true
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"],
+      "@/lib/*": ["./lib/*"],
+      "@/components/*": ["./components/*"],
+      "@/app/*": ["./app/*"],
+      "@/server/*": ["./server/*"]
+    }
   },
-  "include": ["./src/**/*"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "server/src",
+    "server/build",
+    "server/scripts"
+  ]
 }
