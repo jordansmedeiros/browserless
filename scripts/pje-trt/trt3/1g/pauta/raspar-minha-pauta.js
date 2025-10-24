@@ -31,6 +31,7 @@ const SENHA = '12345678A@';
 
 const PJE_LOGIN_URL = 'https://pje.trt3.jus.br/primeirograu/login.seam';
 const DATA_DIR = 'data/pje/trt3/1g/pauta';
+const ICS_DIR = 'data/pje/trt3/1g/pauta/ics';
 
 // Configurações do raspador
 const CONFIG = {
@@ -78,6 +79,7 @@ async function rasparMinhaPauta() {
 
   // Criar diretórios
   await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(ICS_DIR, { recursive: true });
 
   const browser = await puppeteer.launch({
     headless: true,
@@ -144,24 +146,45 @@ async function rasparMinhaPauta() {
     console.log(`   Data final: ${dataFim} (1 ano)\n`);
     console.log('🔄 Iniciando raspagem...\n');
 
-    const audiencias = await buscarPauta(page, dataInicio, dataFim);
+    let audiencias = await buscarPauta(page, dataInicio, dataFim);
 
     // ====================================================================
-    // PASSO 3: DELETAR ARQUIVOS ANTIGOS
+    // PASSO 2.5: DELETAR ARQUIVOS ANTIGOS
     // ====================================================================
 
     console.log('\n🗑️  Limpando arquivos antigos...\n');
 
-    const arquivos = await fs.readdir(DATA_DIR);
+    // Limpa arquivos JSON antigos
+    const arquivosJSON = await fs.readdir(DATA_DIR);
     const padrao = new RegExp(`^${CONFIG.agrupador}-`);
 
-    for (const arquivo of arquivos) {
+    for (const arquivo of arquivosJSON) {
       if (padrao.test(arquivo)) {
         const caminhoCompleto = path.join(DATA_DIR, arquivo);
         await fs.unlink(caminhoCompleto);
-        console.log(`   ❌ Deletado: ${arquivo}`);
+        console.log(`   ❌ Deletado JSON: ${arquivo}`);
       }
     }
+
+    // Limpa arquivos .ics antigos
+    try {
+      const arquivosICS = await fs.readdir(ICS_DIR);
+      for (const arquivo of arquivosICS) {
+        if (arquivo.endsWith('.ics')) {
+          const caminhoCompleto = path.join(ICS_DIR, arquivo);
+          await fs.unlink(caminhoCompleto);
+          console.log(`   ❌ Deletado ICS: ${arquivo}`);
+        }
+      }
+    } catch (error) {
+      // Diretório pode não existir ainda
+    }
+
+    // ====================================================================
+    // PASSO 3.5: GERAR ARQUIVOS .ICS
+    // ====================================================================
+
+    audiencias = await gerarArquivosICS(audiencias);
 
     // ====================================================================
     // PASSO 4: SALVAR RESULTADOS
@@ -186,9 +209,14 @@ async function rasparMinhaPauta() {
     if (audiencias.length > 0) {
       console.log('Primeiras 3 audiências:');
       audiencias.slice(0, 3).forEach((a, i) => {
-        console.log(`  ${i + 1}. ${a.numeroProcesso || a.id} - ${a.dataAudiencia || a.data || 'Sem data'}`);
+        const processo = a.nrProcesso || a.processo?.numero || a.id;
+        const data = a.dataInicio ? new Date(a.dataInicio).toLocaleString('pt-BR') : 'Sem data';
+        const autor = a.poloAtivo?.nome || 'N/A';
+        console.log(`  ${i + 1}. Processo: ${processo}`);
+        console.log(`     Data/Hora: ${data}`);
+        console.log(`     Autor: ${autor}`);
+        console.log('');
       });
-      console.log('');
     }
 
     console.log('='.repeat(70));
@@ -201,6 +229,102 @@ async function rasparMinhaPauta() {
   } finally {
     await browser.close();
   }
+}
+
+/**
+ * Formata data para formato iCalendar (YYYYMMDDTHHMMSS)
+ */
+function formatarDataICS(dataISO) {
+  if (!dataISO) return '';
+  return dataISO.replace(/[-:]/g, '').replace(/\.\d{3}Z?$/, '');
+}
+
+/**
+ * Gera conteúdo do arquivo .ics (iCalendar) para uma audiência
+ */
+function gerarConteudoICS(audiencia) {
+  const processo = audiencia.nrProcesso || audiencia.processo?.numero || 'Processo sem número';
+  const tipo = audiencia.tipo?.descricao || 'Audiência';
+  const orgao = audiencia.processo?.orgaoJulgador?.descricao || 'Órgão não informado';
+  const sala = audiencia.salaAudiencia?.nome || 'Sala não informada';
+  const autor = audiencia.poloAtivo?.nome || 'Autor não informado';
+  const reu = audiencia.poloPassivo?.nome || 'Réu não informado';
+
+  const dtstart = formatarDataICS(audiencia.dataInicio);
+  const dtend = formatarDataICS(audiencia.dataFim);
+  const dtstamp = formatarDataICS(new Date().toISOString());
+
+  const uid = `audiencia-${audiencia.id}@pje.trt3.jus.br`;
+  const summary = `${tipo} - Processo ${processo}`;
+
+  let description = `Processo: ${processo}\\n`;
+  description += `Tipo: ${tipo}\\n`;
+  description += `Órgão Julgador: ${orgao}\\n`;
+  description += `Sala: ${sala}\\n`;
+  description += `Autor: ${autor}\\n`;
+  description += `Réu: ${reu}`;
+
+  if (audiencia.urlAudienciaVirtual) {
+    description += `\\n\\nLink da Videoconferência: ${audiencia.urlAudienciaVirtual}`;
+  }
+
+  const location = audiencia.urlAudienciaVirtual ? audiencia.urlAudienciaVirtual : sala;
+
+  // Formato iCalendar (RFC 5545)
+  const icsContent = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//PJE TRT3//Minha Pauta//PT-BR',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'X-WR-CALNAME:PJE - Minha Pauta',
+    'X-WR-TIMEZONE:America/Sao_Paulo',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${dtstamp}`,
+    `DTSTART:${dtstart}`,
+    `DTEND:${dtend}`,
+    `SUMMARY:${summary}`,
+    `DESCRIPTION:${description}`,
+    `LOCATION:${location}`,
+    `STATUS:CONFIRMED`,
+    `SEQUENCE:0`,
+    audiencia.urlAudienciaVirtual ? `URL:${audiencia.urlAudienciaVirtual}` : '',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(line => line).join('\r\n');
+
+  return icsContent;
+}
+
+/**
+ * Gera arquivo .ics para cada audiência
+ */
+async function gerarArquivosICS(audiencias) {
+  console.log('📅 Gerando arquivos .ics (Google Calendar)...\n');
+
+  let totalGerados = 0;
+
+  for (const audiencia of audiencias) {
+    try {
+      const nomeArquivo = `audiencia-${audiencia.id}.ics`;
+      const caminhoArquivo = path.join(ICS_DIR, nomeArquivo);
+
+      const conteudoICS = gerarConteudoICS(audiencia);
+      await fs.writeFile(caminhoArquivo, conteudoICS, 'utf8');
+
+      // Adiciona referência ao arquivo .ics na audiência
+      audiencia.arquivoICS = caminhoArquivo.replace(/\\/g, '/'); // Normaliza path para JSON
+
+      totalGerados++;
+    } catch (error) {
+      console.log(`   ❌ Erro ao gerar .ics para audiência ${audiencia.id}: ${error.message}`);
+    }
+  }
+
+  console.log(`   ✅ ${totalGerados}/${audiencias.length} arquivos .ics gerados\n`);
+
+  return audiencias;
 }
 
 /**
@@ -259,13 +383,28 @@ async function buscarPauta(page, dataInicio, dataFim) {
 
     // Adiciona audiências desta página
     if (resultado.resultado && Array.isArray(resultado.resultado)) {
+      // Se a página atual está vazia, para a busca
+      if (resultado.resultado.length === 0) {
+        console.log(`   ⚠️  Página vazia - finalizando busca`);
+        break;
+      }
+
       todasAudiencias.push(...resultado.resultado);
       console.log(`   ✅ ${resultado.resultado.length} audiências capturadas`);
     } else if (Array.isArray(resultado)) {
       // Caso a resposta seja diretamente um array
+      if (resultado.length === 0) {
+        console.log(`   ⚠️  Resultado vazio - finalizando busca`);
+        break;
+      }
+
       todasAudiencias.push(...resultado);
       console.log(`   ✅ ${resultado.length} audiências capturadas`);
       break; // Se não tem paginação, para aqui
+    } else {
+      // Resposta inesperada - para
+      console.log(`   ⚠️  Resposta inesperada - finalizando busca`);
+      break;
     }
 
     // Verifica se chegou na última página
@@ -273,8 +412,9 @@ async function buscarPauta(page, dataInicio, dataFim) {
       break;
     }
 
-    // Se não tem mais resultados
-    if (resultado.resultado && resultado.resultado.length === 0) {
+    // Limite de segurança para evitar loops infinitos
+    if (paginaAtual >= 1000) {
+      console.log(`   ⚠️  Limite de páginas atingido - finalizando busca`);
       break;
     }
 

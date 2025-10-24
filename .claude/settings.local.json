@@ -36,7 +36,11 @@
       "Bash(tasklist:*)",
       "Bash(copy login-pje-completo.js scriptspjelogin.js)",
       "Bash(copy:*)",
-      "Bash(copy login-pje-completo-resultado.png screenshotspje-login-success.png)"
+      "Bash(copy login-pje-completo-resultado.png screenshotspje-login-success.png)",
+      "Bash(node scripts/pje/capturar-api.js:*)",
+      "Bash(node scripts/pje/raspar-processos.js:*)",
+      "Bash(node scripts/pje/raspar-todos-processos.js:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
