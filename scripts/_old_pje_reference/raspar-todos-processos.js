@@ -1,4 +1,28 @@
 /**
+ * ⚠️ AVISO: SCRIPT DESCONTINUADO - APENAS PARA REFERÊNCIA
+ *
+ * Este script está em _old_pje_reference e NÃO deve ser usado em produção.
+ * Foi mantido apenas como referência histórica.
+ *
+ * MOTIVOS DA DESCONTINUAÇÃO:
+ * - Credenciais hardcoded (inseguro)
+ * - Arquitetura antiga
+ * - Não segue as melhores práticas atuais do projeto
+ *
+ * USE OS NOVOS SCRIPTS:
+ * - scripts/pje-trt/trt3/1g/acervo/raspar-acervo-geral.js
+ * - scripts/pje-trt/trt3/1g/pendentes/raspar-pendentes-sem-prazo.js
+ * - scripts/pje-trt/trt3/1g/pauta/raspar-minha-pauta.js
+ * - scripts/pje-trt/trt3/1g/arquivados/raspar-arquivados.js
+ *
+ * Os novos scripts:
+ * - Usam variáveis de ambiente para credenciais (.env)
+ * - Têm validação de segurança
+ * - Seguem nomenclatura padronizada
+ * - Incluem documentação completa
+ *
+ * === CONTEÚDO ORIGINAL (NÃO ATUALIZADO) ===
+ *
  * Raspagem Completa de Processos do PJE
  *
  * Este script:

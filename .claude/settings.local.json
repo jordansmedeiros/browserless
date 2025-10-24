@@ -40,7 +40,9 @@
       "Bash(node scripts/pje/capturar-api.js:*)",
       "Bash(node scripts/pje/raspar-processos.js:*)",
       "Bash(node scripts/pje/raspar-todos-processos.js:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(openspec list:*)",
+      "Bash(openspec validate:*)"
     ],
     "deny": [],
     "ask": []

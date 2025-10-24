@@ -118,14 +118,33 @@ Infraestrutura de navegadores headless baseada no projeto [Browserless](https://
 
 ## 🚀 Início Rápido
 
+### PJE: Configuração Inicial
+
+Antes de usar os scripts PJE, configure suas credenciais:
+
+```bash
+# 1. Copie o arquivo de exemplo
+cp .env.example .env
+
+# 2. Edite o arquivo .env e preencha suas credenciais PJE:
+#    - PJE_CPF: Seu CPF (apenas números)
+#    - PJE_SENHA: Sua senha do PJE
+#    - PJE_ID_ADVOGADO: Seu ID de advogado (obtido via API)
+```
+
+**Importante**:
+- ⚠️ Nunca commite o arquivo `.env` no Git (já está no `.gitignore`)
+- 🔒 As credenciais ficam apenas no seu ambiente local
+- 📖 Para descobrir seu `PJE_ID_ADVOGADO`, consulte [scripts/pje-trt/README.md](scripts/pje-trt/README.md)
+
 ### PJE: Login Automatizado
 
 ```bash
 # 1. Instalar dependências (se ainda não instalou)
 npm install
 
-# 2. Executar script de login
-node scripts/pje/login.js
+# 2. Executar script de login (certifique-se de ter configurado o .env)
+node scripts/pje-trt/common/login.js
 ```
 
 O navegador abrirá automaticamente e você verá:
@@ -135,19 +154,29 @@ O navegador abrirá automaticamente e você verá:
 4. ✅ Login realizado com sucesso
 5. ✅ Painel do usuário carregado
 
-**Resultado**: Screenshot salvo em `screenshots/pje-login-success.png`
+**Resultado**: Screenshot salvo no diretório raiz
 
 ### PJE: Raspagem de Processos
 
 ```bash
-# Raspagem simples (primeira página)
-node scripts/pje/raspar-processos.js
+# Raspagem do acervo geral
+node scripts/pje-trt/trt3/1g/acervo/raspar-acervo-geral.js
 
-# Raspagem completa (todas as categorias e páginas)
-node scripts/pje/raspar-todos-processos.js
+# Raspagem de processos pendentes
+node scripts/pje-trt/trt3/1g/pendentes/raspar-pendentes-sem-prazo.js
+
+# Raspagem de processos arquivados
+node scripts/pje-trt/trt3/1g/arquivados/raspar-arquivados.js
+
+# Raspagem da pauta (audiências)
+node scripts/pje-trt/trt3/1g/pauta/raspar-minha-pauta.js
 ```
 
-**Resultado**: Arquivos JSON salvos em `data/pje/processos/`
+**Resultado**: Arquivos JSON salvos em `data/pje/trt3/1g/`
+
+**Troubleshooting**:
+- Se receber erro de credenciais não configuradas, verifique se o arquivo `.env` existe e está preenchido
+- Se não souber seu `PJE_ID_ADVOGADO`, consulte a documentação em [scripts/pje-trt/README.md](scripts/pje-trt/README.md)
 
 ### Browserless: Servidor Headless
 

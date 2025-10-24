@@ -8,8 +8,8 @@
  * 4. Salva em JSON com nomenclatura padronizada
  *
  * COMO USAR:
- * 1. Atualize CPF e SENHA
- * 2. Execute: node scripts/pje/pauta/raspar-minha-pauta.js
+ * 1. Configure as credenciais no arquivo .env (PJE_CPF, PJE_SENHA)
+ * 2. Execute: node scripts/pje-trt/trt3/1g/pauta/raspar-minha-pauta.js
  * 3. Veja resultados em: data/pje/trt3/1g/pauta/
  *
  * PADRÃO DE NOMENCLATURA:
@@ -25,9 +25,35 @@ import path from 'path';
 
 puppeteer.use(StealthPlugin());
 
-// ⚠️ ATUALIZE SUAS CREDENCIAIS:
-const CPF = '07529294610';
-const SENHA = '12345678A@';
+// Validação de credenciais
+function validarCredenciais() {
+  const credenciaisFaltando = [];
+
+  if (!process.env.PJE_CPF) credenciaisFaltando.push('PJE_CPF');
+  if (!process.env.PJE_SENHA) credenciaisFaltando.push('PJE_SENHA');
+
+  if (credenciaisFaltando.length > 0) {
+    console.error('\n' + '='.repeat(70));
+    console.error('❌ ERRO: Credenciais PJE não configuradas');
+    console.error('='.repeat(70));
+    console.error('\nVariáveis de ambiente faltando:');
+    credenciaisFaltando.forEach(v => console.error(`  - ${v}`));
+    console.error('\n💡 Como configurar:');
+    console.error('  1. Copie o arquivo .env.example para .env');
+    console.error('  2. Preencha as variáveis PJE_CPF e PJE_SENHA');
+    console.error('  3. Execute o script novamente');
+    console.error('\n📖 Consulte o README para mais informações.\n');
+    console.error('='.repeat(70) + '\n');
+    process.exit(1);
+  }
+}
+
+// Valida credenciais antes de prosseguir
+validarCredenciais();
+
+// Lê credenciais das variáveis de ambiente
+const CPF = process.env.PJE_CPF;
+const SENHA = process.env.PJE_SENHA;
 
 const PJE_LOGIN_URL = 'https://pje.trt3.jus.br/primeirograu/login.seam';
 const DATA_DIR = 'data/pje/trt3/1g/pauta';
