@@ -33,7 +33,10 @@
       "Bash(dir:*)",
       "Bash(node login-pje-local-visual.js:*)",
       "Bash(timeout:*)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(copy login-pje-completo.js scriptspjelogin.js)",
+      "Bash(copy:*)",
+      "Bash(copy login-pje-completo-resultado.png screenshotspje-login-success.png)"
     ],
     "deny": [],
     "ask": []
