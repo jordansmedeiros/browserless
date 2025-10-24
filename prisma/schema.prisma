@@ -1,0 +1,85 @@
+// Prisma Schema - Browserless PJE
+// Database: SQLite
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo: Raspagem
+// Representa uma execução de raspagem no PJE
+model Raspagem {
+  id            String    @id @default(uuid())
+  status        String    // "success" | "error" | "running"
+  tipo          String    // "login" | "processos" | "detalhes"
+  idAgrupamento Int?      // ID do agrupamento no PJE (1=Acervo, 2=Pendentes, etc)
+  totalProcessos Int      @default(0)
+  errorMessage  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  completedAt   DateTime?
+
+  // Relações
+  processos Processo[]
+
+  @@index([status])
+  @@index([tipo])
+  @@index([createdAt])
+}
+
+// Modelo: Processo
+// Representa um processo judicial do PJE
+model Processo {
+  id                 String   @id @default(uuid())
+  numeroProcesso     String   @unique
+  dataAjuizamento    String?
+  classe             String?
+  assunto            String?
+  vara               String?
+  fase               String?
+  valor              Float?
+  nomeParteAutora    String?
+  nomeParteRe        String?
+
+  // Dados adicionais do PJE
+  idProcesso         String?  // ID interno do PJE
+  dataUltimaMovimentacao String?
+  situacao           String?
+
+  // Metadados
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relações
+  raspagem           Raspagem? @relation(fields: [raspagemId], references: [id], onDelete: SetNull)
+  raspagemId         String?
+  partes             Parte[]
+
+  @@index([numeroProcesso])
+  @@index([nomeParteAutora])
+  @@index([nomeParteRe])
+  @@index([createdAt])
+}
+
+// Modelo: Parte
+// Representa uma parte (autor, réu, advogado) de um processo
+model Parte {
+  id            String  @id @default(uuid())
+  nome          String
+  tipo          String  // "autor" | "reu" | "advogado" | "outro"
+  documento     String? // CPF/CNPJ
+
+  // Relações
+  processo      Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+  processoId    String
+
+  createdAt     DateTime @default(now())
+
+  @@index([tipo])
+  @@index([processoId])
+}

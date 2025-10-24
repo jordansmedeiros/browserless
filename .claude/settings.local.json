@@ -49,7 +49,9 @@
       "Bash(move scripts serverscripts)",
       "Bash(move external serverexternal)",
       "Bash(npx shadcn@latest add:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(npx prisma init:*)",
+      "Bash(npx prisma migrate dev:*)"
     ],
     "deny": [],
     "ask": []

@@ -34,3 +34,5 @@ coverage
 
 # Data
 data/
+
+/lib/generated/prisma
