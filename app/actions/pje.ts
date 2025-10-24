@@ -80,11 +80,13 @@ export async function scrapeProcessosPJEAction(
       };
     }
 
-    // Executa raspagem
+    // Executa raspagem (usa defaults TRT3 e 1g)
     const resultado = await rasparProcessosPJE(
       validacao.data.cpf,
       validacao.data.senha,
       validacao.data.idAdvogado,
+      'TRT3', // default TRT
+      '1g', // default grau
       validacao.data.idAgrupamento
     );
 

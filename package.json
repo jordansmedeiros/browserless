@@ -39,7 +39,9 @@
     "test": "npm run build:tests && cross-env DEBUG=quiet mocha",
     "coverage": "npm run build:ts && c8 --reporter=text --reporter=html --reporter=lcov cross-env DEBUG=quiet mocha",
     "pje:login": "node server/scripts/pje/login.js",
-    "pje:scrape": "node server/scripts/pje/raspar-todos-processos.js"
+    "pje:scrape": "node server/scripts/pje/raspar-todos-processos.js",
+    "test:multi-trt": "node --loader ts-node/esm scripts/test-all-trts-scraping.ts",
+    "test:trt-validation": "node --loader ts-node/esm scripts/test-multi-trt.ts"
   },
   "files": [
     "assets/*",

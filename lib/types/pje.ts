@@ -3,6 +3,8 @@
  * Tipos compartilhados para dados do PJE (Processo Judicial Eletrônico)
  */
 
+import type { TRTCode, Grau } from './tribunal';
+
 export interface ProcessoPJE {
   numero: string;
   dataAjuizamento: string;
@@ -30,7 +32,9 @@ export interface PerfilPJE {
   id: string;
   nome: string;
   oab?: string;
-  tribunal: string;
+  tribunal: string; // Mantido para backward compatibility
+  trt: TRTCode; // Novo campo específico para TRT
+  grau: Grau; // Novo campo para grau
 }
 
 export interface LoginResult {

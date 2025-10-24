@@ -5,30 +5,49 @@
 
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import type { LoginResult, ScrapeResult, ProcessoPJE } from '@/lib/types';
+import type {
+  LoginResult,
+  ScrapeResult,
+  ProcessoPJE,
+  TRTCode,
+  Grau,
+} from '@/lib/types';
+import { getTribunalConfig } from '@/lib/services/tribunal';
 
 puppeteer.use(StealthPlugin());
 
-const PJE_LOGIN_URL = 'https://pje.trt3.jus.br/primeirograu/login.seam';
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Executa login no PJE e retorna resultado
+ * @param cpf CPF do usuário
+ * @param senha Senha do usuário
+ * @param trt Código do TRT (default: TRT3)
+ * @param grau Grau da instância (default: 1g)
  */
-export async function executarLoginPJE(cpf: string, senha: string): Promise<LoginResult> {
+export async function executarLoginPJE(
+  cpf: string,
+  senha: string,
+  trt: TRTCode = 'TRT3',
+  grau: Grau = '1g'
+): Promise<LoginResult> {
   let browser;
 
   try {
-    console.log('[PJE Adapter] Iniciando login...');
+    console.log(`[PJE Adapter] Iniciando login em ${trt} ${grau}...`);
 
     // Validação de entrada
     if (!cpf || !senha) {
       return {
         success: false,
         message: 'CPF e senha são obrigatórios',
-        error: 'MISSING_CREDENTIALS'
+        error: 'MISSING_CREDENTIALS',
       };
     }
+
+    // Obtém configuração do TRT
+    const config = await getTribunalConfig(trt, grau);
+    console.log(`[PJE Adapter] URL de login: ${config.urlLoginSeam}`);
 
     // Lança navegador
     browser = await puppeteer.launch({
@@ -44,7 +63,9 @@ export async function executarLoginPJE(cpf: string, senha: string): Promise<Logi
     const page = await browser.newPage();
 
     // Configuração anti-detecção
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+    );
 
     await page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => false });
@@ -52,7 +73,10 @@ export async function executarLoginPJE(cpf: string, senha: string): Promise<Logi
     });
 
     // Navega para página de login
-    await page.goto(PJE_LOGIN_URL, { waitUntil: 'networkidle2', timeout: 60000 });
+    await page.goto(config.urlLoginSeam, {
+      waitUntil: 'networkidle2',
+      timeout: 60000,
+    });
     await delay(1500);
 
     // Clica em "Entrar com PDPJ"
@@ -92,11 +116,13 @@ export async function executarLoginPJE(cpf: string, senha: string): Promise<Logi
       return {
         success: false,
         message: 'CloudFront bloqueou o acesso (403)',
-        error: 'BLOCKED_BY_CLOUDFRONT'
+        error: 'BLOCKED_BY_CLOUDFRONT',
       };
     }
 
-    if (finalUrl.includes('pje.trt3.jus.br') && !finalUrl.includes('sso.cloud')) {
+    // Verifica se está na página do PJE (não mais no SSO)
+    const trtDomain = config.urlBase.replace('https://', '');
+    if (finalUrl.includes(trtDomain) && !finalUrl.includes('sso.cloud')) {
       // Tenta obter perfil do usuário
       try {
         const perfil = await page.evaluate(async () => {
@@ -111,12 +137,16 @@ export async function executarLoginPJE(cpf: string, senha: string): Promise<Logi
         return {
           success: true,
           message: 'Login realizado com sucesso',
-          perfil: perfil ? {
-            id: perfil.id?.toString() || '',
-            nome: perfil.nome || '',
-            oab: perfil.oab || '',
-            tribunal: 'TRT3'
-          } : undefined
+          perfil: perfil
+            ? {
+                id: perfil.id?.toString() || '',
+                nome: perfil.nome || '',
+                oab: perfil.oab || '',
+                tribunal: trt,
+                trt: trt,
+                grau: grau,
+              }
+            : undefined,
         };
       } catch (e) {
         // Mesmo sem conseguir obter perfil, login foi bem-sucedido
@@ -157,17 +187,30 @@ export async function executarLoginPJE(cpf: string, senha: string): Promise<Logi
 
 /**
  * Raspa processos do PJE
+ * @param cpf CPF do usuário
+ * @param senha Senha do usuário
+ * @param idAdvogado ID do advogado no sistema PJE
+ * @param trt Código do TRT (default: TRT3)
+ * @param grau Grau da instância (default: 1g)
+ * @param idAgrupamento ID do agrupamento (default: 1 - Acervo Geral)
  */
 export async function rasparProcessosPJE(
   cpf: string,
   senha: string,
   idAdvogado: number,
+  trt: TRTCode = 'TRT3',
+  grau: Grau = '1g',
   idAgrupamento: number = 1
 ): Promise<ScrapeResult> {
   let browser;
 
   try {
-    console.log('[PJE Adapter] Iniciando raspagem de processos...');
+    console.log(
+      `[PJE Adapter] Iniciando raspagem de processos em ${trt} ${grau}...`
+    );
+
+    // Obtém configuração do TRT
+    const config = await getTribunalConfig(trt, grau);
 
     // Lança navegador
     browser = await puppeteer.launch({
@@ -182,14 +225,16 @@ export async function rasparProcessosPJE(
     const page = await browser.newPage();
 
     // Configuração anti-detecção
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+    );
     await page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => false });
       (window as any).chrome = { runtime: {} };
     });
 
     // Login
-    await page.goto(PJE_LOGIN_URL, { waitUntil: 'networkidle2' });
+    await page.goto(config.urlLoginSeam, { waitUntil: 'networkidle2' });
     await delay(1500);
 
     await page.waitForSelector('#btnSsoPdpj', { visible: true });

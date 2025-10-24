@@ -41,14 +41,19 @@ Este projeto combina duas funcionalidades principais:
 
 ### 1. 🏛️ Automação PJE (Processo Judicial Eletrônico)
 
-Sistema completo de automação para o **PJE TRT3** (Tribunal Regional do Trabalho da 3ª Região) com capacidades de:
+Sistema completo de automação para **todos os 24 TRTs** (Tribunais Regionais do Trabalho) do Brasil com capacidades de:
 
+- **🎯 Suporte Multi-TRT**: Todos os 24 TRTs + 1º e 2º grau (48 configurações)
 - **Login automatizado** com bypass de detecção de bots (CloudFront WAF)
 - **Raspagem de processos** via APIs REST descobertas e documentadas
 - **Extração de dados** de processos judiciais (acervo geral, pendentes, arquivados)
 - **Anti-detecção avançada** usando Puppeteer Stealth Plugin
+- **Type-safe**: TypeScript com validação em tempo de compilação
+- **Backward compatible**: Código existente continua funcionando (default TRT3)
 
-**Status**: ✅ Funcionando e validado (24/10/2025)
+**Status**: ✅ Funcionando e validado com 24 TRTs (24/10/2025)
+
+📖 **[Documentação Completa Multi-TRT](docs/MULTI-TRT-SUPPORT.md)**
 
 ### 2. 🌐 Plataforma Browserless
 
