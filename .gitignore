@@ -35,4 +35,9 @@ coverage
 # Data
 data/
 
+# Database
+*.db
+*.db-journal
+prisma/migrations/
+
 /lib/generated/prisma

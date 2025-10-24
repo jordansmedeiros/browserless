@@ -12,6 +12,7 @@
     },
     "lib": ["dom", "dom.iterable", "es2022"],
     "strict": true,
+    "forceConsistentCasingInFileNames": true,
     "removeComments": false,
     "noImplicitAny": true,
     "noEmitOnError": false,
