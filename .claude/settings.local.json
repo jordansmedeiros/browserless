@@ -42,7 +42,8 @@
       "Bash(node scripts/pje/raspar-todos-processos.js:*)",
       "Bash(node:*)",
       "Bash(openspec list:*)",
-      "Bash(openspec validate:*)"
+      "Bash(openspec validate:*)",
+      "Bash(openspec archive:*)"
     ],
     "deny": [],
     "ask": []
