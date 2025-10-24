@@ -55,6 +55,7 @@
     "commander": "^13.1.0",
     "debug": "^4.4.1",
     "del": "^8.0.1",
+    "dotenv": "^17.2.3",
     "file-type": "^21.0.0",
     "get-port": "^7.1.0",
     "gradient-string": "^3.0.0",
@@ -66,7 +67,8 @@
     "playwright-1.52": "npm:playwright-core@1.52.0",
     "playwright-1.53": "npm:playwright-core@1.53.2",
     "playwright-1.54": "npm:playwright-core@1.54.2",
-    "playwright-core": "1.56.1",
+    "playwright-core": "^1.56.1",
+    "puppeteer": "^24.26.1",
     "puppeteer-core": "24.26.1",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
@@ -176,6 +178,7 @@
     "printWidth": 80
   },
   "devDependencies": {
+    "@types/node": "^24.9.1",
     "typescript": "^5.9.3"
   }
 }

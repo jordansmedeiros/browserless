@@ -22,7 +22,18 @@
       "Bash(curl:*)",
       "Bash(npm run build:openapi:*)",
       "Bash(npm run install:debugger:*)",
-      "Bash(netstat:*)"
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(awk:*)",
+      "Bash(xargs:*)",
+      "Bash(node scripts/build-open-api.js:*)",
+      "Bash(npm run build:devtools:*)",
+      "Bash(node -e:*)",
+      "Bash(node test-anti-detection.js:*)",
+      "Bash(dir:*)",
+      "Bash(node login-pje-local-visual.js:*)",
+      "Bash(timeout:*)",
+      "Bash(tasklist:*)"
     ],
     "deny": [],
     "ask": []
