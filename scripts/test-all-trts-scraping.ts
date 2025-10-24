@@ -25,8 +25,8 @@ import { getTribunalConfig, listAllTRTs } from '../lib/services/tribunal.js';
 import type { TRTCode, TribunalInfo } from '../lib/types/tribunal.js';
 import dotenv from 'dotenv';
 
-// Carrega variáveis de ambiente
-dotenv.config();
+// Carrega variáveis de ambiente do .env.dev
+dotenv.config({ path: '.env.dev' });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
