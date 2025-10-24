@@ -48,7 +48,8 @@
       "Bash(move:*)",
       "Bash(move scripts serverscripts)",
       "Bash(move external serverexternal)",
-      "Bash(npx shadcn@latest add:*)"
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []
