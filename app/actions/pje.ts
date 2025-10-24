@@ -39,7 +39,7 @@ export async function loginPJEAction(formData: FormData): Promise<LoginResult> {
       return {
         success: false,
         message: 'Dados inválidos',
-        error: validacao.error.errors[0].message,
+        error: validacao.error.issues[0].message,
       };
     }
 
@@ -76,7 +76,7 @@ export async function scrapeProcessosPJEAction(
         processos: [],
         total: 0,
         timestamp: new Date().toISOString(),
-        error: validacao.error.errors[0].message,
+        error: validacao.error.issues[0].message,
       };
     }
 

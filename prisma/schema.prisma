@@ -11,6 +11,47 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Modelo: Tribunal
+// Representa um Tribunal Regional do Trabalho (TRT)
+model Tribunal {
+  id         String   @id @default(uuid())
+  codigo     String   @unique  // "TRT1", "TRT2", ..., "TRT24"
+  nome       String              // "TRT da 3ª Região"
+  regiao     String              // "Sudeste", "Sul", "Nordeste", "Centro-Oeste", "Norte"
+  uf         String              // "MG", "SP", "RJ", etc.
+  cidadeSede String              // "Belo Horizonte", "São Paulo", etc.
+  ativo      Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relações
+  configs    TribunalConfig[]
+
+  @@index([codigo])
+  @@index([regiao])
+  @@index([ativo])
+}
+
+// Modelo: TribunalConfig
+// Representa a configuração de URLs para um grau específico de um Tribunal
+model TribunalConfig {
+  id           String   @id @default(uuid())
+  grau         String              // "1g" | "2g"
+  urlBase      String              // "https://pje.trt3.jus.br"
+  urlLoginSeam String              // "https://pje.trt3.jus.br/primeirograu/login.seam"
+  urlApi       String              // "https://pje.trt3.jus.br/pje-comum-api/api"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relações
+  tribunal     Tribunal  @relation(fields: [tribunalId], references: [id], onDelete: Cascade)
+  tribunalId   String
+  raspagens    Raspagem[]
+
+  @@unique([tribunalId, grau])
+  @@index([grau])
+}
+
 // Modelo: Raspagem
 // Representa uma execução de raspagem no PJE
 model Raspagem {
@@ -25,11 +66,14 @@ model Raspagem {
   completedAt   DateTime?
 
   // Relações
-  processos Processo[]
+  processos         Processo[]
+  tribunalConfig    TribunalConfig? @relation(fields: [tribunalConfigId], references: [id], onDelete: SetNull)
+  tribunalConfigId  String?
 
   @@index([status])
   @@index([tipo])
   @@index([createdAt])
+  @@index([tribunalConfigId])
 }
 
 // Modelo: Processo

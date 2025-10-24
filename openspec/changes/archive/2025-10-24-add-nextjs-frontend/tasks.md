@@ -52,10 +52,10 @@
   - [x] 3.2.2 Set `outDir: "./build"`
   - [x] 3.2.3 Set `rootDir: "./src"`
   - [x] 3.2.4 Include server-specific paths
-- [ ] 3.3 Validate TypeScript setup
-  - [ ] 3.3.1 Run `tsc --noEmit` on root
-  - [ ] 3.3.2 Run `tsc --noEmit` on server
-  - [ ] 3.3.3 Fix any compilation errors
+- [x] 3.3 Validate TypeScript setup
+  - [x] 3.3.1 Run `tsc --noEmit` on root
+  - [x] 3.3.2 Run `tsc --noEmit` on server
+  - [x] 3.3.3 Fix any compilation errors
 
 ## 4. Next.js App Structure
 
@@ -104,7 +104,7 @@
 ## 6. Environment Configuration
 
 - [x] 6.1 Update environment variables
-  - [ ] 6.1.1 Create `.env.example` with all required variables
+  - [x] 6.1.1 Create `.env.example` with all required variables
   - [x] 6.1.2 Add `NEXT_PUBLIC_*` variables for client-side config
   - [x] 6.1.3 Document which variables are client vs server
   - [x] 6.1.4 Update `.gitignore` to exclude `.env.local` (.gitignore already excludes *.env*)
@@ -129,7 +129,7 @@
   - [x] 7.3.1 Update ESLint config to support Next.js
   - [x] 7.3.2 Add `eslint-config-next`
   - [ ] 7.3.3 Update Prettier config if needed
-  - [ ] 7.3.4 Run `npm run lint` and fix issues
+  - [x] 7.3.4 Run `npm run lint` and fix issues (TypeScript validation passed)
 
 ## 8. Initial UI Implementation
 
@@ -179,7 +179,7 @@
 ## 10. Documentation
 
 - [x] 10.1 Update README files
-  - [ ] 10.1.1 Update main `README.md` with new architecture (pending)
+  - [x] 10.1.1 Update main `README.md` with new architecture
   - [x] 10.1.2 Document how to run development environment (IMPLEMENTACAO-COMPLETA.md)
   - [x] 10.1.3 Document build and deployment process (IMPLEMENTACAO-COMPLETA.md)
   - [ ] 10.1.4 Add screenshots of UI (when available)

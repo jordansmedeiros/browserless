@@ -48,7 +48,7 @@ export async function executarLoginPJE(cpf: string, senha: string): Promise<Logi
 
     await page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => false });
-      window.chrome = { runtime: {} };
+      (window as any).chrome = { runtime: {} };
     });
 
     // Navega para página de login
@@ -185,7 +185,7 @@ export async function rasparProcessosPJE(
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
     await page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => false });
-      window.chrome = { runtime: {} };
+      (window as any).chrome = { runtime: {} };
     });
 
     // Login
@@ -293,7 +293,7 @@ async function rasparAgrupamento(page: any, idAdvogado: number, idAgrupamento: n
     }
 
     // Última página?
-    if (paginaAtual >= totalPaginas) {
+    if (totalPaginas !== null && paginaAtual >= totalPaginas) {
       break;
     }
 

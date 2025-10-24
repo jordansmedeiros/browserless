@@ -5,3 +5,4 @@
 
 export * from './pje';
 export * from './api';
+export * from './tribunal';

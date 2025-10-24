@@ -51,7 +51,14 @@
       "Bash(npx shadcn@latest add:*)",
       "Bash(npm run dev:*)",
       "Bash(npx prisma init:*)",
-      "Bash(npx prisma migrate dev:*)"
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(tsc:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npx next lint:*)",
+      "Bash(del \".next\\dev\\lock\")",
+      "Bash(npx prisma db seed)",
+      "Read(//tmp/**)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []

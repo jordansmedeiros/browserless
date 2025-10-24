@@ -53,6 +53,7 @@
     "node_modules",
     "server/src",
     "server/build",
-    "server/scripts"
+    "server/scripts",
+    "bin"
   ]
 }
