@@ -11,7 +11,7 @@
  *
  * COMO USAR:
  * 1. Atualize suas credenciais abaixo (CPF e SENHA)
- * 2. Execute: node login-pje-completo.js
+ * 2. Execute: node scripts/pje/login.js
  * 3. O navegador vai abrir e você verá tudo acontecendo!
  *
  * DEPENDÊNCIAS:

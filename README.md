@@ -1,230 +1,596 @@
-<!-- markdownlint-disable commands-show-output first-line-h1 no-emphasis-as-heading no-inline-html -->
+# 🏛️ Browserless + PJE - Automação Judicial
+
+> **Fork customizado do [Browserless](https://github.com/browserless/browserless)** com extensões para automação do **PJE (Processo Judicial Eletrônico)** do sistema judiciário brasileiro.
 
 <div align="center">
-  <a href="https://browserless.io" align="center">
-    <center align="center">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="./assets/logo-white.svg" width="600">
-        <source media="(prefers-color-scheme: light)" srcset="./assets/logo.svg" width="600">
-        <img src="./assets/logo.svg" alt="Browserless logo" width="600">
-      </picture>
-    </center>
-  </a>
-  <br>
-  <h3 align="center"><center>Deploy headless browsers in Docker. Run on our cloud or bring your own.</center></h3>
-  <br>
-  <center>
-    <a href="https://hub.docker.com/r/browserless/chrome">
-      <img src="https://img.shields.io/docker/pulls/browserless/chrome" alt="Docker pulls" />
-    </a>
-    <a href="https://github.com/browserless/browserless/tags">
-      <img src="https://img.shields.io/github/package-json/v/browserless/chrome" alt="Version" />
-    </a>
-  </center>
-  <br>
-  <center>
-    <img src="https://github.com/browserless/chrome/actions/workflows/docker-chromium.yml/badge.svg" alt="Chromium build" />
-    <img src="https://github.com/browserless/chrome/actions/workflows/docker-firefox.yml/badge.svg" alt="Firefox build" />
-    <img src="https://github.com/browserless/chrome/actions/workflows/docker-webkit.yml/badge.svg" alt="Webkit build" />
-    <img src="https://github.com/browserless/chrome/actions/workflows/docker-edge.yml/badge.svg" alt="Edge build" />
-    <img src="https://github.com/browserless/chrome/actions/workflows/docker-multi.yml/badge.svg" alt="Mulltibrowser build" />
-  </center>
-  <br>
-  <hr>
-  <br>
+  <img src="https://img.shields.io/badge/Node.js-v24-green" alt="Node.js v24" />
+  <img src="https://img.shields.io/badge/TypeScript-5.9-blue" alt="TypeScript 5.9" />
+  <img src="https://img.shields.io/badge/Puppeteer-24.26-orange" alt="Puppeteer 24.26" />
+  <img src="https://img.shields.io/badge/Playwright-1.56-purple" alt="Playwright 1.56" />
+  <img src="https://img.shields.io/badge/License-SSPL--1.0-red" alt="License SSPL-1.0" />
 </div>
 
-> [!NOTE]  
-> Looking to bypass bot detectors and solve captchas? [We would recommend using BrowserQL as our stealthiest option](https://www.browserless.io/feature/browserql).
+---
 
-Browserless allows remote clients to connect and execute headless work, all inside of docker. It supports the standard, unforked Puppeteer and Playwright libraries, as well offering REST-based APIs for common actions like data collection, PDF generation and more.
+## 📋 Índice
 
-We take care of common issues such as missing system-fonts, missing external libraries, and performance improvements, along with edge-cases like downloading files and managing sessions. For details, check out the documentation site built into the project which includes Open API docs.
+- [Sobre o Projeto](#-sobre-o-projeto)
+- [Funcionalidades](#-funcionalidades)
+  - [Automação PJE](#-automação-pje-trt3)
+  - [Plataforma Browserless](#-plataforma-browserless)
+- [Início Rápido](#-início-rápido)
+  - [PJE: Login Automatizado](#pje-login-automatizado)
+  - [Browserless: Servidor Headless](#browserless-servidor-headless)
+- [Estrutura do Projeto](#-estrutura-do-projeto)
+- [Documentação](#-documentação)
+- [Tecnologias](#-tecnologias)
+- [Desenvolvimento](#-desenvolvimento)
+- [Licenciamento](#-licenciamento)
 
-If you've been struggling to deploy headless browsers without running into issues or bloated resource requirements, then Browserless was built for you. Run the browsers in [our cloud](https://browserless.io/) or your own, [free for non-commercial uses](https://github.com/browserless/browserless#licensing).
+---
 
-## Table of Contents
+## 🎯 Sobre o Projeto
 
-- [External links](#external-links)
-- [Features](#features)
-- [How it works](#how-it-works)
-  - [Docker](#docker)
-  - [Hosting Providers](#hosting-providers)
-  - [Puppeteer](#puppeteer)
-  - [Playwright](#playwright)
-- [Extending (NodeJS SDK)](#extending-nodejs-sdk)
-- [Debugger](#debugger)
-  - [Install debugger](#install-debugger)
-- [Usage with other libraries](#usage-with-other-libraries)
-- [Motivations](#motivations)
-- [Licensing](#licensing)
+Este projeto combina duas funcionalidades principais:
 
-## External links
+### 1. 🏛️ Automação PJE (Processo Judicial Eletrônico)
 
-1. [Full documentation site](https://docs.browserless.io/)
-2. [Live Debugger (using browserless.io)](https://chrome.browserless.io/)
-3. [Docker](https://github.com/browserless/browserless/pkgs/container/base)
+Sistema completo de automação para o **PJE TRT3** (Tribunal Regional do Trabalho da 3ª Região) com capacidades de:
 
-## Features
+- **Login automatizado** com bypass de detecção de bots (CloudFront WAF)
+- **Raspagem de processos** via APIs REST descobertas e documentadas
+- **Extração de dados** de processos judiciais (acervo geral, pendentes, arquivados)
+- **Anti-detecção avançada** usando Puppeteer Stealth Plugin
 
-### General
+**Status**: ✅ Funcionando e validado (24/10/2025)
 
-- Parallelism and request-queueing are built-in + configurable.
-- Fonts and emoji's working out-of-the-box.
-- Debug Viewer for actively viewing/debugging running sessions.
-- An interactive puppeteer debugger, so you can see what the headless browser is doing and use its DevTools.
-- Works with unforked Puppeteer and Playwright.
-- Configurable session timers and health-checks to keep things running smoothly.
-- Error tolerant: if Chrome dies it won't.
-- Support for running and development on Apple's M1 machines
+### 2. 🌐 Plataforma Browserless
 
-### Cloud-only
+Infraestrutura de navegadores headless baseada no projeto [Browserless](https://github.com/browserless/browserless):
 
-Our [cloud accounts](https://www.browserless.io/pricing/) include all the general features plus extras, such as:
+- Deploy de navegadores headless (Chromium, Firefox, WebKit, Edge) em Docker
+- Suporte para Puppeteer e Playwright sem modificações
+- REST APIs para tarefas comuns (PDF, screenshots, HTML)
+- Debug viewer interativo para desenvolvimento
+- Gerenciamento de sessões e paralelismo
 
-- [BrowserQL](https://www.browserless.io/feature/browserql) for avoiding detectors and solving captchas
-- [Hybrid automations](https://www.browserless.io/blog/hybrid-automations-for-puppeteer/) for streaming login windows during scripts
-- [/reconnect API](https://www.browserless.io/blog/reconnect-api) for keeping browsers alive for reuse
-- [REST APIs](https://www.browserless.io/feature/rest-apis) for tasks such as retrieving HTML, PDFs or Lighthouse metrics
-- Inbuilt [residential proxy](https://www.browserless.io/blog/residential-proxying/)
-- SSO, tokens and user roles
+---
 
-## How it works
+## ⚡ Funcionalidades
 
-Browserless listens for both incoming websocket requests, generally issued by most libraries, as well as pre-build REST APIs to do common functions (PDF generation, images and so on). When a websocket connects to Browserless it starts Chrome and proxies your request into it. Once the session is done then it closes and awaits for more connections. Some libraries use Chrome's HTTP endpoints, like `/json` to inspect debug-able targets, which Browserless also supports.
+### 🏛️ Automação PJE TRT3
 
-You still execute the script itself which gives you total control over what library you want to choose and when to do upgrades. This also comes with the benefit of keep your code proprietary and able to run on numerous platforms. We simply take care of all the browser-aspects and offer a management layer on top of the browser.
+#### ✅ Login Automatizado
+- Acesso automático ao PJE via SSO (Single Sign-On)
+- Clique automatizado no botão "Entrar com PDPJ"
+- Preenchimento de CPF e senha com digitação humana
+- Navegação até o painel do usuário
 
-### Docker
+#### ✅ Anti-Detecção de Bots
+- **Puppeteer-Extra Stealth Plugin** - Oculta marcadores de automação
+- **Digitação realista** - Caractere por caractere com delays
+- **Movimento gradual de mouse** - Simula comportamento humano
+- **Headers realistas** - User-Agent do Chrome 131
+- **Navigator.webdriver oculto** - Bypass de detecção comum
 
-> [!TIP]
-> See more options on our [full documentation site](https://docs.browserless.io/baas/docker/quickstart).
+#### ✅ Raspagem de Processos
+- **APIs REST descobertas e documentadas** ([ver docs/pje/APIs.md](docs/pje/APIs.md))
+- **Paginação automática** - Extrai todas as páginas de dados
+- **Múltiplas categorias**:
+  - Acervo Geral (1279 processos)
+  - Pendentes de Manifestação (107 processos)
+  - Arquivados (8769 processos)
+- **Dados estruturados** - Salvos em JSON para análise
+- **Rate limiting inteligente** - Respeita limites da API
 
-1. `docker run -p 3000:3000 ghcr.io/browserless/chromium`
-2. Visit `http://localhost:3000/docs` to see the documentation site.
-3. See more at our [docker package](https://github.com/browserless/browserless/pkgs/container/base).
-
-### Hosting Providers
-
-We offer a first-class hosted product located [here](https://browserless.io). Alternatively you can host this image on just about any major platform that offers hosting for docker. Our hosted service takes care of all the machine provisioning, notifications, dashboards and monitoring plus more:
-
-- Easily upgrade and toggle between versions at the press of a button. No managing repositories and other code artifacts.
-- Never need to update or pull anything from docker. There's literally zero software to install to get started.
-- Scale your consumption up or down with different plans. We support up to thousands of concurrent sessions at a given time.
-
-If you're interested in using this image for commercial aspects, then please read the below section on licensing.
-
-### Puppeteer
-
-Puppeteer allows you to specify a remote location for chrome via the `browserWSEndpoint` option. Setting this for Browserless is a single line of code change.
-
-**Before**
-
-```js
-const browser = await puppeteer.launch();
+#### 📊 Dados Capturados por Processo
+```json
+{
+  "numeroProcesso": "0010014-94.2025.5.03.0022",
+  "classeJudicial": "ATOrd",
+  "descricaoOrgaoJulgador": "22ª VARA DO TRABALHO DE BELO HORIZONTE",
+  "codigoStatusProcesso": "DISTRIBUIDO",
+  "nomeParteAutora": "NOME DO AUTOR",
+  "nomeParteRe": "NOME DO RÉU",
+  "dataAutuacao": "2025-01-10T13:03:15.862",
+  "segredoDeJustica": false,
+  "juizoDigital": true
+}
 ```
 
-**After**
+### 🌐 Plataforma Browserless
 
-```js
+#### Navegadores Suportados
+- **Chromium** - Via Puppeteer ou Playwright
+- **Firefox** - Via Playwright
+- **WebKit** - Via Playwright
+- **Microsoft Edge** - Via Playwright
+
+#### Funcionalidades Principais
+- **WebSocket Endpoint** - Conexão remota via `ws://localhost:3000`
+- **REST APIs** - Endpoints para PDF, screenshots, HTML, Lighthouse
+- **Debugger Interativo** - Interface visual para desenvolvimento
+- **Múltiplas Versões** - Suporte para Playwright 1.51-1.56
+- **Gerenciamento de Sessões** - Timeouts e health checks automáticos
+- **Queue System** - Controle de paralelismo e filas
+
+---
+
+## 🚀 Início Rápido
+
+### PJE: Login Automatizado
+
+```bash
+# 1. Instalar dependências (se ainda não instalou)
+npm install
+
+# 2. Executar script de login
+node scripts/pje/login.js
+```
+
+O navegador abrirá automaticamente e você verá:
+1. ✅ Página PJE carregada
+2. ✅ Clique em "Entrar com PDPJ"
+3. ✅ CPF e senha preenchidos automaticamente
+4. ✅ Login realizado com sucesso
+5. ✅ Painel do usuário carregado
+
+**Resultado**: Screenshot salvo em `screenshots/pje-login-success.png`
+
+### PJE: Raspagem de Processos
+
+```bash
+# Raspagem simples (primeira página)
+node scripts/pje/raspar-processos.js
+
+# Raspagem completa (todas as categorias e páginas)
+node scripts/pje/raspar-todos-processos.js
+```
+
+**Resultado**: Arquivos JSON salvos em `data/pje/processos/`
+
+### Browserless: Servidor Headless
+
+```bash
+# 1. Build do projeto
+npm run build
+
+# 2. Instalar navegadores
+npm run install:browsers
+
+# 3. Iniciar servidor
+npm start
+```
+
+**Acesso**:
+- Documentação: `http://localhost:3000/docs`
+- Debugger: `http://localhost:3000/debugger/`
+- WebSocket: `ws://localhost:3000`
+
+#### Exemplo Puppeteer
+
+```javascript
+import puppeteer from 'puppeteer';
+
 const browser = await puppeteer.connect({
   browserWSEndpoint: 'ws://localhost:3000',
 });
+
+const page = await browser.newPage();
+await page.goto('https://example.com');
+console.log(await page.title());
 ```
 
-### Playwright
+#### Exemplo Playwright
 
-We support running with playwright via their browser's remote connection protocols interface out of the box. Just make sure that your Docker image, playwright browser type _and_ endpoint match:
+```javascript
+import { chromium } from 'playwright-core';
 
-**Before**
-
-```js
-import pw from 'playwright';
-const browser = await pw.firefox.launch();
-```
-
-**After**
-
-```sh
-docker run -p 3000:3000 ghcr.io/browserless/firefox
-# or ghcr.io/browserless/multi for all the browsers
-```
-
-```js
-import pw from 'playwright-core';
-
-const browser = await pw.firefox.connect(
-  'ws://localhost:3000/firefox/playwright',
+const browser = await chromium.connect(
+  'ws://localhost:3000/chromium/playwright'
 );
+
+const page = await browser.newPage();
+await page.goto('https://example.com');
+console.log(await page.title());
 ```
 
-After that, the rest of your code remains the same with no other changes required.
+---
 
-## Extending (NodeJS SDK)
+## 📁 Estrutura do Projeto
 
-Browserless comes with built-in extension capabilities, and allows for extending nearly any aspect of the system (for Version 2+). For more details on how to write your own routes, build docker images, and more, [see our SDK README.md](/bin/scaffold/README.md) or simply run "npx @browserless.io/browserless create" in a terminal and follow the onscreen prompts.
-
-## Debugger
-
-You can install a first-party interactive debugger for Browserless, that makes writing scripts faster and interactive. You can take advantage of things like `debugger;` calls and the page's console output to see what's happening on the page while your script is running. All of the Chrome devtools are there at your disposal.
-
-![browserless.io logo](/assets/debugger.png)
-
-A small list of features includes:
-
-- Running `debugger;` and `console.log` calls
-- Errors in the script are caught and show up in the console tab
-- DOM inspection, watch network requests, and even see how the page is rendering
-- Exporting you debugging script as a Node project
-- Everything included in Chrome DevTools
-
-### Install debugger
-
-Installing the debugger is as simple as running the `install:debugger` script _after_ the project has been built. This way:
-
-```sh
-$ npm run build
-$ npm run install:debugger #or npm install:dev
+```
+browserless/
+│
+├── 📄 README.md                          # Este arquivo
+├── 📄 README-PJE.md                      # Guia rápido PJE
+├── 📄 package.json                       # Dependências e scripts
+├── 📄 tsconfig.json                      # Configuração TypeScript
+│
+├── 📁 src/                               # Código-fonte TypeScript (Browserless)
+│   └── ...
+│
+├── 📁 build/                             # JavaScript compilado
+│   └── ...
+│
+├── 📁 scripts/                           # Scripts de automação
+│   ├── 📁 pje/                           # ⭐ Scripts PJE
+│   │   ├── login.js                      # Login automatizado (validado)
+│   │   ├── capturar-api.js               # Captura de APIs
+│   │   ├── raspar-processos.js           # Raspagem simples
+│   │   ├── raspar-todos-processos.js     # Raspagem completa
+│   │   ├── README.md                     # Documentação completa
+│   │   ├── README-RASPAGEM.md            # Guia de raspagem
+│   │   └── 📁 raspadores/                # Raspadores especializados
+│   │       └── ...
+│   └── ...                               # Scripts de build
+│
+├── 📁 docs/                              # Documentação técnica
+│   └── 📁 pje/                           # ⭐ Documentação PJE
+│       ├── APIs.md                       # Referência completa das APIs
+│       ├── ANTI-BOT-DETECTION.md         # Técnicas de anti-detecção
+│       └── ESTRUTURA.md                  # Estrutura do módulo
+│
+├── 📁 data/                              # Dados extraídos
+│   └── 📁 pje/                           # ⭐ Dados PJE
+│       └── 📁 processos/                 # Processos raspados (JSON)
+│           ├── totalizadores.json
+│           ├── acervo_geral.json
+│           ├── pendentes_manifestacao.json
+│           ├── arquivados.json
+│           └── relatorio.json
+│
+├── 📁 screenshots/                       # Evidências visuais
+│   └── pje-login-success.png             # Screenshot do login funcionando
+│
+└── 📁 openspec/                          # Especificações do projeto
+    ├── project.md                        # Contexto completo do projeto
+    └── AGENTS.md                         # Instruções para agentes AI
 ```
 
-You will then see the debugger url during the startup process.
+---
 
-```log
----------------------------------------------------------
-| browserless.io
-| To read documentation and more, load in your browser:
-|
-| OpenAPI: http://localhost:3000/docs
-| Full Documentation: https://docs.browserless.io/
-| Debbuger: http://localhost:3000/debugger/?token=6R0W53R135510
----------------------------------------------------------
+## 📚 Documentação
+
+### 🏛️ Documentação PJE
+
+| Arquivo | Descrição | Público-Alvo |
+|---------|-----------|--------------|
+| **[README-PJE.md](README-PJE.md)** | Guia de início rápido para automação PJE | Iniciantes |
+| **[scripts/pje/README.md](scripts/pje/README.md)** | Documentação completa e detalhada do módulo | Desenvolvedores |
+| **[scripts/pje/README-RASPAGEM.md](scripts/pje/README-RASPAGEM.md)** | Guia completo de raspagem de processos | Desenvolvedores |
+| **[docs/pje/APIs.md](docs/pje/APIs.md)** | Referência completa das APIs do PJE descobertas | Avançado |
+| **[docs/pje/ANTI-BOT-DETECTION.md](docs/pje/ANTI-BOT-DETECTION.md)** | Técnicas avançadas de anti-detecção | Avançado |
+| **[docs/pje/ESTRUTURA.md](docs/pje/ESTRUTURA.md)** | Mapa da estrutura do módulo PJE | Contribuidores |
+| **[ESTRUTURA-ORGANIZADA.md](ESTRUTURA-ORGANIZADA.md)** | Histórico de reorganização do projeto | Referência |
+
+### 🌐 Documentação Browserless
+
+| Recurso | Link |
+|---------|------|
+| **Documentação Oficial** | [docs.browserless.io](https://docs.browserless.io/) |
+| **Live Debugger** | [chrome.browserless.io](https://chrome.browserless.io/) |
+| **Docker Images** | [GitHub Packages](https://github.com/browserless/browserless/pkgs/container/base) |
+| **Repositório Original** | [github.com/browserless/browserless](https://github.com/browserless/browserless) |
+
+### 📖 Especificações do Projeto
+
+| Arquivo | Descrição |
+|---------|-----------|
+| **[openspec/project.md](openspec/project.md)** | Contexto completo do projeto (tech stack, convenções, domínio) |
+| **[openspec/AGENTS.md](openspec/AGENTS.md)** | Instruções para agentes AI trabalharem no projeto |
+
+---
+
+## 🛠️ Tecnologias
+
+### Stack Principal
+
+| Tecnologia | Versão | Uso |
+|------------|--------|-----|
+| **Node.js** | v24.x | Runtime (obrigatório v24, não v25) |
+| **TypeScript** | 5.9.3 | Linguagem principal (modo strict) |
+| **Puppeteer** | 24.26.1 | Automação Chrome/Chromium |
+| **Playwright** | 1.56.1 | Automação multi-browser (+ versões 1.51-1.54) |
+| **Docker** | Latest | Containerização e deploy |
+
+### Automação e Anti-Detecção
+
+- **puppeteer-extra** - Sistema de plugins para Puppeteer
+- **puppeteer-extra-plugin-stealth** - Bypass de detecção de bots
+- **lighthouse** - Métricas de performance e auditorias
+
+### Backend
+
+- **http-proxy** - Proxy de conexões WebSocket
+- **joi** - Validação de requests
+- **queue** - Sistema de filas e paralelismo
+- **debug** - Logging estruturado
+- **systeminformation** - Métricas do sistema
+
+### Build e Qualidade
+
+- **ESLint** - Linting (imports ordenados, strict TypeScript)
+- **Prettier** - Formatação (semicolons, single quotes, 80 chars)
+- **Mocha** - Framework de testes (timeout 45s)
+- **c8** - Code coverage
+- **esbuild** - Bundler rápido para functions
+- **typescript-json-schema** - Geração de schemas
+
+---
+
+## 💻 Desenvolvimento
+
+### Pré-requisitos
+
+```bash
+# Node.js v24 (obrigatório)
+node --version  # Deve retornar v24.x.x
+
+# NPM (vem com Node.js)
+npm --version
 ```
 
-## Usage with other libraries
+### Instalação
 
-Most libraries allow you to specify a remote instance of Chrome to interact with. They are either looking for a websocket endpoint, a host and port, or some address. Browserless supports these by default, however if you're having issues please make an issue in this project and we'll try and work with the library authors to get them integrated with browserless. Please note that in V2 we no longer support selenium or webdriver integrations.
+```bash
+# 1. Clonar repositório
+git clone https://github.com/seu-usuario/browserless.git
+cd browserless
 
-You can find a much larger list of supported libraries [on our documentation site](https://docs.browserless.io/libraries/puppeteer).
+# 2. Instalar dependências
+npm install
 
-## Motivations
+# 3. Instalar navegadores (Playwright)
+npm run install:browsers
 
-Running Chrome on lambda or on your own is a fantastic idea but in practice is quite challenging in production. You're met with pretty tough cloud limits, possibly building Chrome yourself, and then dealing with odd invocation issues should everything else go ok. A lot of issues in various repositories are due to just challenges of getting Chrome running smoothly in AWS (see [here](https://github.com/GoogleChrome/puppeteer/issues?q=is%3Aissue+is%3Aopen+sort%3Acomments-desc)). You can see for yourself by going to nearly any library and sorting issues by most commented.
+# 4. Build completo
+npm run build
 
-Getting Chrome running well in docker is also a challenge as there's quiet a few packages you need in order to get Chrome running. Once that's done then there's still missing fonts, getting libraries to work with it, and having limitations on service reliability. This is also ignoring CVEs, access-controls, and scaling strategies.
+# 5. (Opcional) Instalar debugger
+npm run install:debugger
+```
 
-All of these issues prompted us to build a first-class image and workflow for interacting with Chrome in a more streamlined way. With Browserless you never have to worry about fonts, extra packages, library support, security, or anything else. It just works reliably like any other modern web service. On top of that it comes with a prescribed approach on how you interact with Chrome, which is through socket connections (similar to a database or any other external appliance). What this means is that you get the ability to drive Chrome remotely without having to do updates/releases to the thing that runs Chrome since it's divorced from your application.
+### Scripts NPM Disponíveis
 
-## Licensing
+#### Build e Desenvolvimento
 
-SPDX-License-Identifier: SSPL-1.0 OR Browserless Commercial License.
+```bash
+npm run build           # Build completo (clean + TS + schemas + devtools + OpenAPI)
+npm run build:dev       # Build dev (inclui function + debugger)
+npm run build:ts        # Compilar TypeScript apenas
+npm run clean           # Limpar build/
 
-If you want to use Browserless to build commercial sites, applications, or in a continuous-integration system that's closed-source then you'll need to purchase a commercial license. This allows you to keep your software proprietary whilst still using browserless. [You can purchase a commercial license here](https://www.browserless.io/contact). A commercial license grants you:
+npm run dev             # Build dev + iniciar com .env
+npm start               # Iniciar aplicação (requer build prévio)
+```
 
-- Priority support on issues and features.
-- On-premise running as well as running on public cloud providers for commercial/CI purposes for proprietary systems.
-- Ability to modify the source (forking) for your own purposes.
-- A new admin user-interface.
+#### Testes e Qualidade
 
-Not only does it grant you a license to run such a critical piece of infrastructure, but you are also supporting further innovation in this space and our ability to contribute to it.
+```bash
+npm test                # Executar testes (Mocha)
+npm run coverage        # Testes com cobertura (c8)
+npm run lint            # ESLint (com auto-fix)
+npm run prettier        # Formatar código
+```
 
-If you are creating an open source application under a license compatible with the Server Side License 1.0, you may use Browserless under those terms.
+#### PJE Scripts
+
+```bash
+# Login
+node scripts/pje/login.js
+
+# Captura de APIs
+node scripts/pje/capturar-api.js
+
+# Raspagem
+node scripts/pje/raspar-processos.js              # Simples (primeira página)
+node scripts/pje/raspar-todos-processos.js        # Completa (todas as páginas)
+```
+
+### Estrutura de Código
+
+**Convenções de Nomenclatura**:
+- Arquivos: `kebab-case.ts` (ex: `login-pje.js`)
+- Funções/variáveis: `camelCase`
+- Tipos/Interfaces: `PascalCase`
+- Constantes: `UPPER_SNAKE_CASE`
+
+**Imports**: Ordenados alfabeticamente (enforced pelo ESLint)
+
+```typescript
+// ✅ Correto
+import { Browser } from 'puppeteer';
+import puppeteer from 'puppeteer';
+import { delay } from './utils';
+
+// ❌ Incorreto (ordem errada)
+import { delay } from './utils';
+import puppeteer from 'puppeteer';
+import { Browser } from 'puppeteer';
+```
+
+**TypeScript**: Modo strict habilitado
+
+```typescript
+// ✅ Correto
+function processData(data: string): number {
+  return parseInt(data);
+}
+
+// ❌ Incorreto (implicit any)
+function processData(data) {
+  return parseInt(data);
+}
+```
+
+### Extensões (NodeJS SDK)
+
+O Browserless permite criar extensões customizadas:
+
+```bash
+# Criar nova extensão
+npx @browserless.io/browserless create
+```
+
+Veja [bin/scaffold/README.md](bin/scaffold/README.md) para detalhes completos.
+
+### Debugger Interativo
+
+Instale o debugger para desenvolvimento visual:
+
+```bash
+npm run build
+npm run install:debugger
+npm start
+```
+
+Acesse: `http://localhost:3000/debugger/?token=YOUR_TOKEN`
+
+**Funcionalidades**:
+- Executar `debugger;` statements
+- Console logs em tempo real
+- Inspeção DOM completa
+- Network requests
+- Chrome DevTools completo
+
+---
+
+## 📦 Deploy
+
+### Docker (Browserless Original)
+
+```bash
+# Chromium
+docker run -p 3000:3000 ghcr.io/browserless/chromium
+
+# Firefox
+docker run -p 3000:3000 ghcr.io/browserless/firefox
+
+# Multi-browser
+docker run -p 3000:3000 ghcr.io/browserless/multi
+```
+
+Veja mais opções em [docs.browserless.io/baas/docker/quickstart](https://docs.browserless.io/baas/docker/quickstart).
+
+### Local (com PJE)
+
+```bash
+# 1. Build
+npm run build
+
+# 2. Configurar ambiente (opcional)
+cp .env.example .env
+# Editar .env com suas configurações
+
+# 3. Iniciar
+npm start
+```
+
+---
+
+## 📄 Licenciamento
+
+### SSPL-1.0 OR Browserless Commercial License
+
+Este projeto herda o licenciamento do [Browserless original](https://github.com/browserless/browserless):
+
+**SPDX-License-Identifier**: SSPL-1.0 OR Browserless Commercial License
+
+#### ✅ Uso Permitido (SSPL-1.0)
+
+- Projetos open source compatíveis com SSPL
+- Uso pessoal e educacional
+- Pesquisa e desenvolvimento
+- Automações jurídicas autorizadas (PJE)
+
+#### 🔐 Uso Comercial
+
+Para uso comercial, CI/CD proprietário ou SaaS, é necessária uma **licença comercial**:
+
+- [Adquirir licença comercial](https://www.browserless.io/contact)
+- Suporte prioritário
+- On-premise + cloud
+- Modificação do código-fonte
+- Interface administrativa
+
+#### ⚠️ Importante - PJE
+
+As extensões PJE são para:
+- ✅ Uso autorizado por advogados com credenciais válidas
+- ✅ Automação de tarefas repetitivas legítimas
+- ✅ Acesso a processos próprios ou representados
+
+Não deve ser usado para:
+- ❌ Scraping não autorizado
+- ❌ Violação de termos de serviço
+- ❌ Acesso a processos sem autorização
+- ❌ Sobrecarga de sistemas judiciais
+
+---
+
+## 🤝 Contribuindo
+
+Contribuições são bem-vindas! Para mudanças significativas:
+
+1. Abra uma issue primeiro para discutir a mudança
+2. Fork o projeto
+3. Crie uma branch (`git checkout -b feature/MinhaFeature`)
+4. Commit suas mudanças seguindo convenções
+5. Push para a branch (`git push origin feature/MinhaFeature`)
+6. Abra um Pull Request
+
+**Commits**: Use conventional commits
+```bash
+feat(pje): adicionar extração de documentos
+fix(pje): corrigir timeout na raspagem
+docs(pje): atualizar README com novos endpoints
+chore(deps): atualizar puppeteer para v24.26
+```
+
+---
+
+## 📞 Suporte
+
+### PJE Issues
+
+Para problemas relacionados ao módulo PJE, consulte:
+- [scripts/pje/README.md](scripts/pje/README.md) - Troubleshooting completo
+- [docs/pje/APIs.md](docs/pje/APIs.md) - Referência de APIs
+
+**Problemas comuns**:
+- Erro 403: CloudFront bloqueou, aguarde 5-10 minutos
+- Erro 401: Sessão expirou, faça login novamente
+- 0 processos: Verifique ID do advogado nos logs
+
+### Browserless Issues
+
+Para problemas da plataforma Browserless:
+- [Documentação oficial](https://docs.browserless.io/)
+- [Issues no GitHub original](https://github.com/browserless/browserless/issues)
+
+---
+
+## 🔗 Links Úteis
+
+### Projeto
+- **Repositório**: Este repositório
+- **Upstream**: [github.com/browserless/browserless](https://github.com/browserless/browserless)
+- **Documentação**: Veja [seção Documentação](#-documentação) acima
+
+### PJE
+- **PJE TRT3**: [pje.trt3.jus.br](https://pje.trt3.jus.br)
+- **SSO PDPJ**: [sso.cloud.pje.jus.br](https://sso.cloud.pje.jus.br)
+
+### Browserless
+- **Site oficial**: [browserless.io](https://browserless.io)
+- **Documentação**: [docs.browserless.io](https://docs.browserless.io)
+- **Docker**: [GitHub Packages](https://github.com/browserless/browserless/pkgs/container/base)
+
+---
+
+<div align="center">
+  <p><strong>Última atualização</strong>: Outubro 2025</p>
+  <p>Feito com ❤️ para automação judicial brasileira</p>
+  <p>Baseado em <a href="https://github.com/browserless/browserless">Browserless</a> por <a href="https://browserless.io">browserless.io</a></p>
+</div>

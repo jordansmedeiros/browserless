@@ -29,3 +29,6 @@ coverage
 
 # Dev Files
 *.env*
+
+# Data
+data/
