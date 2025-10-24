@@ -1,10 +1,14 @@
 # 🏛️ Browserless + PJE - Automação Judicial
 
 > **Fork customizado do [Browserless](https://github.com/browserless/browserless)** com extensões para automação do **PJE (Processo Judicial Eletrônico)** do sistema judiciário brasileiro.
+>
+> **Novidade**: Agora com **interface web Next.js** para gerenciamento visual de processos!
 
 <div align="center">
   <img src="https://img.shields.io/badge/Node.js-v24-green" alt="Node.js v24" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-blue" alt="TypeScript 5.9" />
+  <img src="https://img.shields.io/badge/Next.js-16-black" alt="Next.js 16" />
+  <img src="https://img.shields.io/badge/React-19-blue" alt="React 19" />
   <img src="https://img.shields.io/badge/Puppeteer-24.26-orange" alt="Puppeteer 24.26" />
   <img src="https://img.shields.io/badge/Playwright-1.56-purple" alt="Playwright 1.56" />
   <img src="https://img.shields.io/badge/License-SSPL--1.0-red" alt="License SSPL-1.0" />
@@ -16,9 +20,11 @@
 
 - [Sobre o Projeto](#-sobre-o-projeto)
 - [Funcionalidades](#-funcionalidades)
+  - [Interface Web Next.js](#-interface-web-nextjs) ⭐ **NOVO**
   - [Automação PJE](#-automação-pje-trt3)
   - [Plataforma Browserless](#-plataforma-browserless)
 - [Início Rápido](#-início-rápido)
+  - [Interface Web: Setup e Uso](#interface-web-setup-e-uso) ⭐ **NOVO**
   - [PJE: Login Automatizado](#pje-login-automatizado)
   - [Browserless: Servidor Headless](#browserless-servidor-headless)
 - [Estrutura do Projeto](#-estrutura-do-projeto)
@@ -57,6 +63,40 @@ Infraestrutura de navegadores headless baseada no projeto [Browserless](https://
 ---
 
 ## ⚡ Funcionalidades
+
+### 🌐 Interface Web Next.js
+
+**Nova interface web moderna** para automação PJE com dashboard interativo:
+
+#### ✨ Características Principais
+- **Next.js 16** com App Router e React 19
+- **Shadcn/ui** - Componentes modernos e acessíveis
+- **Tailwind CSS 4** - Estilização utilitária e responsiva
+- **Server Actions** - Integração type-safe com backend
+- **Prisma ORM** - Persistência de dados em SQLite
+
+#### 🎨 Funcionalidades da Interface
+- ✅ **Dashboard interativo** com estatísticas e navegação
+- ✅ **Login PJE via formulário web** com validação em tempo real
+- ✅ **Sidebar de navegação** com rotas ativas destacadas
+- ✅ **Páginas de processos** com placeholders para visualização
+- ✅ **Estados de loading e error** para melhor experiência
+- ⏳ **Histórico de raspagens** (em desenvolvimento)
+- ⏳ **Persistência automática** de dados (em desenvolvimento)
+- ⏳ **Exportação CSV/JSON** (em desenvolvimento)
+
+#### 🏗️ Arquitetura
+```
+Frontend (Next.js)    ←→    Backend (Puppeteer)
+├─ React 19                  ├─ PJE Scripts
+├─ Server Actions            ├─ Anti-detecção
+├─ Prisma Client             └─ Browserless Core
+└─ Shadcn/ui
+```
+
+**Status**: ✅ Funcionando em desenvolvimento (http://localhost:3000)
+
+---
 
 ### 🏛️ Automação PJE TRT3
 
@@ -118,7 +158,54 @@ Infraestrutura de navegadores headless baseada no projeto [Browserless](https://
 
 ## 🚀 Início Rápido
 
-### PJE: Configuração Inicial
+### Interface Web: Setup e Uso
+
+A maneira mais fácil de usar o sistema é através da **interface web**:
+
+```bash
+# 1. Instalar dependências
+npm install
+
+# 2. Configurar credenciais PJE (arquivo .env)
+cp .env.example .env
+# Editar .env com: PJE_CPF, PJE_SENHA, PJE_ID_ADVOGADO
+
+# 3. Configurar banco de dados
+echo 'DATABASE_URL="file:./dev.db"' >> .env
+npx prisma migrate dev
+
+# 4. Iniciar servidor de desenvolvimento
+npm run dev
+```
+
+**Acesso**: [http://localhost:3000](http://localhost:3000)
+
+#### 🎯 Usando a Interface
+
+1. **Dashboard** (`/dashboard`) - Visão geral com estatísticas
+2. **Login PJE** (`/pje/login`) - Fazer login no PJE via formulário
+3. **Processos** (`/pje/processos`) - Visualizar processos (em desenvolvimento)
+4. **Raspagens** (`/pje/scrapes`) - Histórico de raspagens (em desenvolvimento)
+
+#### 💡 Exemplo de Login
+
+1. Acesse http://localhost:3000/pje/login
+2. Digite seu CPF (apenas números)
+3. Digite sua senha do PJE
+4. Clique em "Fazer Login"
+5. Aguarde 10-30 segundos (comportamento humano)
+6. Veja o perfil do usuário retornado!
+
+**Vantagens**:
+- ✅ Interface visual moderna
+- ✅ Validação de formulários em tempo real
+- ✅ Feedback de loading/erro
+- ✅ Não precisa editar código
+- ✅ 100% type-safe (TypeScript end-to-end)
+
+---
+
+### PJE: Configuração Inicial (CLI)
 
 Antes de usar os scripts PJE, configure suas credenciais:
 
@@ -233,49 +320,90 @@ browserless/
 │
 ├── 📄 README.md                          # Este arquivo
 ├── 📄 README-PJE.md                      # Guia rápido PJE
+├── 📄 IMPLEMENTACAO-COMPLETA.md          # ⭐ Documentação da implementação Next.js
 ├── 📄 package.json                       # Dependências e scripts
-├── 📄 tsconfig.json                      # Configuração TypeScript
+├── 📄 tsconfig.json                      # Configuração TypeScript (frontend)
+├── 📄 next.config.mjs                    # ⭐ Configuração Next.js
+├── 📄 tailwind.config.ts                 # ⭐ Configuração Tailwind CSS
+├── 📄 components.json                    # ⭐ Configuração Shadcn/ui
 │
-├── 📁 src/                               # Código-fonte TypeScript (Browserless)
-│   └── ...
+├── 📁 app/                               # ⭐ Next.js App Router (frontend)
+│   ├── layout.tsx                        # Layout raiz
+│   ├── page.tsx                          # Landing page
+│   ├── globals.css                       # Estilos globais
+│   ├── actions/pje.ts                    # Server Actions
+│   └── (dashboard)/                      # Grupo de rotas do dashboard
+│       ├── layout.tsx                    # Layout com sidebar/header
+│       ├── dashboard/page.tsx            # Dashboard principal
+│       └── pje/
+│           ├── login/page.tsx            # Formulário de login
+│           ├── processos/page.tsx        # Lista de processos
+│           └── scrapes/page.tsx          # Histórico de raspagens
 │
-├── 📁 build/                             # JavaScript compilado
-│   └── ...
+├── 📁 components/                        # ⭐ Componentes React
+│   ├── layout/
+│   │   ├── sidebar.tsx                   # Sidebar de navegação
+│   │   └── header.tsx                    # Header do dashboard
+│   └── ui/                               # Componentes Shadcn
+│       ├── button.tsx
+│       ├── card.tsx
+│       ├── input.tsx
+│       └── ...
 │
-├── 📁 scripts/                           # Scripts de automação
-│   ├── 📁 pje/                           # ⭐ Scripts PJE
-│   │   ├── login.js                      # Login automatizado (validado)
-│   │   ├── capturar-api.js               # Captura de APIs
-│   │   ├── raspar-processos.js           # Raspagem simples
-│   │   ├── raspar-todos-processos.js     # Raspagem completa
-│   │   ├── README.md                     # Documentação completa
-│   │   ├── README-RASPAGEM.md            # Guia de raspagem
-│   │   └── 📁 raspadores/                # Raspadores especializados
-│   │       └── ...
-│   └── ...                               # Scripts de build
+├── 📁 lib/                               # ⭐ Código compartilhado
+│   ├── utils.ts                          # Utilitários (cn)
+│   ├── prisma.ts                         # Prisma Client singleton
+│   ├── api/pje-adapter.ts                # Adaptador PJE Scripts
+│   └── types/                            # Tipos TypeScript compartilhados
+│       ├── pje.ts
+│       ├── api.ts
+│       └── index.ts
+│
+├── 📁 server/                            # ⭐ Backend (Browserless + PJE Scripts)
+│   ├── tsconfig.json                     # TypeScript config backend
+│   ├── src/                              # Código-fonte Browserless
+│   │   └── ...
+│   ├── build/                            # JavaScript compilado
+│   │   └── ...
+│   └── scripts/                          # Scripts de automação PJE
+│       └── pje-trt/                      # Scripts PJE TRT3
+│           ├── common/login.js           # Login automatizado (validado)
+│           └── trt3/1g/
+│               ├── acervo/raspar-acervo-geral.js
+│               ├── pendentes/raspar-pendentes-sem-prazo.js
+│               ├── arquivados/raspar-arquivados.js
+│               └── pauta/raspar-minha-pauta.js
+│
+├── 📁 prisma/                            # ⭐ Banco de dados
+│   ├── schema.prisma                     # Schema do banco
+│   └── migrations/                       # Migrations
 │
 ├── 📁 docs/                              # Documentação técnica
-│   └── 📁 pje/                           # ⭐ Documentação PJE
+│   └── 📁 pje/                           # Documentação PJE
 │       ├── APIs.md                       # Referência completa das APIs
 │       ├── ANTI-BOT-DETECTION.md         # Técnicas de anti-detecção
 │       └── ESTRUTURA.md                  # Estrutura do módulo
 │
-├── 📁 data/                              # Dados extraídos
-│   └── 📁 pje/                           # ⭐ Dados PJE
-│       └── 📁 processos/                 # Processos raspados (JSON)
-│           ├── totalizadores.json
-│           ├── acervo_geral.json
-│           ├── pendentes_manifestacao.json
-│           ├── arquivados.json
-│           └── relatorio.json
+├── 📁 data/                              # Dados extraídos (gitignored)
+│   └── 📁 pje/                           # Dados PJE
+│       └── 📁 trt3/1g/                   # Processos raspados (JSON)
 │
 ├── 📁 screenshots/                       # Evidências visuais
 │   └── pje-login-success.png             # Screenshot do login funcionando
 │
 └── 📁 openspec/                          # Especificações do projeto
     ├── project.md                        # Contexto completo do projeto
-    └── AGENTS.md                         # Instruções para agentes AI
+    ├── AGENTS.md                         # Instruções para agentes AI
+    └── changes/archive/                  # Histórico de mudanças
+        └── 2025-10-24-add-nextjs-frontend/
 ```
+
+**Mudanças Arquiteturais**:
+- ✅ **Monorepo** - Frontend (raiz) + Backend (server/)
+- ✅ **Next.js App Router** - Arquitetura moderna React Server Components
+- ✅ **Shadcn/ui** - Biblioteca de componentes copy-paste
+- ✅ **Prisma ORM** - Persistência de dados SQLite
+- ✅ **Backward Compatible** - Scripts CLI ainda funcionam em server/scripts/
 
 ---
 
@@ -319,9 +447,19 @@ browserless/
 |------------|--------|-----|
 | **Node.js** | v24.x | Runtime (obrigatório v24, não v25) |
 | **TypeScript** | 5.9.3 | Linguagem principal (modo strict) |
+| **Next.js** | 16.0.0 | ⭐ Framework React (App Router) |
+| **React** | 19.2.0 | ⭐ Biblioteca UI (Server Components) |
 | **Puppeteer** | 24.26.1 | Automação Chrome/Chromium |
 | **Playwright** | 1.56.1 | Automação multi-browser (+ versões 1.51-1.54) |
 | **Docker** | Latest | Containerização e deploy |
+
+### Frontend
+
+- **Tailwind CSS 4** - Estilização utilitária com Turbopack
+- **Shadcn/ui** - Biblioteca de componentes baseada em Radix UI
+- **Zod** - Validação de schemas TypeScript-first
+- **Zustand** - State management leve (instalado, em uso futuro)
+- **Lucide React** - Ícones SVG modernos
 
 ### Automação e Anti-Detecção
 
@@ -331,6 +469,7 @@ browserless/
 
 ### Backend
 
+- **Prisma** - ⭐ ORM type-safe para Node.js (SQLite)
 - **http-proxy** - Proxy de conexões WebSocket
 - **joi** - Validação de requests
 - **queue** - Sistema de filas e paralelismo
@@ -385,13 +524,18 @@ npm run install:debugger
 #### Build e Desenvolvimento
 
 ```bash
-npm run build           # Build completo (clean + TS + schemas + devtools + OpenAPI)
-npm run build:dev       # Build dev (inclui function + debugger)
-npm run build:ts        # Compilar TypeScript apenas
-npm run clean           # Limpar build/
+# Frontend (Next.js)
+npm run dev             # ⭐ Iniciar servidor Next.js dev (http://localhost:3000)
+npm run build           # Build Next.js + backend
+npm start               # Iniciar aplicação em produção
 
-npm run dev             # Build dev + iniciar com .env
-npm start               # Iniciar aplicação (requer build prévio)
+# Backend (Browserless)
+npm run server:build    # Build apenas do backend (server/src → server/build)
+npm run server:dev      # Build dev do servidor
+
+# Outras builds
+npm run clean           # Limpar build/
+npm run build:ts        # Compilar TypeScript apenas
 ```
 
 #### Testes e Qualidade
@@ -403,19 +547,23 @@ npm run lint            # ESLint (com auto-fix)
 npm run prettier        # Formatar código
 ```
 
-#### PJE Scripts
+#### PJE Scripts (CLI)
 
 ```bash
 # Login
-node scripts/pje/login.js
+node server/scripts/pje-trt/common/login.js
 
 # Captura de APIs
-node scripts/pje/capturar-api.js
+node server/scripts/pje-trt/common/capturar-api.js
 
 # Raspagem
-node scripts/pje/raspar-processos.js              # Simples (primeira página)
-node scripts/pje/raspar-todos-processos.js        # Completa (todas as páginas)
+node server/scripts/pje-trt/trt3/1g/acervo/raspar-acervo-geral.js       # Acervo geral
+node server/scripts/pje-trt/trt3/1g/pendentes/raspar-pendentes.js       # Pendentes
+node server/scripts/pje-trt/trt3/1g/arquivados/raspar-arquivados.js     # Arquivados
+node server/scripts/pje-trt/trt3/1g/pauta/raspar-minha-pauta.js         # Pauta
 ```
+
+**Nota**: Os scripts foram movidos para `server/scripts/` mas continuam 100% funcionais!
 
 ### Estrutura de Código
 
