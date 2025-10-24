@@ -52,6 +52,7 @@
   "dependencies": {
     "@hapi/bourne": "^3.0.0",
     "@hapi/hoek": "^11.0.4",
+    "commander": "^13.1.0",
     "debug": "^4.4.1",
     "del": "^8.0.1",
     "file-type": "^21.0.0",
@@ -173,5 +174,8 @@
     "trailingComma": "all",
     "singleQuote": true,
     "printWidth": 80
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   }
 }
