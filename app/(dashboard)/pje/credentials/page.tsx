@@ -42,6 +42,8 @@ import type {
   AdvogadoWithCredenciais,
   CredencialWithRelations,
 } from '@/lib/types';
+import { TribunalSelector } from '@/components/pje/tribunal-selector';
+import type { TribunalConfigConstant } from '@/lib/constants/tribunais';
 
 export default function CredentialsPage() {
   const [loading, setLoading] = useState(true);
@@ -71,8 +73,8 @@ export default function CredentialsPage() {
     tribunalConfigIds: [] as string[],
   });
 
-  // Available tribunal configs (mock - should come from API)
-  const [tribunalConfigs, setTribunalConfigs] = useState<Array<{id: string; nome: string}>>([]);
+  // Available tribunal configs (from constants)
+  const [tribunalConfigs, setTribunalConfigs] = useState<TribunalConfigConstant[]>([]);
 
   useEffect(() => {
     loadData();
@@ -107,12 +109,9 @@ export default function CredentialsPage() {
   }
 
   async function loadTribunalConfigs() {
-    // Mock data - should fetch from database
-    // For now, using hardcoded configs
-    setTribunalConfigs([
-      { id: 'mock-trt3-1g', nome: 'TRT3 - 1º Grau' },
-      { id: 'mock-trt3-2g', nome: 'TRT3 - 2º Grau' },
-    ]);
+    // Importa constantes de todos os TRTs (48 configs: TRT1-TRT24 × 2 graus)
+    const { TRIBUNAL_CONFIGS } = await import('@/lib/constants/tribunais');
+    setTribunalConfigs(TRIBUNAL_CONFIGS);
   }
 
   async function handleCreateEscritorio() {
@@ -593,12 +592,12 @@ export default function CredentialsPage() {
 
       {/* Dialog: Criar Credencial */}
       <Dialog open={credencialDialog} onOpenChange={setCredencialDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Nova Credencial</DialogTitle>
             <DialogDescription>Cadastre uma nova senha para acesso ao PJE</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto flex-1 px-1">
             <div>
               <Label htmlFor="cred-senha">Senha</Label>
               <Input
@@ -618,42 +617,13 @@ export default function CredentialsPage() {
                 placeholder="Ex: Senha TRT3 1º grau"
               />
             </div>
-            <div>
-              <Label>Tribunais</Label>
-              <div className="mt-2 space-y-2">
-                {tribunalConfigs.map((tc) => (
-                  <div key={tc.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`tc-${tc.id}`}
-                      checked={credencialForm.tribunalConfigIds.includes(tc.id)}
-                      onCheckedChange={(checked: boolean) => {
-                        if (checked) {
-                          setCredencialForm({
-                            ...credencialForm,
-                            tribunalConfigIds: [...credencialForm.tribunalConfigIds, tc.id],
-                          });
-                        } else {
-                          setCredencialForm({
-                            ...credencialForm,
-                            tribunalConfigIds: credencialForm.tribunalConfigIds.filter(
-                              (id) => id !== tc.id
-                            ),
-                          });
-                        }
-                      }}
-                    />
-                    <label
-                      htmlFor={`tc-${tc.id}`}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      {tc.nome}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <TribunalSelector
+              tribunais={tribunalConfigs}
+              selectedIds={credencialForm.tribunalConfigIds}
+              onChange={(ids) => setCredencialForm({ ...credencialForm, tribunalConfigIds: ids })}
+            />
           </div>
-          <DialogFooter>
+          <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setCredencialDialog(false)}>
               Cancelar
             </Button>

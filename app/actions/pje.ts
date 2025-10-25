@@ -210,7 +210,7 @@ const credencialSchema = z.object({
   advogadoId: z.string().uuid('ID de advogado inválido'),
   senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   descricao: z.string().optional(),
-  tribunalConfigIds: z.array(z.string().uuid()).min(1, 'Selecione ao menos um tribunal'),
+  tribunalConfigIds: z.array(z.string().regex(/^TRT\d{1,2}-[12]g$/, 'Formato de tribunal inválido')).min(1, 'Selecione ao menos um tribunal'),
 });
 
 // ============================================================================
@@ -604,24 +604,48 @@ export async function createCredencialAction(input: CreateCredencialInput) {
       };
     }
 
-    // Verifica se tribunais existem
+    // Converte identificadores "TRT{N}-{grau}" para UUIDs do banco
+    // Formato: "TRT3-1g" => busca TribunalConfig onde tribunal.codigo='TRT3' AND grau='1g'
+    const tribunalConfigUUIDs: string[] = [];
+
+    for (const tribunalId of validacao.data.tribunalConfigIds) {
+      // Parse do formato "TRT{N}-{grau}"
+      const [codigo, grau] = tribunalId.split('-');
+
+      // Busca/cria TribunalConfig no banco
+      const tribunalConfig = await prisma.tribunalConfig.findFirst({
+        where: {
+          tribunal: {
+            codigo,
+          },
+          grau,
+        },
+        include: {
+          tribunal: true,
+        },
+      });
+
+      if (!tribunalConfig) {
+        return {
+          success: false,
+          error: `Tribunal ${tribunalId} não encontrado. Execute o seed do banco: npx prisma db seed`,
+        };
+      }
+
+      tribunalConfigUUIDs.push(tribunalConfig.id);
+    }
+
+    // Busca configs completas
     const tribunais = await prisma.tribunalConfig.findMany({
       where: {
         id: {
-          in: validacao.data.tribunalConfigIds,
+          in: tribunalConfigUUIDs,
         },
       },
       include: {
         tribunal: true,
       },
     });
-
-    if (tribunais.length !== validacao.data.tribunalConfigIds.length) {
-      return {
-        success: false,
-        error: 'Um ou mais tribunais selecionados não existem',
-      };
-    }
 
     // Cria credencial com associações
     const credencial = await prisma.credencial.create({
@@ -630,7 +654,7 @@ export async function createCredencialAction(input: CreateCredencialInput) {
         descricao: validacao.data.descricao,
         advogadoId: validacao.data.advogadoId,
         tribunais: {
-          create: validacao.data.tribunalConfigIds.map((tribunalConfigId) => {
+          create: tribunalConfigUUIDs.map((tribunalConfigId) => {
             const tribunal = tribunais.find((t) => t.id === tribunalConfigId);
             // Determina tipo baseado no código do tribunal
             const codigoTribunal = tribunal?.tribunal.codigo || '';

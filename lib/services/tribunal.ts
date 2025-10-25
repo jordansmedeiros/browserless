@@ -3,7 +3,7 @@
  * Serviço para gerenciar configurações de TRTs
  */
 
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/db';
 import type {
   TRTCode,
   Grau,
@@ -13,8 +13,6 @@ import type {
   Regiao,
 } from '../types/tribunal';
 import { isValidTRTCode, getTRTNumber } from '../types/tribunal';
-
-const prisma = new PrismaClient();
 
 // Cache em memória para otimizar performance
 let tribunaisCache: TribunalWithConfigs[] | null = null;
