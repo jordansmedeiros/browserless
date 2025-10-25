@@ -59,7 +59,8 @@
       "Bash(npx prisma db seed)",
       "Read(//tmp/**)",
       "Bash(npm uninstall:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npx tsx:*)"
     ],
     "deny": [],
     "ask": []

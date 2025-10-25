@@ -175,6 +175,28 @@ export async function listAllTRTs(): Promise<TribunalInfo[]> {
 }
 
 /**
+ * Busca um TRT específico por código
+ */
+export async function getTribunalByCode(code: TRTCode): Promise<TribunalInfo> {
+  const tribunais = await loadTribunais();
+  const tribunal = tribunais.find((t) => t.codigo === code);
+
+  if (!tribunal) {
+    throw new Error(`TRT ${code} não encontrado no banco de dados`);
+  }
+
+  return {
+    id: tribunal.id,
+    codigo: tribunal.codigo,
+    nome: tribunal.nome,
+    regiao: tribunal.regiao,
+    uf: tribunal.uf,
+    cidadeSede: tribunal.cidadeSede,
+    ativo: tribunal.ativo,
+  };
+}
+
+/**
  * Lista TRTs filtrados por região
  */
 export async function listTRTsByRegion(regiao: Regiao): Promise<TribunalInfo[]> {
