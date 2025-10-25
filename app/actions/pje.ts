@@ -6,8 +6,37 @@
  */
 
 import { executarLoginPJE, rasparProcessosPJE } from '@/lib/api/pje-adapter';
-import type { LoginResult, ScrapeResult } from '@/lib/types';
+import type {
+  LoginResult,
+  ScrapeResult,
+  CreateEscritorioInput,
+  UpdateEscritorioInput,
+  CreateAdvogadoInput,
+  UpdateAdvogadoInput,
+  CreateCredencialInput,
+  UpdateCredencialInput,
+  EscritorioWithAdvogados,
+  AdvogadoWithCredenciais,
+  CredencialWithRelations,
+  TestCredencialResult,
+  TRTCode,
+  Grau,
+} from '@/lib/types';
 import { z } from 'zod';
+import { PrismaClient } from '@prisma/client';
+
+// Create Prisma instance directly to avoid Next.js bundling issues
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  });
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 // Schema de validação para login
 const loginSchema = z.object({
@@ -160,19 +189,6 @@ export async function testConnectionAction(): Promise<{ success: boolean; messag
 // ============================================================================
 // CREDENTIALS MANAGEMENT SERVER ACTIONS
 // ============================================================================
-
-import { prisma } from '@/lib/db';
-import type {
-  CreateEscritorioInput,
-  UpdateEscritorioInput,
-  CreateAdvogadoInput,
-  UpdateAdvogadoInput,
-  CreateCredencialInput,
-  UpdateCredencialInput,
-  EscritorioWithAdvogados,
-  AdvogadoWithCredenciais,
-  CredencialWithRelations,
-} from '@/lib/types';
 
 // Schemas de validação
 const escritorioSchema = z.object({
@@ -896,8 +912,6 @@ export async function toggleCredencialAction(id: string) {
 // ============================================================================
 // CREDENTIAL TESTING
 // ============================================================================
-
-import type { TestCredencialResult, TRTCode, Grau } from '@/lib/types';
 
 // Rate limiting - track last test time per credential
 const lastTestTimes = new Map<string, number>();

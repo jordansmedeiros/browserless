@@ -3,8 +3,6 @@
  * Converte os scripts Node.js em funções TypeScript que retornam Promises
  */
 
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type {
   LoginResult,
   ScrapeResult,
@@ -14,9 +12,20 @@ import type {
 } from '@/lib/types';
 import { getTribunalConfig } from '@/lib/services/tribunal';
 
-puppeteer.use(StealthPlugin());
-
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Lazy load puppeteer to avoid initialization issues with Next.js
+let puppeteerInstance: any = null;
+
+async function getPuppeteer() {
+  if (!puppeteerInstance) {
+    const puppeteer = (await import('puppeteer-extra')).default;
+    const StealthPlugin = (await import('puppeteer-extra-plugin-stealth')).default;
+    puppeteer.use(StealthPlugin());
+    puppeteerInstance = puppeteer;
+  }
+  return puppeteerInstance;
+}
 
 /**
  * Executa login no PJE e retorna resultado
@@ -56,6 +65,7 @@ export async function executarLoginPJE(
     console.log(`[PJE Adapter] URL de login: ${config.urlLoginSeam}`);
 
     // Lança navegador
+    const puppeteer = await getPuppeteer();
     browser = await puppeteer.launch({
       headless: true,
       args: [
@@ -246,6 +256,7 @@ export async function rasparProcessosPJE(
     const config = await getTribunalConfig(trt, grau);
 
     // Lança navegador
+    const puppeteer = await getPuppeteer();
     browser = await puppeteer.launch({
       headless: true,
       args: [
