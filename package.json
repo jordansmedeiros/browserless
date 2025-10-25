@@ -15,6 +15,7 @@
   },
   "scripts": {
     "dev": "next dev",
+    "clean:next": "node scripts/clean-next-lock.js",
     "build": "next build && npm run server:build",
     "start": "next start",
     "server:build": "cd server && tsc",

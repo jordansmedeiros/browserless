@@ -11,8 +11,8 @@ import type {
   TribunalConfig,
   TribunalWithConfigs,
   Regiao,
-} from '../types/tribunal.js';
-import { isValidTRTCode, getTRTNumber } from '../types/tribunal.js';
+} from '../types/tribunal';
+import { isValidTRTCode, getTRTNumber } from '../types/tribunal';
 
 const prisma = new PrismaClient();
 

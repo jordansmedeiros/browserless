@@ -11,7 +11,7 @@ import {
   ERROR_CATEGORY_MAP,
   USER_FRIENDLY_MESSAGES,
   ERROR_RETRYABLE_MAP,
-} from '../types/pje-errors.js';
+} from '../types/pje-errors';
 
 /**
  * Cria um objeto PJEError padronizado

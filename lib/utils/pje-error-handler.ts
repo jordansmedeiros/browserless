@@ -5,7 +5,7 @@
  */
 
 import type { Page } from 'puppeteer';
-import type { PJEError } from '../types/pje-errors.js';
+import type { PJEError } from '../types/pje-errors';
 import {
   detectErrorFromPage,
   detectStructureError,
@@ -13,7 +13,7 @@ import {
   detectScrapeError,
   formatErrorForAPI,
   formatErrorForConsole,
-} from './pje-error-detector.js';
+} from './pje-error-detector';
 
 /**
  * Interface para resultado de operação com tratamento de erro
