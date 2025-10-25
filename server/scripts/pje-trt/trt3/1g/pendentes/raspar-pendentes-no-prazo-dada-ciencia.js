@@ -141,14 +141,16 @@ async function rasparPendentesManifestation() {
       page.click('#btnSsoPdpj'),
     ]);
 
-    // Preenche credenciais
-    await delay(2000);
-    await page.waitForSelector('#username', { visible: true });
+    // Preenche credenciais - aguarda até 15s para página SSO carregar
+    console.log('⏳ Aguardando página SSO carregar...');
+    await page.waitForSelector('#username', { visible: true, timeout: 15000 });
     await page.type('#username', CPF);
+    console.log('✅ CPF preenchido');
     await delay(1000);
 
-    await page.waitForSelector('#password', { visible: true });
+    await page.waitForSelector('#password', { visible: true, timeout: 10000 });
     await page.type('#password', SENHA);
+    console.log('✅ Senha preenchida');
     await delay(1500);
 
     // Clica em Entrar

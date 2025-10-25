@@ -173,11 +173,11 @@ async function executarLoginCompleto() {
     }
 
     // PASSO 2: Preencher CPF
-    console.log('⏳ Aguardando 2 segundos (comportamento humano)...');
-    await delay(2000);
+    console.log('⏳ Aguardando página SSO carregar...');
 
+    // Aguarda até 15 segundos para o campo de CPF aparecer (importante para TRTs mais lentos)
     console.log('👤 Preenchendo CPF com digitação humana...');
-    await page.waitForSelector('#username', { visible: true, timeout: 10000 });
+    await page.waitForSelector('#username', { visible: true, timeout: 15000 });
     await page.click('#username');
     await delay(500);
 

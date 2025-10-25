@@ -23,6 +23,15 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { getTribunalConfig, listAllTRTs } from '../lib/services/tribunal.js';
 import type { TRTCode, TribunalInfo } from '../lib/types/tribunal.js';
+import { PJEErrorType, PJEErrorCategory } from '../lib/types/pje-errors.js';
+import {
+  detectErrorFromPage,
+  detectStructureError,
+  detectNetworkError,
+  detectScrapeError,
+  isLoginSuccessful,
+  formatErrorForConsole,
+} from '../lib/utils/pje-error-detector.js';
 import dotenv from 'dotenv';
 
 // Carrega variáveis de ambiente do .env.dev
@@ -51,8 +60,11 @@ interface TestResult {
   loginSuccess?: boolean;
   scrapeSuccess?: boolean;
   processos?: number;
-  errorType?: string;
+  errorType?: PJEErrorType;
+  errorCategory?: PJEErrorCategory;
   errorMessage?: string;
+  userMessage?: string;       // Mensagem amigável para o usuário
+  retryable?: boolean;         // Indica se vale a pena tentar novamente
   pageTitle?: string;
   finalUrl?: string;
   duration?: number;
@@ -71,6 +83,9 @@ interface TestReport {
     scrapeFailed: string[];
     differentPageStructure: string[];
     authenticationIssues: string[];
+    serverUnavailable: string[];        // TRTs com servidor indisponível
+    blockedByCloudFront: string[];      // TRTs bloqueados pelo CloudFront
+    retryableErrors: string[];          // TRTs com erros que podem ser retentados
   };
 }
 
@@ -161,11 +176,14 @@ async function testarLoginTRT(
     console.log(`📄 Título da página: ${result.pageTitle}`);
 
     // Verifica se existe botão de login PDPJ
-    const btnSsoPdpjExists = await page.$('#btnSsoPdpj');
-    if (!btnSsoPdpjExists) {
-      result.errorType = 'PAGE_STRUCTURE_DIFFERENT';
-      result.errorMessage = 'Botão #btnSsoPdpj não encontrado - estrutura da página diferente';
-      console.log('⚠️  Estrutura da página diferente do esperado');
+    const btnError = await detectStructureError(page, '#btnSsoPdpj', 'login');
+    if (btnError) {
+      result.errorType = btnError.type;
+      result.errorCategory = btnError.category;
+      result.errorMessage = btnError.message;
+      result.userMessage = btnError.userMessage;
+      result.retryable = btnError.retryable;
+      console.log(formatErrorForConsole(btnError));
       return result;
     }
 
@@ -178,27 +196,36 @@ async function testarLoginTRT(
       page.click('#btnSsoPdpj'),
     ]);
 
-    // Preenche CPF
-    await delay(2000);
-    const usernameExists = await page.$('#username');
-    if (!usernameExists) {
-      result.errorType = 'SSO_STRUCTURE_DIFFERENT';
-      result.errorMessage = 'Campo #username não encontrado na página SSO';
-      console.log('⚠️  Estrutura do SSO diferente do esperado');
+    // Aguarda e verifica campo CPF (detectStructureError já aguarda até 10s)
+    console.log('⏳ Aguardando página SSO carregar...');
+    const usernameError = await detectStructureError(page, '#username', 'sso', 15000);
+    if (usernameError) {
+      result.errorType = usernameError.type;
+      result.errorCategory = usernameError.category;
+      result.errorMessage = usernameError.message;
+      result.userMessage = usernameError.userMessage;
+      result.retryable = usernameError.retryable;
+      console.log(formatErrorForConsole(usernameError));
       return result;
     }
 
+    // Verifica campo senha
+    const passwordError = await detectStructureError(page, '#password', 'sso', 5000);
+    if (passwordError) {
+      result.errorType = passwordError.type;
+      result.errorCategory = passwordError.category;
+      result.errorMessage = passwordError.message;
+      result.userMessage = passwordError.userMessage;
+      result.retryable = passwordError.retryable;
+      console.log(formatErrorForConsole(passwordError));
+      return result;
+    }
+
+    // Preenche credenciais
+    console.log('📝 Preenchendo credenciais...');
     await page.type('#username', CPF!, { delay: 50 });
     console.log('✅ CPF preenchido');
-    await delay(1000);
-
-    // Preenche senha
-    const passwordExists = await page.$('#password');
-    if (!passwordExists) {
-      result.errorType = 'SSO_STRUCTURE_DIFFERENT';
-      result.errorMessage = 'Campo #password não encontrado na página SSO';
-      return result;
-    }
+    await delay(500);
 
     await page.type('#password', SENHA!, { delay: 50 });
     console.log('✅ Senha preenchida');
@@ -222,17 +249,24 @@ async function testarLoginTRT(
     console.log(`📍 URL final: ${finalUrl}`);
     console.log(`📄 Título final: ${title}`);
 
-    // Verifica se login foi bem-sucedido
-    if (finalUrl.includes('403') || title.includes('403')) {
-      result.errorType = 'BLOCKED_BY_CLOUDFRONT';
-      result.errorMessage = 'CloudFront bloqueou o acesso (403)';
+    // Detecta erros na página
+    const trtDomain = config.urlBase.replace('https://', '');
+    const pageError = await detectErrorFromPage(page, trtDomain);
+
+    if (pageError) {
+      // Há erro - login falhou
+      result.errorType = pageError.type;
+      result.errorCategory = pageError.category;
+      result.errorMessage = pageError.message;
+      result.userMessage = pageError.userMessage;
+      result.retryable = pageError.retryable;
       result.loginSuccess = false;
-      console.log('❌ Login bloqueado pelo CloudFront');
+      console.log(formatErrorForConsole(pageError));
       return result;
     }
 
-    const trtDomain = config.urlBase.replace('https://', '');
-    if (finalUrl.includes(trtDomain) && !finalUrl.includes('sso.cloud')) {
+    // Nenhum erro detectado - verifica se login foi bem-sucedido
+    if (isLoginSuccessful(finalUrl, trtDomain)) {
       result.loginSuccess = true;
       console.log('✅ Login realizado com sucesso!');
 
@@ -261,30 +295,36 @@ async function testarLoginTRT(
 
         console.log(`💾 JSON salvo: ${filepath}`);
       } catch (scrapeError) {
+        const scrapeErr = detectScrapeError(
+          scrapeError instanceof Error ? scrapeError : new Error(String(scrapeError)),
+          'pendentes'
+        );
         result.scrapeSuccess = false;
-        result.errorType = 'SCRAPE_ERROR';
-        result.errorMessage =
-          scrapeError instanceof Error
-            ? scrapeError.message
-            : 'Erro desconhecido na raspagem';
-        console.log(`⚠️  Erro na raspagem: ${result.errorMessage}`);
+        result.errorType = scrapeErr.type;
+        result.errorCategory = scrapeErr.category;
+        result.errorMessage = scrapeErr.message;
+        result.userMessage = scrapeErr.userMessage;
+        result.retryable = scrapeErr.retryable;
+        console.log(formatErrorForConsole(scrapeErr));
       }
-    } else if (finalUrl.includes('sso.cloud.pje.jus.br')) {
-      result.errorType = 'AUTHENTICATION_FAILED';
-      result.errorMessage = 'Credenciais incorretas ou sessão inválida';
-      result.loginSuccess = false;
-      console.log('❌ Falha na autenticação - credenciais incorretas');
     } else {
-      result.errorType = 'UNEXPECTED_REDIRECT';
-      result.errorMessage = `Redirecionado para URL inesperada: ${finalUrl}`;
+      // Login não foi bem-sucedido mas também não detectou erro específico
+      result.errorType = PJEErrorType.UNEXPECTED_REDIRECT;
+      result.errorCategory = PJEErrorCategory.UNKNOWN;
+      result.errorMessage = `Login falhou - URL inesperada: ${finalUrl}`;
       result.loginSuccess = false;
       console.log('⚠️  Redirecionamento inesperado');
     }
   } catch (error) {
-    result.errorType = 'EXCEPTION';
-    result.errorMessage =
-      error instanceof Error ? error.message : 'Erro desconhecido';
-    console.log(`❌ Exceção: ${result.errorMessage}`);
+    const netErr = detectNetworkError(
+      error instanceof Error ? error : new Error(String(error))
+    );
+    result.errorType = netErr.type;
+    result.errorCategory = netErr.category;
+    result.errorMessage = netErr.message;
+    result.userMessage = netErr.userMessage;
+    result.retryable = netErr.retryable;
+    console.log(formatErrorForConsole(netErr));
   } finally {
     if (browser) {
       await browser.close();
@@ -387,6 +427,9 @@ async function gerarRelatorio(results: TestResult[]): Promise<TestReport> {
       scrapeFailed: [],
       differentPageStructure: [],
       authenticationIssues: [],
+      serverUnavailable: [],
+      blockedByCloudFront: [],
+      retryableErrors: [],
     },
   };
 
@@ -405,14 +448,29 @@ async function gerarRelatorio(results: TestResult[]): Promise<TestReport> {
     }
 
     if (
-      r.errorType === 'PAGE_STRUCTURE_DIFFERENT' ||
-      r.errorType === 'SSO_STRUCTURE_DIFFERENT'
+      r.errorType === PJEErrorType.PAGE_STRUCTURE_DIFFERENT ||
+      r.errorType === PJEErrorType.SSO_STRUCTURE_DIFFERENT
     ) {
       report.summary.differentPageStructure.push(r.trt);
     }
 
-    if (r.errorType === 'AUTHENTICATION_FAILED') {
+    if (r.errorType === PJEErrorType.AUTHENTICATION_FAILED) {
       report.summary.authenticationIssues.push(r.trt);
+    }
+
+    if (
+      r.errorType === PJEErrorType.SERVER_UNAVAILABLE ||
+      r.errorType === PJEErrorType.SERVER_ERROR
+    ) {
+      report.summary.serverUnavailable.push(r.trt);
+    }
+
+    if (r.errorType === PJEErrorType.BLOCKED_BY_CLOUDFRONT) {
+      report.summary.blockedByCloudFront.push(r.trt);
+    }
+
+    if (r.retryable) {
+      report.summary.retryableErrors.push(r.trt);
     }
   });
 
@@ -488,15 +546,41 @@ function exibirRelatorio(report: TestReport) {
     console.log('   Nenhum');
   }
 
+  console.log(`\n⏳ Servidor Indisponível (${report.summary.serverUnavailable.length}):`);
+  if (report.summary.serverUnavailable.length > 0) {
+    console.log(`   ${report.summary.serverUnavailable.join(', ')}`);
+  } else {
+    console.log('   Nenhum');
+  }
+
+  console.log(`\n🛡️  Bloqueado por CloudFront (${report.summary.blockedByCloudFront.length}):`);
+  if (report.summary.blockedByCloudFront.length > 0) {
+    console.log(`   ${report.summary.blockedByCloudFront.join(', ')}`);
+  } else {
+    console.log('   Nenhum');
+  }
+
+  console.log(`\n🔄 Erros Retryable (${report.summary.retryableErrors.length}):`);
+  if (report.summary.retryableErrors.length > 0) {
+    console.log(`   ${report.summary.retryableErrors.join(', ')}`);
+  } else {
+    console.log('   Nenhum');
+  }
+
   console.log('\n📝 DETALHES POR TRT:');
   console.log('─'.repeat(70));
 
   report.results.forEach((r) => {
     const status = r.success ? '✅' : '❌';
     const processos = r.processos !== undefined ? ` (${r.processos} processos)` : '';
+    const retryableTag = r.retryable ? ' [retryable]' : '';
     console.log(`${status} ${r.trt}: ${r.nome}${processos}`);
     if (!r.success && r.errorMessage) {
-      console.log(`   └─ Erro: ${r.errorType} - ${r.errorMessage}`);
+      console.log(`   └─ Tipo: ${r.errorType}${retryableTag}`);
+      console.log(`   └─ Técnico: ${r.errorMessage}`);
+      if (r.userMessage) {
+        console.log(`   └─ Usuário: ${r.userMessage}`);
+      }
     }
   });
 

@@ -41,7 +41,15 @@ export interface LoginResult {
   success: boolean;
   message: string;
   perfil?: PerfilPJE;
-  error?: string;
+  error?: {
+    type: string;
+    category: string;
+    message: string;           // Mensagem amigável para o usuário
+    technicalMessage?: string; // Mensagem técnica para debug
+    retryable: boolean;
+    timestamp: string;
+    details?: Record<string, any>;
+  };
 }
 
 export interface ScrapeResult {
@@ -49,5 +57,13 @@ export interface ScrapeResult {
   processos: ProcessoPJE[];
   total: number;
   timestamp: string;
-  error?: string;
+  error?: {
+    type: string;
+    category: string;
+    message: string;           // Mensagem amigável para o usuário
+    technicalMessage?: string; // Mensagem técnica para debug
+    retryable: boolean;
+    timestamp: string;
+    details?: Record<string, any>;
+  };
 }
