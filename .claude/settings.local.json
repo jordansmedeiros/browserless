@@ -64,7 +64,8 @@
       "Bash(npm run clean:next:*)",
       "Bash(npx prisma migrate reset --force)",
       "Bash(set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=sim)",
-      "Bash(cmd /c \"set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=sim&& npx prisma migrate reset --force\")"
+      "Bash(cmd /c \"set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=sim&& npx prisma migrate reset --force\")",
+      "Bash(npx prisma generate:*)"
     ],
     "deny": [],
     "ask": []

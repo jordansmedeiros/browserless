@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, FileText, LogIn, List } from 'lucide-react';
+import { Home, FileText, Key, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Login PJE', href: '/pje/login', icon: LogIn },
+  { name: 'Credenciais', href: '/pje/credentials', icon: Key },
   { name: 'Processos', href: '/pje/processos', icon: FileText },
   { name: 'Raspagens', href: '/pje/scrapes', icon: List },
 ];
