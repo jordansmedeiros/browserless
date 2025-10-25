@@ -66,7 +66,9 @@
       "Bash(set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=sim)",
       "Bash(cmd /c \"set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=sim&& npx prisma migrate reset --force\")",
       "Bash(npx prisma generate:*)",
-      "Bash(npx prisma db push:*)"
+      "Bash(npx prisma db push:*)",
+      "Bash(cmd /c \"taskkill /F /IM node.exe\")",
+      "Bash(cmd /c \"rd /s /q .next & rd /s /q node_modules\\.prisma & echo Limpeza completa\")"
     ],
     "deny": [],
     "ask": []

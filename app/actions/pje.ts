@@ -23,20 +23,23 @@ import type {
   Grau,
 } from '@/lib/types';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
 
-// Create Prisma instance directly to avoid Next.js bundling issues
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
+// Lazy load Prisma to avoid edge runtime issues
+async function getPrisma() {
+  const { PrismaClient } = await import('@prisma/client');
 
-const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  });
+  const globalForPrisma = globalThis as unknown as {
+    prisma: InstanceType<typeof PrismaClient> | undefined;
+  };
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = new PrismaClient({
+      log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    });
+  }
+
+  return globalForPrisma.prisma;
+}
 
 // Schema de validação para login
 const loginSchema = z.object({
@@ -216,6 +219,7 @@ const credencialSchema = z.object({
 
 export async function createEscritorioAction(input: CreateEscritorioInput) {
   try {
+    const prisma = await getPrisma();
     const validacao = escritorioSchema.safeParse(input);
     if (!validacao.success) {
       return {
@@ -245,6 +249,7 @@ export async function createEscritorioAction(input: CreateEscritorioInput) {
 
 export async function listEscritoriosAction() {
   try {
+    const prisma = await getPrisma();
     const escritorios = await prisma.escritorio.findMany({
       include: {
         advogados: {
@@ -274,6 +279,7 @@ export async function listEscritoriosAction() {
 
 export async function getEscritorioAction(id: string) {
   try {
+    const prisma = await getPrisma();
     const escritorio = await prisma.escritorio.findUnique({
       where: { id },
       include: {
@@ -307,6 +313,7 @@ export async function getEscritorioAction(id: string) {
 
 export async function updateEscritorioAction(id: string, input: UpdateEscritorioInput) {
   try {
+    const prisma = await getPrisma();
     const validacao = escritorioSchema.safeParse(input);
     if (!validacao.success) {
       return {
@@ -337,6 +344,7 @@ export async function updateEscritorioAction(id: string, input: UpdateEscritorio
 
 export async function deleteEscritorioAction(id: string) {
   try {
+    const prisma = await getPrisma();
     // Verifica se tem advogados
     const count = await prisma.advogado.count({
       where: { escritorioId: id },
@@ -371,6 +379,7 @@ export async function deleteEscritorioAction(id: string) {
 
 export async function createAdvogadoAction(input: CreateAdvogadoInput) {
   try {
+    const prisma = await getPrisma();
     const validacao = advogadoSchema.safeParse(input);
     if (!validacao.success) {
       return {
@@ -435,6 +444,7 @@ export async function createAdvogadoAction(input: CreateAdvogadoInput) {
 
 export async function listAdvogadosAction(escritorioId?: string) {
   try {
+    const prisma = await getPrisma();
     const advogados = await prisma.advogado.findMany({
       where: escritorioId ? { escritorioId } : undefined,
       include: {
@@ -474,6 +484,7 @@ export async function listAdvogadosAction(escritorioId?: string) {
 
 export async function getAdvogadoAction(id: string) {
   try {
+    const prisma = await getPrisma();
     const advogado = await prisma.advogado.findUnique({
       where: { id },
       include: {
@@ -516,6 +527,7 @@ export async function getAdvogadoAction(id: string) {
 
 export async function updateAdvogadoAction(id: string, input: UpdateAdvogadoInput) {
   try {
+    const prisma = await getPrisma();
     const advogado = await prisma.advogado.update({
       where: { id },
       data: {
@@ -542,6 +554,7 @@ export async function updateAdvogadoAction(id: string, input: UpdateAdvogadoInpu
 
 export async function deleteAdvogadoAction(id: string) {
   try {
+    const prisma = await getPrisma();
     // Cascade delete vai remover credenciais automaticamente
     await prisma.advogado.delete({
       where: { id },
@@ -565,6 +578,7 @@ export async function deleteAdvogadoAction(id: string) {
 
 export async function createCredencialAction(input: CreateCredencialInput) {
   try {
+    const prisma = await getPrisma();
     const validacao = credencialSchema.safeParse(input);
     if (!validacao.success) {
       return {
@@ -660,6 +674,7 @@ export async function createCredencialAction(input: CreateCredencialInput) {
 
 export async function listCredenciaisAction(advogadoId: string) {
   try {
+    const prisma = await getPrisma();
     const credenciais = await prisma.credencial.findMany({
       where: { advogadoId },
       include: {
@@ -695,6 +710,7 @@ export async function listCredenciaisAction(advogadoId: string) {
 
 export async function getCredencialAction(id: string) {
   try {
+    const prisma = await getPrisma();
     const credencial = await prisma.credencial.findUnique({
       where: { id },
       include: {
@@ -733,6 +749,7 @@ export async function getCredencialAction(id: string) {
 
 export async function updateCredencialAction(id: string, input: UpdateCredencialInput) {
   try {
+    const prisma = await getPrisma();
     const senhaChanged = input.senha !== undefined;
 
     // Atualiza credencial
@@ -860,6 +877,7 @@ export async function updateCredencialAction(id: string, input: UpdateCredencial
 
 export async function deleteCredencialAction(id: string) {
   try {
+    const prisma = await getPrisma();
     await prisma.credencial.delete({
       where: { id },
     });
@@ -878,6 +896,7 @@ export async function deleteCredencialAction(id: string) {
 
 export async function toggleCredencialAction(id: string) {
   try {
+    const prisma = await getPrisma();
     const credencial = await prisma.credencial.findUnique({
       where: { id },
     });
@@ -942,6 +961,8 @@ export async function testCredencialAction(
         message: `Aguarde ${waitTime} segundos antes de testar novamente (proteção anti-bot)`,
       };
     }
+
+    const prisma = await getPrisma();
 
     // Busca credencial com advogado
     const credencial = await prisma.credencial.findUnique({
