@@ -104,9 +104,9 @@
 - [x] 10.1 Create `getScrapeExecutionAction(executionId)`
 - [x] 10.2 Include decompressed result data
 - [x] 10.3 Include execution logs
-- [ ] 10.4 Create `retryScrapeExecutionAction(executionId)` (deferred - can be added later)
-- [ ] 10.5 Validate execution is failed before retry (deferred)
-- [ ] 10.6 Create new execution and trigger script (deferred)
+- [x] 10.4 Create `retryScrapeExecutionAction(executionId)`
+- [x] 10.5 Validate execution is failed before retry
+- [x] 10.6 Create new execution and trigger script
 - [x] 10.7 Create `cancelScrapeJobAction(jobId)`
 - [x] 10.8 Update job status to canceled
 - [x] 10.9 Cancel pending tribunal executions
@@ -192,7 +192,7 @@
 - [x] 17.6 Display process data preview (first 10 processes)
 - [x] 17.7 Implement "View All" button to expand full list
 - [x] 17.8 Implement "Export JSON" button
-- [ ] 17.9 Implement retry button for failed executions (deferred - requires 10.4-10.6)
+- [x] 17.9 Implement retry button for failed executions
 - [x] 17.10 Format timestamps for readability
 
 ## 18. Main Scrapes Page ✅
@@ -206,7 +206,7 @@
 - [x] 18.7 Implement detail view navigation
 - [x] 18.8 Add page-level loading states
 - [x] 18.9 Add page-level error handling
-- [ ] 18.10 Implement auto-refresh toggle (deferred - auto-polling is implemented)
+- [x] 18.10 Implement auto-refresh toggle
 
 ## 19. Data Compression Utilities ✅
 

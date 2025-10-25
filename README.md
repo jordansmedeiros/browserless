@@ -89,12 +89,20 @@ Infraestrutura de navegadores headless baseada no projeto [Browserless](https://
   - Associação flexível de credenciais a tribunais
   - Auto-detecção do ID do advogado no PJE
   - Teste de credenciais com rate limiting
+- ✅ **Interface de Scraping Completa** - Sistema de raspagem com monitoramento em tempo real
+  - Configuração visual de jobs de scraping
+  - Seleção multi-tribunal com filtros
+  - Monitoramento de jobs ativos com progresso em tempo real
+  - Histórico completo de execuções com filtros
+  - Visualização detalhada de resultados e logs
+  - Exportação JSON de processos raspados
+  - Retry automático e manual para falhas
+  - Sistema de fila robusto com controle de concorrência
 - ✅ **Sidebar de navegação** com rotas ativas destacadas
 - ✅ **Páginas de processos** com placeholders para visualização
 - ✅ **Estados de loading e error** para melhor experiência
-- ⏳ **Histórico de raspagens** (em desenvolvimento)
-- ⏳ **Persistência automática** de dados (em desenvolvimento)
-- ⏳ **Exportação CSV/JSON** (em desenvolvimento)
+- ✅ **Persistência automática** de dados com Prisma/SQLite
+- ✅ **Exportação JSON** de resultados de scraping
 
 #### 🏗️ Arquitetura
 ```
@@ -245,6 +253,120 @@ O sistema agora usa **gerenciamento de credenciais via interface web**:
 - ✅ Auto-detecta o ID do advogado no PJE
 - ✅ Teste de credenciais integrado
 - ✅ Não precisa editar arquivos `.env`
+
+---
+
+### PJE: Interface de Scraping
+
+**🎯 Método Recomendado: Interface Web de Scraping**
+
+O sistema agora possui uma **interface completa de scraping** com gerenciamento de jobs, monitoramento em tempo real e histórico:
+
+1. **Inicie o servidor de desenvolvimento**:
+   ```bash
+   npm run dev
+   ```
+
+2. **Acesse a interface de scraping**:
+   ```
+   http://localhost:3000/pje/scrapes
+   ```
+
+#### ✨ Funcionalidades da Interface
+
+**📋 Configuração de Jobs**
+- Seletor de tribunais com agrupamento por tipo (TRT, TJ, TRF)
+- Filtros por região e pesquisa
+- Seleção de tipo de scraping:
+  - **Acervo Geral** - Todos os processos do advogado
+  - **Pendentes de Manifestação** - Processos com prazo ou sem prazo
+  - **Arquivados** - Processos finalizados
+  - **Minha Pauta** - Audiências e sessões
+- Estimativa de tempo de execução
+- Validação em tempo real
+
+**⚡ Monitoramento em Tempo Real**
+- Lista de jobs ativos com status (pending/running/completed/failed)
+- Barras de progresso por job
+- Visualização tribunal a tribunal
+- Botão de cancelamento para jobs em execução
+- Auto-refresh configurável (3 segundos)
+- Notificações de conclusão
+
+**📊 Histórico e Resultados**
+- Tabela paginada de todos os jobs executados
+- Filtros por status, tipo, tribunal e data
+- Taxa de sucesso por job
+- Visualização detalhada de execuções:
+  - Logs completos da execução
+  - Contagem de processos raspados
+  - Tempo de execução e duração
+  - Preview dos processos encontrados
+  - Exportação em JSON
+  - Botão de retry para execuções falhadas
+
+**🔄 Gestão Avançada**
+- Sistema de fila com controle de concorrência
+- Execução sequencial por tribunal
+- Retry automático com exponencial backoff
+- Compressão de resultados (gzip)
+- Logs estruturados com stderr/stdout separados
+
+#### 💡 Como Usar
+
+**Criar um Job de Scraping**:
+1. Clique em "Nova Raspagem"
+2. Selecione os tribunais desejados
+3. Escolha o tipo de scraping
+4. Revise o resumo (tribunais, tempo estimado)
+5. Clique em "Iniciar Raspagem"
+
+**Monitorar Execução**:
+1. Acesse a aba "Jobs Ativos"
+2. Acompanhe o progresso em tempo real
+3. Expanda para ver detalhes por tribunal
+4. Cancele se necessário
+
+**Ver Resultados**:
+1. Acesse a aba "Histórico"
+2. Filtre por status, tipo ou data
+3. Clique em um job para ver detalhes
+4. Visualize logs e processos encontrados
+5. Exporte resultados em JSON
+
+**Reexecutar em Caso de Falha**:
+1. Abra os detalhes de uma execução falhada
+2. Clique em "Tentar Novamente"
+3. O job será reenfileirado automaticamente
+
+#### ⚙️ Configuração Avançada
+
+Variáveis de ambiente disponíveis (opcionais):
+
+```bash
+# Concorrência de jobs
+MAX_CONCURRENT_JOBS=3
+
+# Concorrência de tribunais por job
+MAX_CONCURRENT_TRIBUNALS_PER_JOB=1
+
+# Timeout de execução (em ms)
+SCRAPE_EXECUTION_TIMEOUT=600000  # 10 minutos
+
+# Retry configuration
+SCRAPE_MAX_RETRIES=3
+SCRAPE_RETRY_DELAY=5000  # 5 segundos
+```
+
+**Vantagens**:
+- ✅ Interface visual completa e moderna
+- ✅ Monitoramento em tempo real
+- ✅ Histórico persistente de todas as execuções
+- ✅ Sistema de fila robusto
+- ✅ Retry automático e manual
+- ✅ Exportação de resultados
+- ✅ Logs estruturados e detalhados
+- ✅ Busca credenciais automaticamente do banco
 
 ---
 

@@ -19,11 +19,13 @@ import {
   Clock,
   FileText,
   Terminal,
+  RotateCw,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { getScrapeExecutionAction } from '@/app/actions/pje';
+import { getScrapeExecutionAction, retryScrapeExecutionAction } from '@/app/actions/pje';
 import type { ScrapeExecutionDetails } from '@/lib/types/scraping';
+import { useToast } from '@/hooks/use-toast';
 
 interface ScrapeExecutionDetailProps {
   /** Execution ID to display */
@@ -34,6 +36,8 @@ export function ScrapeExecutionDetail({ executionId }: ScrapeExecutionDetailProp
   const [execution, setExecution] = useState<ScrapeExecutionDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showAllProcesses, setShowAllProcesses] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchExecution();
@@ -65,6 +69,42 @@ export function ScrapeExecutionDetail({ executionId }: ScrapeExecutionDetailProp
     link.download = `execution-${executionId}-${Date.now()}.json`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleRetry = async () => {
+    if (!execution || execution.status !== 'failed') return;
+
+    setIsRetrying(true);
+    try {
+      const result = await retryScrapeExecutionAction(executionId);
+
+      if (result.success) {
+        toast({
+          title: 'Execução reenfileirada',
+          description: 'A execução foi adicionada à fila novamente e será reprocessada.',
+        });
+
+        // Refresh execution data after a short delay
+        setTimeout(() => {
+          fetchExecution();
+        }, 1000);
+      } else {
+        toast({
+          title: 'Erro ao reexecutar',
+          description: result.error || 'Não foi possível reexecutar esta execução.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error retrying execution:', error);
+      toast({
+        title: 'Erro ao reexecutar',
+        description: 'Ocorreu um erro inesperado.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRetrying(false);
+    }
   };
 
   const formatDate = (date: Date | string): string => {
@@ -151,7 +191,29 @@ export function ScrapeExecutionDetail({ executionId }: ScrapeExecutionDetailProp
                 Tribunal: {execution.tribunalConfig?.id || 'N/A'}
               </CardDescription>
             </div>
-            {getStatusBadge(execution.status)}
+            <div className="flex items-center gap-2">
+              {getStatusBadge(execution.status)}
+              {execution.status === 'failed' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetry}
+                  disabled={isRetrying}
+                >
+                  {isRetrying ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Reenfileirando...
+                    </>
+                  ) : (
+                    <>
+                      <RotateCw className="mr-2 h-4 w-4" />
+                      Tentar Novamente
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">

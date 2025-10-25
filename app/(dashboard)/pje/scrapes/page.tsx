@@ -25,7 +25,9 @@ import {
 } from '@/components/ui/drawer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Activity, History, Eye, X } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Plus, Activity, History, Eye, X, RefreshCw } from 'lucide-react';
 import { ScrapeConfigForm } from '@/components/pje/scrape-config-form';
 import { ScrapeJobMonitor } from '@/components/pje/scrape-job-monitor';
 import { ScrapeHistory } from '@/components/pje/scrape-history';
@@ -38,6 +40,7 @@ export default function ScrapesPage() {
   const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [newJobIds, setNewJobIds] = useState<string[]>([]);
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
@@ -72,10 +75,24 @@ export default function ScrapesPage() {
             Configure e monitore raspagens de processos judiciais
           </p>
         </div>
-        <Button onClick={() => setShowConfigDialog(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nova Raspagem
-        </Button>
+        <div className="flex items-center gap-4">
+          {/* Auto-refresh toggle */}
+          <div className="flex items-center gap-2">
+            <Switch
+              id="auto-refresh"
+              checked={autoRefresh}
+              onCheckedChange={setAutoRefresh}
+            />
+            <Label htmlFor="auto-refresh" className="cursor-pointer flex items-center gap-1.5">
+              <RefreshCw className={`h-4 w-4 ${autoRefresh ? 'text-primary' : 'text-muted-foreground'}`} />
+              <span className="text-sm">Auto-atualizar</span>
+            </Label>
+          </div>
+          <Button onClick={() => setShowConfigDialog(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nova Raspagem
+          </Button>
+        </div>
       </div>
 
       {/* Main Content Tabs */}
@@ -94,6 +111,7 @@ export default function ScrapesPage() {
         <TabsContent value="active" className="space-y-4">
           <ScrapeJobMonitor
             initialJobIds={newJobIds}
+            autoRefresh={autoRefresh}
             onJobsUpdate={(jobs) => {
               // Update new job IDs based on active jobs
               const activeIds = jobs.map((j) => j.id);

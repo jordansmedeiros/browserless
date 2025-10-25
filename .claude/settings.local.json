@@ -91,7 +91,8 @@
       "SlashCommand(/openspec:apply add-landing-page)",
       "SlashCommand(/openspec:apply:*)",
       "Bash(cmd /c \"taskkill /F /PID 38620 2>nul || echo Process not found\")",
-      "Bash(cmd /c \"rd /s /q .next\\dev\\cache 2>nul & del /f /q .next\\dev\\lock 2>nul & echo Cleaned\")"
+      "Bash(cmd /c \"rd /s /q .next\\dev\\cache 2>nul & del /f /q .next\\dev\\lock 2>nul & echo Cleaned\")",
+      "Bash(cmd /c \"netstat -ano | findstr :300\")"
     ],
     "deny": [],
     "ask": []

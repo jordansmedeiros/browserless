@@ -1419,6 +1419,107 @@ export async function getScrapeExecutionAction(executionId: string) {
 }
 
 /**
+ * Server Action: Retry Scrape Execution
+ * Retries a failed execution for a specific tribunal
+ */
+export async function retryScrapeExecutionAction(executionId: string) {
+  try {
+    const prisma = await getPrisma();
+
+    // Find the original execution
+    const originalExecution = await prisma.scrapeExecution.findUnique({
+      where: { id: executionId },
+      include: {
+        tribunalConfig: {
+          include: {
+            tribunal: true,
+            credencial: true,
+          },
+        },
+        scrapeJob: true,
+      },
+    });
+
+    if (!originalExecution) {
+      return {
+        success: false,
+        error: 'Execução não encontrada',
+      };
+    }
+
+    // Only allow retry for failed executions
+    if (originalExecution.status !== 'failed') {
+      return {
+        success: false,
+        error: 'Apenas execuções falhadas podem ser reexecutadas',
+      };
+    }
+
+    // Ensure we have credentials
+    if (!originalExecution.tribunalConfig.credencial) {
+      return {
+        success: false,
+        error: 'Credenciais não encontradas para este tribunal',
+      };
+    }
+
+    // Create a new execution record
+    const newExecution = await prisma.scrapeExecution.create({
+      data: {
+        scrapeJobId: originalExecution.scrapeJobId,
+        tribunalConfigId: originalExecution.tribunalConfigId,
+        status: 'pending',
+      },
+    });
+
+    // Update the tribunal status back to pending
+    await prisma.scrapeJobTribunal.update({
+      where: { id: originalExecution.tribunalConfigId },
+      data: {
+        status: 'pending',
+        retryCount: {
+          increment: 1,
+        },
+      },
+    });
+
+    // If the job was marked as failed/completed, update it back to pending
+    if (originalExecution.scrapeJob.status === 'failed' || originalExecution.scrapeJob.status === 'completed') {
+      await prisma.scrapeJob.update({
+        where: { id: originalExecution.scrapeJobId },
+        data: {
+          status: 'pending',
+          completedAt: null,
+        },
+      });
+
+      // Re-enqueue the job
+      scrapeQueue.enqueue({
+        jobId: originalExecution.scrapeJobId,
+        scrapeType: originalExecution.scrapeJob.scrapeType as ScrapeType,
+        subTypes: originalExecution.scrapeJob.subTypes as ScrapeSubType[],
+      });
+    }
+
+    console.log(`[retryScrapeExecutionAction] Created new execution ${newExecution.id} to retry ${executionId}`);
+
+    return {
+      success: true,
+      data: {
+        newExecutionId: newExecution.id,
+        jobId: originalExecution.scrapeJobId,
+      },
+    };
+  } catch (error) {
+    console.error('[retryScrapeExecutionAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao reexecutar',
+    };
+  }
+}
+
+/**
  * Server Action: Cancel Scrape Job
  * Cancels a pending or running scraping job
  */

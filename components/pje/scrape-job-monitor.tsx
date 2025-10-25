@@ -24,9 +24,11 @@ interface ScrapeJobMonitorProps {
   onJobsUpdate?: (jobs: ScrapeJobWithRelations[]) => void;
   /** Initial job IDs to monitor (optional) */
   initialJobIds?: string[];
+  /** Enable/disable auto-refresh polling (default: true) */
+  autoRefresh?: boolean;
 }
 
-export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds }: ScrapeJobMonitorProps) {
+export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = true }: ScrapeJobMonitorProps) {
   const [jobs, setJobs] = useState<ScrapeJobWithRelations[]>([]);
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   const [cancelingJobs, setCancelingJobs] = useState<Set<string>>(new Set());
@@ -57,7 +59,7 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds }: ScrapeJobMonit
           onJobsUpdate?.(activeJobs);
 
           // Stop polling if no active jobs
-          if (activeJobs.length === 0) {
+          if (activeJobs.length === 0 && intervalId) {
             clearInterval(intervalId);
           }
         }
@@ -71,11 +73,17 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds }: ScrapeJobMonit
     // Initial fetch
     fetchActiveJobs();
 
-    // Poll every 3 seconds
-    intervalId = setInterval(fetchActiveJobs, 3000);
+    // Only poll if autoRefresh is enabled
+    if (autoRefresh) {
+      intervalId = setInterval(fetchActiveJobs, 3000);
+    }
 
-    return () => clearInterval(intervalId);
-  }, [initialJobIds, onJobsUpdate]);
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [initialJobIds, onJobsUpdate, autoRefresh]);
 
   const toggleExpand = (jobId: string) => {
     setExpandedJobs((prev) => {
