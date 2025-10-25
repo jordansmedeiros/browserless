@@ -1433,7 +1433,7 @@ export async function retryScrapeExecutionAction(executionId: string) {
         tribunalConfig: {
           include: {
             tribunal: true,
-            credencial: true,
+            credenciais: true,
           },
         },
         scrapeJob: true,
@@ -1456,19 +1456,20 @@ export async function retryScrapeExecutionAction(executionId: string) {
     }
 
     // Ensure we have credentials
-    if (!originalExecution.tribunalConfig.credencial) {
+    if (!originalExecution.tribunalConfig.credenciais || originalExecution.tribunalConfig.credenciais.length === 0) {
       return {
         success: false,
         error: 'Credenciais não encontradas para este tribunal',
       };
     }
 
-    // Create a new execution record
+    // Create a new execution record with incremented retry attempt
     const newExecution = await prisma.scrapeExecution.create({
       data: {
         scrapeJobId: originalExecution.scrapeJobId,
         tribunalConfigId: originalExecution.tribunalConfigId,
         status: 'pending',
+        retryAttempt: originalExecution.retryAttempt + 1,
       },
     });
 
@@ -1477,9 +1478,6 @@ export async function retryScrapeExecutionAction(executionId: string) {
       where: { id: originalExecution.tribunalConfigId },
       data: {
         status: 'pending',
-        retryCount: {
-          increment: 1,
-        },
       },
     });
 
@@ -1494,11 +1492,7 @@ export async function retryScrapeExecutionAction(executionId: string) {
       });
 
       // Re-enqueue the job
-      scrapeQueue.enqueue({
-        jobId: originalExecution.scrapeJobId,
-        scrapeType: originalExecution.scrapeJob.scrapeType as ScrapeType,
-        subTypes: originalExecution.scrapeJob.subTypes as ScrapeSubType[],
-      });
+      scrapeQueue.enqueue(originalExecution.scrapeJobId);
     }
 
     console.log(`[retryScrapeExecutionAction] Created new execution ${newExecution.id} to retry ${executionId}`);

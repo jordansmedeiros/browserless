@@ -92,7 +92,15 @@
       "SlashCommand(/openspec:apply:*)",
       "Bash(cmd /c \"taskkill /F /PID 38620 2>nul || echo Process not found\")",
       "Bash(cmd /c \"rd /s /q .next\\dev\\cache 2>nul & del /f /q .next\\dev\\lock 2>nul & echo Cleaned\")",
-      "Bash(cmd /c \"netstat -ano | findstr :300\")"
+      "Bash(cmd /c \"netstat -ano | findstr :300\")",
+      "Bash(cmd /c \"netstat -ano | findstr :310\")",
+      "Bash(cmd /c \"netstat -ano | findstr :320\")",
+      "Bash(cmd /c \"netstat -ano | findstr :330\")",
+      "Bash(cmd /c \"netstat -ano | findstr :340\")",
+      "Bash(cmd /c \"taskkill /F /PID 38620 & taskkill /F /PID 37988 & taskkill /F /PID 20892 & taskkill /F /PID 28260\")",
+      "Bash(cmd /c \"taskkill /F /IM node.exe 2>nul & echo Processes killed\")",
+      "Bash(cmd /c \"rd /s /q .next 2>nul & echo .next removed\")",
+      "Bash(cmd /c \"timeout /t 30\")"
     ],
     "deny": [],
     "ask": []

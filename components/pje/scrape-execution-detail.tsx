@@ -292,33 +292,38 @@ export function ScrapeExecutionDetail({ executionId }: ScrapeExecutionDetailProp
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              {displayedProcessos.map((processo, index) => (
-                <div
-                  key={processo.numeroProcesso || index}
-                  className="rounded-md border p-3 text-sm"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 space-y-1">
-                      <p className="font-medium font-mono">{processo.numeroProcesso}</p>
-                      {processo.nomeParteAutora && (
-                        <p className="text-muted-foreground">
-                          <span className="font-medium">Autor:</span> {processo.nomeParteAutora}
-                        </p>
-                      )}
-                      {processo.nomeParteRe && (
-                        <p className="text-muted-foreground">
-                          <span className="font-medium">Réu:</span> {processo.nomeParteRe}
-                        </p>
-                      )}
-                      {processo.dataDistribuicao && (
-                        <p className="text-xs text-muted-foreground">
-                          Distribuído em: {new Date(processo.dataDistribuicao).toLocaleDateString('pt-BR')}
-                        </p>
-                      )}
+              {displayedProcessos.map((processo, index) => {
+                const autor = processo.partes?.find(p => p.tipo === 'autor');
+                const reu = processo.partes?.find(p => p.tipo === 'reu');
+
+                return (
+                  <div
+                    key={processo.numero || index}
+                    className="rounded-md border p-3 text-sm"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 space-y-1">
+                        <p className="font-medium font-mono">{processo.numero}</p>
+                        {autor && (
+                          <p className="text-muted-foreground">
+                            <span className="font-medium">Autor:</span> {autor.nome}
+                          </p>
+                        )}
+                        {reu && (
+                          <p className="text-muted-foreground">
+                            <span className="font-medium">Réu:</span> {reu.nome}
+                          </p>
+                        )}
+                        {processo.dataAjuizamento && (
+                          <p className="text-xs text-muted-foreground">
+                            Ajuizado em: {new Date(processo.dataAjuizamento).toLocaleDateString('pt-BR')}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {processos.length > 10 && (

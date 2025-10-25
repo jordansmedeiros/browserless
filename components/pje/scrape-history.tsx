@@ -66,12 +66,12 @@ export function ScrapeHistory({ onViewDetails, refreshTrigger }: ScrapeHistoryPr
     try {
       const result = await listScrapeJobsAction({
         page,
-        limit: 50,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        scrapeType: typeFilter !== 'all' ? typeFilter : undefined,
+        pageSize: 50,
+        status: statusFilter !== 'all' ? [statusFilter as ScrapeJobStatus] : undefined,
+        scrapeType: typeFilter !== 'all' ? [typeFilter as ScrapeType] : undefined,
         tribunalSearch: searchTerm || undefined,
-        dateFrom: dateFrom?.toISOString(),
-        dateTo: dateTo?.toISOString(),
+        startDate: dateFrom,
+        endDate: dateTo,
       });
 
       if (result.success && result.data) {
@@ -265,11 +265,11 @@ export function ScrapeHistory({ onViewDetails, refreshTrigger }: ScrapeHistoryPr
                       <TableCell className="font-medium">
                         {formatDate(job.createdAt)}
                       </TableCell>
-                      <TableCell>{getScrapeTypeLabel(job.scrapeType)}</TableCell>
+                      <TableCell>{getScrapeTypeLabel(job.scrapeType as ScrapeType)}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{job.tribunals.length}</Badge>
                       </TableCell>
-                      <TableCell>{getStatusBadge(job.status)}</TableCell>
+                      <TableCell>{getStatusBadge(job.status as ScrapeJobStatus)}</TableCell>
                       <TableCell>
                         <span className="text-sm font-medium">{getSuccessRate(job)}</span>
                       </TableCell>
