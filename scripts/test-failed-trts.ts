@@ -10,7 +10,10 @@
  * - TRT23: UNEXPECTED_REDIRECT (chrome-error)
  *
  * COMO USAR:
- * node --loader ts-node/esm scripts/test-failed-trts.ts
+ * npm run test:failed-trts
+ *
+ * OU diretamente:
+ * npx tsx scripts/test-failed-trts.ts
  */
 
 import puppeteer from 'puppeteer-extra';
