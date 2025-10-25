@@ -48,6 +48,8 @@ model TribunalConfig {
   tribunalId   String
   raspagens    Raspagem[]
   credenciais  CredencialTribunal[]
+  scrapeJobTribunals ScrapeJobTribunal[]
+  scrapeExecutions   ScrapeExecution[]
 
   @@unique([tribunalId, grau])
   @@index([grau])
@@ -190,4 +192,70 @@ model CredencialTribunal {
   tribunalConfigId String
 
   @@unique([credencialId, tribunalConfigId])
+}
+
+// Modelo: ScrapeJob
+// Representa um job de raspagem (pode incluir múltiplos tribunais)
+model ScrapeJob {
+  id            String   @id @default(uuid())
+  status        String   // "pending" | "running" | "completed" | "failed" | "canceled"
+  scrapeType    String   // "acervo_geral" | "pendentes" | "arquivados" | "minha_pauta"
+  scrapeSubType String?  // "com_dado_ciencia" | "sem_prazo" (for "pendentes" only)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  startedAt     DateTime?
+  completedAt   DateTime?
+
+  // Relações
+  tribunals     ScrapeJobTribunal[]
+  executions    ScrapeExecution[]
+
+  @@index([status])
+  @@index([scrapeType])
+  @@index([createdAt])
+}
+
+// Modelo: ScrapeJobTribunal
+// Representa a associação de um job com um tribunal específico
+model ScrapeJobTribunal {
+  id               String   @id @default(uuid())
+  status           String   // "pending" | "running" | "completed" | "failed" | "canceled"
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relações
+  scrapeJob        ScrapeJob       @relation(fields: [scrapeJobId], references: [id], onDelete: Cascade)
+  scrapeJobId      String
+  tribunalConfig   TribunalConfig  @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
+  tribunalConfigId String
+
+  @@unique([scrapeJobId, tribunalConfigId])
+  @@index([status])
+}
+
+// Modelo: ScrapeExecution
+// Representa uma execução individual de raspagem para um tribunal
+model ScrapeExecution {
+  id               String   @id @default(uuid())
+  status           String   // "pending" | "running" | "completed" | "failed" | "canceled"
+  processosCount   Int      @default(0)
+  resultData       String?  // Compressed JSON: { processos: ProcessoPJE[] }
+  executionLogs    String?  // Logs from script execution
+  errorMessage     String?
+  retryAttempt     Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  startedAt        DateTime?
+  completedAt      DateTime?
+
+  // Relações
+  scrapeJob        ScrapeJob       @relation(fields: [scrapeJobId], references: [id], onDelete: Cascade)
+  scrapeJobId      String
+  tribunalConfig   TribunalConfig  @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
+  tribunalConfigId String
+
+  @@index([status])
+  @@index([scrapeJobId])
+  @@index([tribunalConfigId])
+  @@index([createdAt])
 }

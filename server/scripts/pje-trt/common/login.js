@@ -1,5 +1,9 @@
 /**
- * Login PJE COMPLETO - Versão FINAL com Navegador VISÍVEL
+ * Login PJE COMPLETO - Script Standalone para Testes Manuais
+ *
+ * ⚠️ IMPORTANTE:
+ * Este script é apenas para TESTES MANUAIS. O sistema principal usa
+ * credenciais do BANCO DE DADOS através do gerenciamento em /pje/credentials
  *
  * FLUXO COMPLETO:
  * 1. Acessa página de login do PJE
@@ -10,9 +14,13 @@
  * 6. Aguarda redirecionamento
  *
  * COMO USAR:
- * 1. Configure suas credenciais no arquivo .env (PJE_CPF e PJE_SENHA)
- * 2. Execute: node scripts/pje-trt/common/login.js
- * 3. O navegador vai abrir e você verá tudo acontecendo!
+ * Opção 1 - Linha de comando:
+ *   node server/scripts/pje-trt/common/login.js <CPF> <SENHA>
+ *   Exemplo: node server/scripts/pje-trt/common/login.js 12345678900 minhasenha
+ *
+ * Opção 2 - Variáveis de ambiente (apenas para testes):
+ *   Configure PJE_CPF e PJE_SENHA no arquivo .env
+ *   Execute: node server/scripts/pje-trt/common/login.js
  *
  * DEPENDÊNCIAS:
  * npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
@@ -24,35 +32,28 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 // Adiciona o plugin stealth ANTES de lançar o navegador
 puppeteer.use(StealthPlugin());
 
+// Obtém credenciais via linha de comando ou variáveis de ambiente
+const args = process.argv.slice(2);
+let CPF = args[0] || process.env.PJE_CPF;
+let SENHA = args[1] || process.env.PJE_SENHA;
+
 // Validação de credenciais
-function validarCredenciais() {
-  const credenciaisFaltando = [];
-
-  if (!process.env.PJE_CPF) credenciaisFaltando.push('PJE_CPF');
-  if (!process.env.PJE_SENHA) credenciaisFaltando.push('PJE_SENHA');
-
-  if (credenciaisFaltando.length > 0) {
-    console.error('\n' + '='.repeat(70));
-    console.error('❌ ERRO: Credenciais PJE não configuradas');
-    console.error('='.repeat(70));
-    console.error('\nVariáveis de ambiente faltando:');
-    credenciaisFaltando.forEach(v => console.error(`  - ${v}`));
-    console.error('\n💡 Como configurar:');
-    console.error('  1. Copie o arquivo .env.example para .env');
-    console.error('  2. Preencha as variáveis PJE_CPF e PJE_SENHA');
-    console.error('  3. Execute o script novamente');
-    console.error('\n📖 Consulte o README para mais informações.\n');
-    console.error('='.repeat(70) + '\n');
-    process.exit(1);
-  }
+if (!CPF || !SENHA) {
+  console.error('\n' + '='.repeat(70));
+  console.error('❌ ERRO: Credenciais PJE não fornecidas');
+  console.error('='.repeat(70));
+  console.error('\n💡 Como usar este script:');
+  console.error('\nOpção 1 - Argumentos de linha de comando:');
+  console.error('  node server/scripts/pje-trt/common/login.js <CPF> <SENHA>');
+  console.error('  Exemplo: node server/scripts/pje-trt/common/login.js 12345678900 minhasenha');
+  console.error('\nOpção 2 - Variáveis de ambiente (apenas para testes):');
+  console.error('  1. Configure PJE_CPF e PJE_SENHA no arquivo .env');
+  console.error('  2. Execute: node server/scripts/pje-trt/common/login.js');
+  console.error('\n⚠️  LEMBRE-SE: O sistema principal usa credenciais do BANCO DE DADOS');
+  console.error('   Configure em: http://localhost:3000/pje/credentials\n');
+  console.error('='.repeat(70) + '\n');
+  process.exit(1);
 }
-
-// Valida credenciais antes de prosseguir
-validarCredenciais();
-
-// Lê credenciais das variáveis de ambiente
-const CPF = process.env.PJE_CPF;
-const SENHA = process.env.PJE_SENHA;
 
 // URL da página de login do PJE TRT3
 const PJE_LOGIN_URL = 'https://pje.trt3.jus.br/primeirograu/login.seam';

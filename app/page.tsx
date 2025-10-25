@@ -1,27 +1,45 @@
-import Link from 'next/link';
+/**
+ * Landing Page - Root Route
+ * Main entry point for visitors
+ * Composed of multiple landing page sections
+ */
 
-export default function Home() {
+import { getGitHubStats } from '@/lib/github';
+import { Hero } from '@/components/landing/hero';
+import { About } from '@/components/landing/about';
+import { Features } from '@/components/landing/features';
+import { TechStack } from '@/components/landing/tech-stack';
+import { QuickStart } from '@/components/landing/quick-start';
+import { OpenSource } from '@/components/landing/open-source';
+import { Footer } from '@/components/landing/footer';
+
+export default async function Home() {
+  // Fetch GitHub stats at build time (SSG with ISR)
+  // Fallback to default values if API fails
+  const githubStats = await getGitHubStats();
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm">
-        <h1 className="text-4xl font-bold mb-8 text-center">
-          Browserless PJE
-        </h1>
-        <p className="text-xl text-center mb-8 text-muted-foreground">
-          Plataforma de automação de navegadores e raspagem de dados do PJE (Processo Judicial Eletrônico)
-        </p>
-        <div className="flex flex-col gap-4 items-center">
-          <Link
-            href="/dashboard"
-            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            Acessar Dashboard
-          </Link>
-          <p className="text-sm text-muted-foreground">
-            Baseado em Browserless • Automação PJE TRT3
-          </p>
-        </div>
-      </div>
+    <main className="min-h-screen">
+      {/* Hero Section */}
+      <Hero githubStats={githubStats} />
+
+      {/* About Section */}
+      <About />
+
+      {/* Features Section */}
+      <Features />
+
+      {/* Tech Stack Section */}
+      <TechStack />
+
+      {/* Quick Start Section */}
+      <QuickStart />
+
+      {/* Open Source Section */}
+      <OpenSource />
+
+      {/* Footer */}
+      <Footer />
     </main>
   );
 }

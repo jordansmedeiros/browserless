@@ -7,3 +7,4 @@ export * from './pje';
 export * from './api';
 export * from './tribunal';
 export * from './credentials';
+export * from './scraping';

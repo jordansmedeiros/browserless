@@ -98,9 +98,9 @@ function gerarNomeArquivo() {
 }
 
 async function rasparPendentesManifestation() {
-  console.log('╔═══════════════════════════════════════════════════════════════════╗');
-  console.log('║   RASPAGEM: PENDENTES - NO PRAZO + DADA CIÊNCIA                   ║');
-  console.log('╚═══════════════════════════════════════════════════════════════════╝\n');
+  console.error('╔═══════════════════════════════════════════════════════════════════╗');
+  console.error('║   RASPAGEM: PENDENTES - NO PRAZO + DADA CIÊNCIA                   ║');
+  console.error('╚═══════════════════════════════════════════════════════════════════╝\n');
 
   // Criar diretórios
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -122,7 +122,7 @@ async function rasparPendentesManifestation() {
     // PASSO 1: LOGIN NO PJE
     // ====================================================================
 
-    console.log('🔐 Fazendo login no PJE...\n');
+    console.error('🔐 Fazendo login no PJE...\n');
 
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
 
@@ -142,15 +142,15 @@ async function rasparPendentesManifestation() {
     ]);
 
     // Preenche credenciais - aguarda até 15s para página SSO carregar
-    console.log('⏳ Aguardando página SSO carregar...');
+    console.error('⏳ Aguardando página SSO carregar...');
     await page.waitForSelector('#username', { visible: true, timeout: 15000 });
     await page.type('#username', CPF);
-    console.log('✅ CPF preenchido');
+    console.error('✅ CPF preenchido');
     await delay(1000);
 
     await page.waitForSelector('#password', { visible: true, timeout: 10000 });
     await page.type('#password', SENHA);
-    console.log('✅ Senha preenchida');
+    console.error('✅ Senha preenchida');
     await delay(1500);
 
     // Clica em Entrar
@@ -159,26 +159,26 @@ async function rasparPendentesManifestation() {
       page.click('#kc-login'),
     ]);
 
-    console.log('✅ Login realizado!\n');
+    console.error('✅ Login realizado!\n');
     await delay(5000);
 
     // ====================================================================
     // PASSO 2: DEFINIR ID DO ADVOGADO
     // ====================================================================
 
-    console.log('👤 Configurando ID do advogado...\n');
+    console.error('👤 Configurando ID do advogado...\n');
 
     const idAdvogado = ID_ADVOGADO;
-    console.log(`✅ ID do advogado: ${idAdvogado}\n`);
+    console.error(`✅ ID do advogado: ${idAdvogado}\n`);
 
     // ====================================================================
     // PASSO 3: RASPAR PROCESSOS COM FILTROS
     // ====================================================================
 
-    console.log('📋 Filtros aplicados:');
-    console.log(`   - Prazo: No prazo (${CONFIG.filtros.prazo})`);
-    console.log(`   - Ciência: Dada ciência (${CONFIG.filtros.ciencia})\n`);
-    console.log('🔄 Iniciando raspagem...\n');
+    console.error('📋 Filtros aplicados:');
+    console.error(`   - Prazo: No prazo (${CONFIG.filtros.prazo})`);
+    console.error(`   - Ciência: Dada ciência (${CONFIG.filtros.ciencia})\n`);
+    console.error('🔄 Iniciando raspagem...\n');
 
     const processos = await rasparComFiltros(page, idAdvogado);
 
@@ -186,7 +186,7 @@ async function rasparPendentesManifestation() {
     // PASSO 4: DELETAR ARQUIVOS ANTIGOS
     // ====================================================================
 
-    console.log('\n🗑️  Limpando arquivos antigos...\n');
+    console.error('\n🗑️  Limpando arquivos antigos...\n');
 
     const arquivos = await fs.readdir(DATA_DIR);
     const padrao = new RegExp(`^${CONFIG.agrupador}-${CONFIG.filtros.prazo}-${CONFIG.filtros.ciencia}-`);
@@ -195,7 +195,7 @@ async function rasparPendentesManifestation() {
       if (padrao.test(arquivo)) {
         const caminhoCompleto = path.join(DATA_DIR, arquivo);
         await fs.unlink(caminhoCompleto);
-        console.log(`   ❌ Deletado: ${arquivo}`);
+        console.error(`   ❌ Deletado: ${arquivo}`);
       }
     }
 
@@ -208,32 +208,59 @@ async function rasparPendentesManifestation() {
 
     await fs.writeFile(caminhoArquivo, JSON.stringify(processos, null, 2));
 
-    console.log('\n' + '='.repeat(70));
-    console.log('📊 RELATÓRIO FINAL');
-    console.log('='.repeat(70) + '\n');
-    console.log(`TRT: ${CONFIG.trt.toUpperCase()}`);
-    console.log(`Grau: ${CONFIG.grau.toUpperCase()}`);
-    console.log(`Agrupador: Pendentes de Manifestação`);
-    console.log(`Filtros: No prazo + Dada ciência (${CONFIG.filtros.prazo}-${CONFIG.filtros.ciencia})`);
-    console.log(`Data da raspagem: ${new Date().toISOString()}`);
-    console.log(`Total de processos: ${processos.length}`);
-    console.log(`Arquivo: ${nomeArquivo}\n`);
+    console.error('\n' + '='.repeat(70));
+    console.error('📊 RELATÓRIO FINAL');
+    console.error('='.repeat(70) + '\n');
+    console.error(`TRT: ${CONFIG.trt.toUpperCase()}`);
+    console.error(`Grau: ${CONFIG.grau.toUpperCase()}`);
+    console.error(`Agrupador: Pendentes de Manifestação`);
+    console.error(`Filtros: No prazo + Dada ciência (${CONFIG.filtros.prazo}-${CONFIG.filtros.ciencia})`);
+    console.error(`Data da raspagem: ${new Date().toISOString()}`);
+    console.error(`Total de processos: ${processos.length}`);
+    console.error(`Arquivo: ${nomeArquivo}\n`);
 
     if (processos.length > 0) {
-      console.log('Primeiros 3 processos:');
+      console.error('Primeiros 3 processos:');
       processos.slice(0, 3).forEach((p, i) => {
-        console.log(`  ${i + 1}. ${p.numeroProcesso} - ${p.nomeParteAutora}`);
+        console.error(`  ${i + 1}. ${p.numeroProcesso} - ${p.nomeParteAutora}`);
       });
-      console.log('');
+      console.error('');
     }
 
-    console.log('='.repeat(70));
-    console.log('✅ RASPAGEM CONCLUÍDA!');
-    console.log('='.repeat(70) + '\n');
+    console.error('='.repeat(70));
+    console.error('✅ RASPAGEM CONCLUÍDA!');
+    console.error('='.repeat(70) + '\n');
+
+    // Saída JSON para stdout (para integração com sistema de fila)
+    const resultado = {
+      success: true,
+      processosCount: processos.length,
+      processos: processos,
+      timestamp: new Date().toISOString()
+    };
+    console.log(JSON.stringify(resultado));
 
   } catch (error) {
     console.error('\n❌ Erro:', error.message);
     console.error(error.stack);
+
+    // Saída JSON de erro para stdout
+    const resultadoErro = {
+      success: false,
+      processosCount: 0,
+      processos: [],
+      timestamp: new Date().toISOString(),
+      error: {
+        type: 'script_error',
+        category: 'execution',
+        message: error.message,
+        technicalMessage: error.stack,
+        retryable: false,
+        timestamp: new Date().toISOString()
+      }
+    };
+    console.log(JSON.stringify(resultadoErro));
+    process.exit(1);
   } finally {
     await browser.close();
   }
@@ -287,7 +314,7 @@ async function baixarPDF(page, idProcesso, idDocumento, numeroProcesso) {
 
     return caminhoArquivo;
   } catch (error) {
-    console.log(`      ❌ Erro ao baixar PDF ${numeroProcesso}: ${error.message}`);
+    console.error(`      ❌ Erro ao baixar PDF ${numeroProcesso}: ${error.message}`);
     return null;
   }
 }
@@ -374,7 +401,7 @@ async function rasparComFiltros(page, idAdvogado) {
   let totalPaginas = null;
 
   while (true) {
-    console.log(`   Página ${paginaAtual}/${totalPaginas || '?'}...`);
+    console.error(`   Página ${paginaAtual}/${totalPaginas || '?'}...`);
 
     const resultado = await page.evaluate(async (id, cfg, pagina, tamanho) => {
       try {
@@ -413,16 +440,16 @@ async function rasparComFiltros(page, idAdvogado) {
     // Primeira página - descobre total de páginas
     if (totalPaginas === null) {
       totalPaginas = resultado.qtdPaginas || 1;
-      console.log(`   Total de páginas: ${totalPaginas}`);
-      console.log(`   Total de processos: ${resultado.totalRegistros || '?'}\n`);
+      console.error(`   Total de páginas: ${totalPaginas}`);
+      console.error(`   Total de processos: ${resultado.totalRegistros || '?'}\n`);
     }
 
     // Adiciona processos desta página
     if (resultado.resultado && Array.isArray(resultado.resultado)) {
-      console.log(`   ✅ ${resultado.resultado.length} processos capturados`);
+      console.error(`   ✅ ${resultado.resultado.length} processos capturados`);
 
       // Enriquece cada processo com dados adicionais
-      console.log(`   🔍 Enriquecendo processos com dados adicionais...`);
+      console.error(`   🔍 Enriquecendo processos com dados adicionais...`);
       for (const processo of resultado.resultado) {
         const processoEnriquecido = await enriquecerProcesso(page, processo);
         todosProcessos.push(processoEnriquecido);
@@ -430,7 +457,7 @@ async function rasparComFiltros(page, idAdvogado) {
         // Delay pequeno entre cada processo para não sobrecarregar
         await delay(100);
       }
-      console.log(`   ✅ Enriquecimento concluído`);
+      console.error(`   ✅ Enriquecimento concluído`);
     }
 
     // Verifica se chegou na última página

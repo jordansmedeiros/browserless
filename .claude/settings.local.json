@@ -86,7 +86,12 @@
       "Bash(cmd /c \"if exist .next\\dev\\lock del /f /q .next\\dev\\lock\")",
       "Bash(cmd /c \"netstat -ano | findstr :3000\")",
       "Bash(cmd /c \"rd /s /q .next\")",
-      "Bash(openspec spec list:*)"
+      "Bash(openspec spec list:*)",
+      "Bash(cmd /c \"taskkill /F /IM node.exe 2>nul || echo No node processes found\")",
+      "SlashCommand(/openspec:apply add-landing-page)",
+      "SlashCommand(/openspec:apply:*)",
+      "Bash(cmd /c \"taskkill /F /PID 38620 2>nul || echo Process not found\")",
+      "Bash(cmd /c \"rd /s /q .next\\dev\\cache 2>nul & del /f /q .next\\dev\\lock 2>nul & echo Cleaned\")"
     ],
     "deny": [],
     "ask": []

@@ -82,7 +82,13 @@ Infraestrutura de navegadores headless baseada no projeto [Browserless](https://
 
 #### 🎨 Funcionalidades da Interface
 - ✅ **Dashboard interativo** com estatísticas e navegação
-- ✅ **Login PJE via formulário web** com validação em tempo real
+- ✅ **Gerenciamento de Credenciais** - Sistema completo de escritórios, advogados e credenciais
+  - Suporte a escritórios com múltiplos advogados
+  - Advogados autônomos (sem escritório)
+  - Múltiplas senhas por advogado
+  - Associação flexível de credenciais a tribunais
+  - Auto-detecção do ID do advogado no PJE
+  - Teste de credenciais com rate limiting
 - ✅ **Sidebar de navegação** com rotas ativas destacadas
 - ✅ **Páginas de processos** com placeholders para visualização
 - ✅ **Estados de loading e error** para melhor experiência
@@ -210,24 +216,50 @@ npm run dev
 
 ---
 
-### PJE: Configuração Inicial (CLI)
+### PJE: Configuração de Credenciais
 
-Antes de usar os scripts PJE, configure suas credenciais:
+**🎯 Método Recomendado: Interface Web**
+
+O sistema agora usa **gerenciamento de credenciais via interface web**:
+
+1. **Inicie o servidor de desenvolvimento**:
+   ```bash
+   npm run dev
+   ```
+
+2. **Acesse o gerenciamento de credenciais**:
+   ```
+   http://localhost:3000/pje/credentials
+   ```
+
+3. **Configure suas credenciais**:
+   - Crie um escritório (opcional) ou cadastre-se como advogado autônomo
+   - Adicione seus dados (nome, OAB, CPF)
+   - Cadastre suas senhas e associe aos tribunais
+   - Teste as credenciais antes de usar
+
+**Vantagens**:
+- ✅ Suporta múltiplos escritórios e advogados
+- ✅ Múltiplas senhas por advogado
+- ✅ Uma senha pode funcionar para vários tribunais
+- ✅ Auto-detecta o ID do advogado no PJE
+- ✅ Teste de credenciais integrado
+- ✅ Não precisa editar arquivos `.env`
+
+---
+
+**⚙️ Método Alternativo: Scripts Standalone (apenas para testes)**
+
+Para scripts de teste manual, você ainda pode usar variáveis de ambiente:
 
 ```bash
-# 1. Copie o arquivo de exemplo
-cp .env.example .env
-
-# 2. Edite o arquivo .env e preencha suas credenciais PJE:
-#    - PJE_CPF: Seu CPF (apenas números)
-#    - PJE_SENHA: Sua senha do PJE
-#    - PJE_ID_ADVOGADO: Seu ID de advogado (obtido via API)
+# Executar script standalone com credenciais via linha de comando
+node server/scripts/pje-trt/common/login.js <CPF> <SENHA>
 ```
 
 **Importante**:
-- ⚠️ Nunca commite o arquivo `.env` no Git (já está no `.gitignore`)
-- 🔒 As credenciais ficam apenas no seu ambiente local
-- 📖 Para descobrir seu `PJE_ID_ADVOGADO`, consulte [scripts/pje-trt/README.md](scripts/pje-trt/README.md)
+- ⚠️ O sistema principal **NÃO USA** variáveis de ambiente
+- 🔒 Configure credenciais em `/pje/credentials` para uso em produção
 
 ### PJE: Login Automatizado
 
@@ -250,25 +282,41 @@ O navegador abrirá automaticamente e você verá:
 
 ### PJE: Raspagem de Processos
 
+**🎯 Método Recomendado: Interface Web**
+
+Use a interface web para iniciar raspagens (em desenvolvimento):
+
+```
+http://localhost:3000/pje/scraping
+```
+
+O sistema busca automaticamente as credenciais do banco de dados para cada tribunal.
+
+---
+
+**⚙️ Scripts Standalone (legado)**
+
+Para testes manuais diretos:
+
 ```bash
 # Raspagem do acervo geral
-node scripts/pje-trt/trt3/1g/acervo/raspar-acervo-geral.js
+node server/scripts/pje-trt/trt3/1g/acervo/raspar-acervo-geral.js
 
 # Raspagem de processos pendentes
-node scripts/pje-trt/trt3/1g/pendentes/raspar-pendentes-sem-prazo.js
+node server/scripts/pje-trt/trt3/1g/pendentes/raspar-pendentes-sem-prazo.js
 
 # Raspagem de processos arquivados
-node scripts/pje-trt/trt3/1g/arquivados/raspar-arquivados.js
+node server/scripts/pje-trt/trt3/1g/arquivados/raspar-arquivados.js
 
 # Raspagem da pauta (audiências)
-node scripts/pje-trt/trt3/1g/pauta/raspar-minha-pauta.js
+node server/scripts/pje-trt/trt3/1g/pauta/raspar-minha-pauta.js
 ```
 
 **Resultado**: Arquivos JSON salvos em `data/pje/trt3/1g/`
 
 **Troubleshooting**:
-- Se receber erro de credenciais não configuradas, verifique se o arquivo `.env` existe e está preenchido
-- Se não souber seu `PJE_ID_ADVOGADO`, consulte a documentação em [scripts/pje-trt/README.md](scripts/pje-trt/README.md)
+- ⚠️ **Credenciais não encontradas**: Configure em http://localhost:3000/pje/credentials
+- 📖 Sistema busca credenciais do banco de dados automaticamente
 
 ### Browserless: Servidor Headless
 

@@ -21,8 +21,19 @@ import type {
   TestCredencialResult,
   TRTCode,
   Grau,
+  CreateScrapeJobInput,
+  ScrapeJobWithRelations,
+  ListScrapeJobsFilters,
+  PaginatedScrapeJobs,
+  ScrapeExecutionDetails,
+  ScrapeJobProgress,
+  ScrapeType,
+  ScrapeSubType,
+  ScrapeJobStatus,
 } from '@/lib/types';
 import { z } from 'zod';
+import { scrapeQueue } from '@/lib/services/scrape-queue';
+import { decompressJSON } from '@/lib/utils/compression';
 
 // Lazy load Prisma to avoid edge runtime issues
 async function getPrisma() {
@@ -1073,6 +1084,470 @@ export async function testCredencialAction(
       success: false,
       message: 'Erro ao testar credencial',
       errorDetails: error instanceof Error ? error.message : 'Erro desconhecido',
+    };
+  }
+}
+
+// ============================================================================
+// SCRAPING JOB MANAGEMENT SERVER ACTIONS
+// ============================================================================
+
+// Schema de validação para criação de job
+const createScrapeJobSchema = z.object({
+  tribunalConfigIds: z.array(z.string().uuid()).min(1, 'Selecione ao menos um tribunal'),
+  scrapeType: z.enum(['acervo_geral', 'pendentes', 'arquivados', 'minha_pauta']),
+  scrapeSubType: z.enum(['com_dado_ciencia', 'sem_prazo']).optional(),
+});
+
+/**
+ * Server Action: Create Scrape Job
+ * Creates a new scraping job and enqueues it for execution
+ */
+export async function createScrapeJobAction(input: CreateScrapeJobInput) {
+  try {
+    const prisma = await getPrisma();
+
+    // Validate input
+    const validacao = createScrapeJobSchema.safeParse(input);
+    if (!validacao.success) {
+      return {
+        success: false,
+        error: validacao.error.issues[0].message,
+      };
+    }
+
+    const { tribunalConfigIds, scrapeType, scrapeSubType } = validacao.data;
+
+    // Validate that 'pendentes' has a subtype
+    if (scrapeType === 'pendentes' && !scrapeSubType) {
+      return {
+        success: false,
+        error: 'Para raspagem de "Pendentes", selecione um sub-tipo',
+      };
+    }
+
+    // Validate credentials exist for all tribunals
+    const tribunalsWithCredentials = await prisma.tribunalConfig.findMany({
+      where: {
+        id: {
+          in: tribunalConfigIds,
+        },
+        credenciais: {
+          some: {
+            credencial: {
+              ativa: true,
+            },
+          },
+        },
+      },
+      include: {
+        tribunal: true,
+      },
+    });
+
+    if (tribunalsWithCredentials.length !== tribunalConfigIds.length) {
+      const missing = tribunalConfigIds.filter(
+        id => !tribunalsWithCredentials.find(t => t.id === id)
+      );
+
+      return {
+        success: false,
+        error: `Credenciais não encontradas para alguns tribunais. Cadastre credenciais antes de criar o job.`,
+      };
+    }
+
+    // Create job
+    const job = await prisma.scrapeJob.create({
+      data: {
+        status: 'pending',
+        scrapeType: scrapeType as string,
+        scrapeSubType: scrapeSubType as string | undefined,
+        tribunals: {
+          create: tribunalConfigIds.map(tribunalConfigId => ({
+            tribunalConfigId,
+            status: 'pending',
+          })),
+        },
+      },
+      include: {
+        tribunals: {
+          include: {
+            tribunalConfig: {
+              include: {
+                tribunal: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Enqueue job
+    scrapeQueue.enqueue(job.id);
+
+    console.log(`[createScrapeJobAction] Job ${job.id} created and enqueued`);
+
+    return {
+      success: true,
+      data: {
+        jobId: job.id,
+        tribunalCount: tribunalConfigIds.length,
+      },
+    };
+  } catch (error) {
+    console.error('[createScrapeJobAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao criar job de raspagem',
+    };
+  }
+}
+
+/**
+ * Server Action: List Scrape Jobs
+ * Lists scraping jobs with filtering and pagination
+ */
+export async function listScrapeJobsAction(filters?: ListScrapeJobsFilters) {
+  try {
+    const prisma = await getPrisma();
+
+    const page = filters?.page || 1;
+    const pageSize = filters?.pageSize || 50;
+    const skip = (page - 1) * pageSize;
+
+    // Build where clause
+    const where: any = {};
+
+    if (filters?.status && filters.status.length > 0) {
+      where.status = {
+        in: filters.status,
+      };
+    }
+
+    if (filters?.scrapeType && filters.scrapeType.length > 0) {
+      where.scrapeType = {
+        in: filters.scrapeType,
+      };
+    }
+
+    if (filters?.startDate) {
+      where.createdAt = {
+        gte: filters.startDate,
+      };
+    }
+
+    if (filters?.endDate) {
+      where.createdAt = {
+        ...where.createdAt,
+        lte: filters.endDate,
+      };
+    }
+
+    // Tribunal search
+    if (filters?.tribunalSearch) {
+      where.tribunals = {
+        some: {
+          tribunalConfig: {
+            tribunal: {
+              OR: [
+                { codigo: { contains: filters.tribunalSearch } },
+                { nome: { contains: filters.tribunalSearch } },
+              ],
+            },
+          },
+        },
+      };
+    }
+
+    // Get total count
+    const total = await prisma.scrapeJob.count({ where });
+
+    // Get jobs
+    const jobs = await prisma.scrapeJob.findMany({
+      where,
+      include: {
+        tribunals: {
+          include: {
+            tribunalConfig: {
+              include: {
+                tribunal: true,
+              },
+            },
+          },
+        },
+        executions: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip,
+      take: pageSize,
+    });
+
+    const result: PaginatedScrapeJobs = {
+      jobs: jobs as ScrapeJobWithRelations[],
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+
+    return {
+      success: true,
+      data: result,
+    };
+  } catch (error) {
+    console.error('[listScrapeJobsAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao listar jobs',
+      data: {
+        jobs: [],
+        total: 0,
+        page: 1,
+        pageSize: 50,
+        totalPages: 0,
+      } as PaginatedScrapeJobs,
+    };
+  }
+}
+
+/**
+ * Server Action: Get Scrape Job
+ * Gets detailed information about a specific scraping job
+ */
+export async function getScrapeJobAction(jobId: string) {
+  try {
+    const prisma = await getPrisma();
+
+    const job = await prisma.scrapeJob.findUnique({
+      where: { id: jobId },
+      include: {
+        tribunals: {
+          include: {
+            tribunalConfig: {
+              include: {
+                tribunal: true,
+              },
+            },
+          },
+        },
+        executions: {
+          include: {
+            tribunalConfig: {
+              include: {
+                tribunal: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!job) {
+      return {
+        success: false,
+        error: 'Job não encontrado',
+      };
+    }
+
+    return {
+      success: true,
+      data: job as ScrapeJobWithRelations,
+    };
+  } catch (error) {
+    console.error('[getScrapeJobAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao buscar job',
+    };
+  }
+}
+
+/**
+ * Server Action: Get Scrape Execution
+ * Gets detailed information about a specific execution including decompressed results
+ */
+export async function getScrapeExecutionAction(executionId: string) {
+  try {
+    const prisma = await getPrisma();
+
+    const execution = await prisma.scrapeExecution.findUnique({
+      where: { id: executionId },
+      include: {
+        tribunalConfig: {
+          include: {
+            tribunal: true,
+          },
+        },
+      },
+    });
+
+    if (!execution) {
+      return {
+        success: false,
+        error: 'Execução não encontrada',
+      };
+    }
+
+    // Decompress result data if present
+    let resultDataDecoded;
+    if (execution.resultData) {
+      try {
+        resultDataDecoded = decompressJSON(execution.resultData);
+      } catch (err) {
+        console.error('[getScrapeExecutionAction] Failed to decompress result data:', err);
+      }
+    }
+
+    const result: ScrapeExecutionDetails = {
+      ...execution,
+      resultDataDecoded,
+    };
+
+    return {
+      success: true,
+      data: result,
+    };
+  } catch (error) {
+    console.error('[getScrapeExecutionAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao buscar execução',
+    };
+  }
+}
+
+/**
+ * Server Action: Cancel Scrape Job
+ * Cancels a pending or running scraping job
+ */
+export async function cancelScrapeJobAction(jobId: string) {
+  try {
+    const prisma = await getPrisma();
+
+    // Check if job exists and can be canceled
+    const job = await prisma.scrapeJob.findUnique({
+      where: { id: jobId },
+    });
+
+    if (!job) {
+      return {
+        success: false,
+        error: 'Job não encontrado',
+      };
+    }
+
+    if (job.status === 'completed' || job.status === 'canceled' || job.status === 'failed') {
+      return {
+        success: false,
+        error: 'Job já foi finalizado e não pode ser cancelado',
+      };
+    }
+
+    // Remove from queue if pending
+    scrapeQueue.dequeue(jobId);
+
+    // Update job status
+    await prisma.scrapeJob.update({
+      where: { id: jobId },
+      data: {
+        status: 'canceled',
+        completedAt: new Date(),
+      },
+    });
+
+    // Update pending tribunals
+    await prisma.scrapeJobTribunal.updateMany({
+      where: {
+        scrapeJobId: jobId,
+        status: 'pending',
+      },
+      data: {
+        status: 'canceled',
+      },
+    });
+
+    console.log(`[cancelScrapeJobAction] Job ${jobId} canceled`);
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('[cancelScrapeJobAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao cancelar job',
+    };
+  }
+}
+
+/**
+ * Server Action: Get Active Jobs Status
+ * Gets status of active jobs for client-side polling
+ */
+export async function getActiveJobsStatusAction(jobIds: string[]) {
+  try {
+    const prisma = await getPrisma();
+
+    const jobs = await prisma.scrapeJob.findMany({
+      where: {
+        id: {
+          in: jobIds,
+        },
+      },
+      include: {
+        tribunals: {
+          include: {
+            tribunalConfig: {
+              include: {
+                tribunal: true,
+              },
+            },
+          },
+        },
+        executions: true,
+      },
+    });
+
+    const statuses: ScrapeJobProgress[] = jobs.map(job => {
+      const totalTribunals = job.tribunals.length;
+      const completedTribunals = job.tribunals.filter(t => t.status === 'completed').length;
+      const failedTribunals = job.tribunals.filter(t => t.status === 'failed').length;
+
+      // Find current running tribunal
+      const runningTribunal = job.tribunals.find(t => t.status === 'running');
+      let currentTribunal;
+      if (runningTribunal) {
+        const config = runningTribunal.tribunalConfig;
+        currentTribunal = {
+          codigo: `${config.tribunal.codigo}-${config.grau}`,
+          nome: config.tribunal.nome,
+          status: runningTribunal.status as ScrapeJobStatus,
+        };
+      }
+
+      return {
+        jobId: job.id,
+        status: job.status as ScrapeJobStatus,
+        totalTribunals,
+        completedTribunals,
+        failedTribunals,
+        currentTribunal,
+        progressPercentage: totalTribunals > 0 ? Math.round((completedTribunals / totalTribunals) * 100) : 0,
+      };
+    });
+
+    return {
+      success: true,
+      data: statuses,
+    };
+  } catch (error) {
+    console.error('[getActiveJobsStatusAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao buscar status',
+      data: [],
     };
   }
 }

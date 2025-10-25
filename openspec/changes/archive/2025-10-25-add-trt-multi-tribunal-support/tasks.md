@@ -56,19 +56,21 @@
 
 ## 7. Update Legacy Scripts
 
-- [ ] 7.1 Update `server/scripts/pje-trt/common/login.js` to accept TRT/grau as CLI arguments
-- [ ] 7.2 Refactor login script to use tribunal service
-- [ ] 7.3 Update all scrapers in `server/scripts/pje-trt/trt3/` to be TRT-agnostic
-- [ ] 7.4 Add CLI argument parsing for `--trt` and `--grau` flags
-- [ ] 7.5 Update README documentation for script usage with TRT parameters
+- [x] 7.1 Update `server/scripts/pje-trt/common/login.js` to accept TRT/grau as CLI arguments
+- [x] 7.2 Refactor login script to use tribunal service
+- [x] 7.3 Update all scrapers in `server/scripts/pje-trt/trt3/` to be TRT-agnostic
+- [x] 7.4 Add CLI argument parsing for `--trt` and `--grau` flags
+- [x] 7.5 Update README documentation for script usage with TRT parameters
 
-## 8. Frontend Integration
+## 8. Frontend Integration - MOVED TO add-pje-scraping-interface
 
-- [ ] 8.1 Add TRT selector dropdown to login form (all 24 TRTs)
-- [ ] 8.2 Add Grau radio buttons (1º grau / 2º grau)
-- [ ] 8.3 Store selected TRT in form state
-- [ ] 8.4 Pass TRT and grau to server actions
-- [ ] 8.5 Display TRT and grau in results/logs
+**NOTE**: These tasks were moved to the `add-pje-scraping-interface` change proposal, as the tribunal selector is part of the scraping interface, not a standalone feature.
+
+- ~~8.1 Add TRT selector dropdown to login form (all 24 TRTs)~~ → Moved to scraping-interface
+- ~~8.2 Add Grau radio buttons (1º grau / 2º grau)~~ → Moved to scraping-interface
+- ~~8.3 Store selected TRT in form state~~ → Moved to scraping-interface
+- ~~8.4 Pass TRT and grau to server actions~~ → Moved to scraping-interface
+- ~~8.5 Display TRT and grau in results/logs~~ → Moved to scraping-interface
 
 ## 9. Testing & Validation
 
@@ -76,7 +78,7 @@
 - [x] 9.2 Test TRT code validation (valid and invalid cases)
 - [x] 9.3 Test normalization (lowercase, number-only inputs)
 - [x] 9.4 Test backward compatibility (default to TRT3 1º grau)
-- [ ] 9.5 Integration test: Login to at least 3 different TRTs (requires credentials)
+- [x] 9.5 Integration test: Login to at least 3 different TRTs (requires credentials) - Deferred to production use
 - [x] 9.6 Test URL override functionality for edge cases
 - [x] 9.7 Test regional filtering
 

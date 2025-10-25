@@ -50,8 +50,13 @@ const CPF = process.env.PJE_CPF;
 const SENHA = process.env.PJE_SENHA;
 const ID_ADVOGADO = parseInt(process.env.PJE_ID_ADVOGADO, 10);
 
-const PJE_LOGIN_URL = 'https://pje.trt3.jus.br/primeirograu/login.seam';
+// URLs configuráveis via environment variables (para multi-tribunal)
+const PJE_LOGIN_URL = process.env.PJE_LOGIN_URL || 'https://pje.trt3.jus.br/primeirograu/login.seam';
+const PJE_BASE_URL = process.env.PJE_BASE_URL || 'https://pje.trt3.jus.br';
+const PJE_API_URL = process.env.PJE_API_URL || 'https://pje.trt3.jus.br/pje-comum-api/api';
+
 const DATA_DIR = 'data/pje/processos';
+const SKIP_FILE_OUTPUT = process.env.PJE_OUTPUT_FILE === '';
 
 // ID do agrupamento Acervo Geral
 const ID_ACERVO_GERAL = 1;
@@ -59,9 +64,9 @@ const ID_ACERVO_GERAL = 1;
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function rasparAcervoGeral() {
-  console.log('╔═══════════════════════════════════════════════════════════════════╗');
-  console.log('║     RASPAGEM: ACERVO GERAL                                        ║');
-  console.log('╚═══════════════════════════════════════════════════════════════════╝\n');
+  console.error('╔═══════════════════════════════════════════════════════════════════╗');
+  console.error('║     RASPAGEM: ACERVO GERAL                                        ║');
+  console.error('╚═══════════════════════════════════════════════════════════════════╝\n');
 
   // Criar diretórios
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -82,7 +87,7 @@ async function rasparAcervoGeral() {
     // PASSO 1: LOGIN NO PJE
     // ====================================================================
 
-    console.log('🔐 Fazendo login no PJE...\n');
+    console.error('🔐 Fazendo login no PJE...\n');
 
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
 
@@ -102,15 +107,15 @@ async function rasparAcervoGeral() {
     ]);
 
     // Preenche credenciais - aguarda até 15s para página SSO carregar
-    console.log('⏳ Aguardando página SSO carregar...');
+    console.error('⏳ Aguardando página SSO carregar...');
     await page.waitForSelector('#username', { visible: true, timeout: 15000 });
     await page.type('#username', CPF);
-    console.log('✅ CPF preenchido');
+    console.error('✅ CPF preenchido');
     await delay(1000);
 
     await page.waitForSelector('#password', { visible: true, timeout: 10000 });
     await page.type('#password', SENHA);
-    console.log('✅ Senha preenchida');
+    console.error('✅ Senha preenchida');
     await delay(1500);
 
     // Clica em Entrar
@@ -119,24 +124,24 @@ async function rasparAcervoGeral() {
       page.click('#kc-login'),
     ]);
 
-    console.log('✅ Login realizado!\n');
+    console.error('✅ Login realizado!\n');
     await delay(5000);
 
     // ====================================================================
     // PASSO 2: DEFINIR ID DO ADVOGADO
     // ====================================================================
 
-    console.log('👤 Configurando ID do advogado...\n');
+    console.error('👤 Configurando ID do advogado...\n');
 
     // Usando ID da variável de ambiente
     const idAdvogado = ID_ADVOGADO;
-    console.log(`✅ ID do advogado: ${idAdvogado}\n`);
+    console.error(`✅ ID do advogado: ${idAdvogado}\n`);
 
     // ====================================================================
     // PASSO 3: BUSCAR TOTALIZADORES (para confirmar quantidade)
     // ====================================================================
 
-    console.log('📊 Verificando quantidade de processos do acervo geral...\n');
+    console.error('📊 Verificando quantidade de processos do acervo geral...\n');
 
     const totalizadores = await page.evaluate(async (id) => {
       const response = await fetch(`/pje-comum-api/api/paineladvogado/${id}/totalizadores?tipoPainelAdvogado=0`);
@@ -146,14 +151,14 @@ async function rasparAcervoGeral() {
     const totalizadorAcervo = totalizadores.find(t => t.idAgrupamentoProcessoTarefa === ID_ACERVO_GERAL);
 
     if (totalizadorAcervo) {
-      console.log(`📋 Total de processos no acervo geral: ${totalizadorAcervo.quantidadeProcessos}\n`);
+      console.error(`📋 Total de processos no acervo geral: ${totalizadorAcervo.quantidadeProcessos}\n`);
     }
 
     // ====================================================================
     // PASSO 4: RASPAR TODOS OS PROCESSOS DO ACERVO GERAL
     // ====================================================================
 
-    console.log('🔄 Iniciando raspagem de processos do acervo geral...\n');
+    console.error('🔄 Iniciando raspagem de processos do acervo geral...\n');
 
     const processos = await rasparAgrupamento(page, idAdvogado, ID_ACERVO_GERAL);
 
@@ -161,31 +166,61 @@ async function rasparAcervoGeral() {
     // PASSO 5: SALVAR RESULTADOS
     // ====================================================================
 
-    const filename = `${DATA_DIR}/acervo-geral.json`;
-    await fs.writeFile(filename, JSON.stringify(processos, null, 2));
-
-    console.log('\n' + '='.repeat(70));
-    console.log('📊 RELATÓRIO FINAL');
-    console.log('='.repeat(70) + '\n');
-    console.log(`Data da raspagem: ${new Date().toISOString()}`);
-    console.log(`Total de processos raspados: ${processos.length}`);
-    console.log(`Arquivo salvo: ${filename}\n`);
-
-    if (processos.length > 0) {
-      console.log('Primeiros 3 processos:');
-      processos.slice(0, 3).forEach((p, i) => {
-        console.log(`  ${i + 1}. ${p.numeroProcesso} - ${p.nomeParteAutora}`);
-      });
-      console.log('');
+    // Salvar em arquivo (opcional, para backward compatibility)
+    if (!SKIP_FILE_OUTPUT) {
+      const filename = `${DATA_DIR}/acervo-geral.json`;
+      await fs.writeFile(filename, JSON.stringify(processos, null, 2));
+      console.error(`📁 Arquivo salvo: ${filename}`);
     }
 
-    console.log('='.repeat(70));
-    console.log('✅ RASPAGEM CONCLUÍDA!');
-    console.log('='.repeat(70) + '\n');
+    console.error('\n' + '='.repeat(70));
+    console.error('📊 RELATÓRIO FINAL');
+    console.error('='.repeat(70) + '\n');
+    console.error(`Data da raspagem: ${new Date().toISOString()}`);
+    console.error(`Total de processos raspados: ${processos.length}\n`);
+
+    if (processos.length > 0) {
+      console.error('Primeiros 3 processos:');
+      processos.slice(0, 3).forEach((p, i) => {
+        console.error(`  ${i + 1}. ${p.numeroProcesso} - ${p.nomeParteAutora}`);
+      });
+      console.error('');
+    }
+
+    console.error('='.repeat(70));
+    console.error('✅ RASPAGEM CONCLUÍDA!');
+    console.error('='.repeat(70) + '\n');
+
+    // Saída JSON para stdout (para integração com sistema de fila)
+    const resultado = {
+      success: true,
+      processosCount: processos.length,
+      processos: processos,
+      timestamp: new Date().toISOString()
+    };
+    console.log(JSON.stringify(resultado));
 
   } catch (error) {
     console.error('\n❌ Erro:', error.message);
     console.error(error.stack);
+
+    // Saída JSON de erro para stdout
+    const resultadoErro = {
+      success: false,
+      processosCount: 0,
+      processos: [],
+      timestamp: new Date().toISOString(),
+      error: {
+        type: 'script_error',
+        category: 'execution',
+        message: error.message,
+        technicalMessage: error.stack,
+        retryable: false,
+        timestamp: new Date().toISOString()
+      }
+    };
+    console.log(JSON.stringify(resultadoErro));
+    process.exit(1);
   } finally {
     await browser.close();
   }
@@ -201,7 +236,7 @@ async function rasparAgrupamento(page, idAdvogado, idAgrupamento) {
   let totalPaginas = null;
 
   while (true) {
-    console.log(`   Página ${paginaAtual}/${totalPaginas || '?'}...`);
+    console.error(`   Página ${paginaAtual}/${totalPaginas || '?'}...`);
 
     const resultado = await page.evaluate(async (id, agrupamento, pagina, tamanho) => {
       try {
@@ -226,14 +261,14 @@ async function rasparAgrupamento(page, idAdvogado, idAgrupamento) {
     // Primeira página - descobre total de páginas
     if (totalPaginas === null) {
       totalPaginas = resultado.qtdPaginas || 1;
-      console.log(`   Total de páginas: ${totalPaginas}`);
-      console.log(`   Total de processos: ${resultado.totalRegistros || '?'}\n`);
+      console.error(`   Total de páginas: ${totalPaginas}`);
+      console.error(`   Total de processos: ${resultado.totalRegistros || '?'}\n`);
     }
 
     // Adiciona processos desta página
     if (resultado.resultado && Array.isArray(resultado.resultado)) {
       todosProcessos.push(...resultado.resultado);
-      console.log(`   ✅ ${resultado.resultado.length} processos capturados`);
+      console.error(`   ✅ ${resultado.resultado.length} processos capturados`);
     }
 
     // Verifica se chegou na última página
