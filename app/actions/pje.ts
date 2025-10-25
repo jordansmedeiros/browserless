@@ -39,7 +39,13 @@ export async function loginPJEAction(formData: FormData): Promise<LoginResult> {
       return {
         success: false,
         message: 'Dados inválidos',
-        error: validacao.error.issues[0].message,
+        error: {
+          type: 'VALIDATION_ERROR',
+          category: 'CONFIGURATION',
+          message: validacao.error.issues[0].message,
+          retryable: false,
+          timestamp: new Date().toISOString(),
+        },
       };
     }
 
@@ -52,7 +58,13 @@ export async function loginPJEAction(formData: FormData): Promise<LoginResult> {
     return {
       success: false,
       message: 'Erro interno do servidor',
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
+      error: {
+        type: 'UNKNOWN_ERROR',
+        category: 'UNKNOWN',
+        message: error instanceof Error ? error.message : 'Erro desconhecido',
+        retryable: false,
+        timestamp: new Date().toISOString(),
+      },
     };
   }
 }
@@ -76,7 +88,13 @@ export async function scrapeProcessosPJEAction(
         processos: [],
         total: 0,
         timestamp: new Date().toISOString(),
-        error: validacao.error.issues[0].message,
+        error: {
+          type: 'VALIDATION_ERROR',
+          category: 'CONFIGURATION',
+          message: validacao.error.issues[0].message,
+          retryable: false,
+          timestamp: new Date().toISOString(),
+        },
       };
     }
 
@@ -98,7 +116,13 @@ export async function scrapeProcessosPJEAction(
       processos: [],
       total: 0,
       timestamp: new Date().toISOString(),
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
+      error: {
+        type: 'UNKNOWN_ERROR',
+        category: 'UNKNOWN',
+        message: error instanceof Error ? error.message : 'Erro desconhecido',
+        retryable: false,
+        timestamp: new Date().toISOString(),
+      },
     };
   }
 }
@@ -129,6 +153,867 @@ export async function testConnectionAction(): Promise<{ success: boolean; messag
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Erro de conexão',
+    };
+  }
+}
+
+// ============================================================================
+// CREDENTIALS MANAGEMENT SERVER ACTIONS
+// ============================================================================
+
+import { prisma } from '@/lib/db';
+import type {
+  CreateEscritorioInput,
+  UpdateEscritorioInput,
+  CreateAdvogadoInput,
+  UpdateAdvogadoInput,
+  CreateCredencialInput,
+  UpdateCredencialInput,
+  EscritorioWithAdvogados,
+  AdvogadoWithCredenciais,
+  CredencialWithRelations,
+} from '@/lib/types';
+
+// Schemas de validação
+const escritorioSchema = z.object({
+  nome: z.string().min(1, 'Nome do escritório é obrigatório'),
+});
+
+const advogadoSchema = z.object({
+  nome: z.string().min(1, 'Nome é obrigatório'),
+  oabNumero: z.string().regex(/^\d+$/, 'OAB deve conter apenas números'),
+  oabUf: z.string().length(2, 'UF deve ter 2 caracteres').toUpperCase(),
+  cpf: z.string().regex(/^\d{11}$/, 'CPF deve conter 11 dígitos'),
+  escritorioId: z.string().uuid().optional().nullable(),
+});
+
+const credencialSchema = z.object({
+  advogadoId: z.string().uuid('ID de advogado inválido'),
+  senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  descricao: z.string().optional(),
+  tribunalConfigIds: z.array(z.string().uuid()).min(1, 'Selecione ao menos um tribunal'),
+});
+
+// ============================================================================
+// ESCRITORIO ACTIONS
+// ============================================================================
+
+export async function createEscritorioAction(input: CreateEscritorioInput) {
+  try {
+    const validacao = escritorioSchema.safeParse(input);
+    if (!validacao.success) {
+      return {
+        success: false,
+        error: validacao.error.issues[0].message,
+      };
+    }
+
+    const escritorio = await prisma.escritorio.create({
+      data: {
+        nome: validacao.data.nome,
+      },
+    });
+
+    return {
+      success: true,
+      data: escritorio,
+    };
+  } catch (error) {
+    console.error('[createEscritorioAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao criar escritório',
+    };
+  }
+}
+
+export async function listEscritoriosAction() {
+  try {
+    const escritorios = await prisma.escritorio.findMany({
+      include: {
+        advogados: {
+          include: {
+            credenciais: true,
+          },
+        },
+      },
+      orderBy: {
+        nome: 'asc',
+      },
+    });
+
+    return {
+      success: true,
+      data: escritorios as EscritorioWithAdvogados[],
+    };
+  } catch (error) {
+    console.error('[listEscritoriosAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao listar escritórios',
+      data: [],
+    };
+  }
+}
+
+export async function getEscritorioAction(id: string) {
+  try {
+    const escritorio = await prisma.escritorio.findUnique({
+      where: { id },
+      include: {
+        advogados: {
+          include: {
+            credenciais: true,
+          },
+        },
+      },
+    });
+
+    if (!escritorio) {
+      return {
+        success: false,
+        error: 'Escritório não encontrado',
+      };
+    }
+
+    return {
+      success: true,
+      data: escritorio as EscritorioWithAdvogados,
+    };
+  } catch (error) {
+    console.error('[getEscritorioAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao buscar escritório',
+    };
+  }
+}
+
+export async function updateEscritorioAction(id: string, input: UpdateEscritorioInput) {
+  try {
+    const validacao = escritorioSchema.safeParse(input);
+    if (!validacao.success) {
+      return {
+        success: false,
+        error: validacao.error.issues[0].message,
+      };
+    }
+
+    const escritorio = await prisma.escritorio.update({
+      where: { id },
+      data: {
+        nome: validacao.data.nome,
+      },
+    });
+
+    return {
+      success: true,
+      data: escritorio,
+    };
+  } catch (error) {
+    console.error('[updateEscritorioAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao atualizar escritório',
+    };
+  }
+}
+
+export async function deleteEscritorioAction(id: string) {
+  try {
+    // Verifica se tem advogados
+    const count = await prisma.advogado.count({
+      where: { escritorioId: id },
+    });
+
+    if (count > 0) {
+      return {
+        success: false,
+        error: 'Não é possível deletar um escritório com advogados. Remova os advogados primeiro.',
+      };
+    }
+
+    await prisma.escritorio.delete({
+      where: { id },
+    });
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('[deleteEscritorioAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao deletar escritório',
+    };
+  }
+}
+
+// ============================================================================
+// ADVOGADO ACTIONS
+// ============================================================================
+
+export async function createAdvogadoAction(input: CreateAdvogadoInput) {
+  try {
+    const validacao = advogadoSchema.safeParse(input);
+    if (!validacao.success) {
+      return {
+        success: false,
+        error: validacao.error.issues[0].message,
+      };
+    }
+
+    // Verifica OAB duplicado
+    const existente = await prisma.advogado.findUnique({
+      where: {
+        oabNumero_oabUf: {
+          oabNumero: validacao.data.oabNumero,
+          oabUf: validacao.data.oabUf,
+        },
+      },
+    });
+
+    if (existente) {
+      return {
+        success: false,
+        error: `Já existe um advogado cadastrado com OAB ${validacao.data.oabNumero}/${validacao.data.oabUf}`,
+      };
+    }
+
+    // Verifica se escritório existe
+    if (validacao.data.escritorioId) {
+      const escritorio = await prisma.escritorio.findUnique({
+        where: { id: validacao.data.escritorioId },
+      });
+
+      if (!escritorio) {
+        return {
+          success: false,
+          error: 'Escritório não encontrado',
+        };
+      }
+    }
+
+    const advogado = await prisma.advogado.create({
+      data: {
+        nome: validacao.data.nome,
+        oabNumero: validacao.data.oabNumero,
+        oabUf: validacao.data.oabUf,
+        cpf: validacao.data.cpf,
+        escritorioId: validacao.data.escritorioId || null,
+      },
+    });
+
+    return {
+      success: true,
+      data: advogado,
+    };
+  } catch (error) {
+    console.error('[createAdvogadoAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao criar advogado',
+    };
+  }
+}
+
+export async function listAdvogadosAction(escritorioId?: string) {
+  try {
+    const advogados = await prisma.advogado.findMany({
+      where: escritorioId ? { escritorioId } : undefined,
+      include: {
+        credenciais: {
+          include: {
+            tribunais: {
+              include: {
+                tribunalConfig: {
+                  include: {
+                    tribunal: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        escritorio: true,
+      },
+      orderBy: {
+        nome: 'asc',
+      },
+    });
+
+    return {
+      success: true,
+      data: advogados as AdvogadoWithCredenciais[],
+    };
+  } catch (error) {
+    console.error('[listAdvogadosAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao listar advogados',
+      data: [],
+    };
+  }
+}
+
+export async function getAdvogadoAction(id: string) {
+  try {
+    const advogado = await prisma.advogado.findUnique({
+      where: { id },
+      include: {
+        credenciais: {
+          include: {
+            tribunais: {
+              include: {
+                tribunalConfig: {
+                  include: {
+                    tribunal: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        escritorio: true,
+      },
+    });
+
+    if (!advogado) {
+      return {
+        success: false,
+        error: 'Advogado não encontrado',
+      };
+    }
+
+    return {
+      success: true,
+      data: advogado as AdvogadoWithCredenciais,
+    };
+  } catch (error) {
+    console.error('[getAdvogadoAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao buscar advogado',
+    };
+  }
+}
+
+export async function updateAdvogadoAction(id: string, input: UpdateAdvogadoInput) {
+  try {
+    const advogado = await prisma.advogado.update({
+      where: { id },
+      data: {
+        nome: input.nome,
+        oabNumero: input.oabNumero,
+        oabUf: input.oabUf,
+        cpf: input.cpf,
+        escritorioId: input.escritorioId,
+      },
+    });
+
+    return {
+      success: true,
+      data: advogado,
+    };
+  } catch (error) {
+    console.error('[updateAdvogadoAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao atualizar advogado',
+    };
+  }
+}
+
+export async function deleteAdvogadoAction(id: string) {
+  try {
+    // Cascade delete vai remover credenciais automaticamente
+    await prisma.advogado.delete({
+      where: { id },
+    });
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('[deleteAdvogadoAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao deletar advogado',
+    };
+  }
+}
+
+// ============================================================================
+// CREDENCIAL ACTIONS
+// ============================================================================
+
+export async function createCredencialAction(input: CreateCredencialInput) {
+  try {
+    const validacao = credencialSchema.safeParse(input);
+    if (!validacao.success) {
+      return {
+        success: false,
+        error: validacao.error.issues[0].message,
+      };
+    }
+
+    // Verifica senha duplicada
+    const existente = await prisma.credencial.findUnique({
+      where: {
+        advogadoId_senha: {
+          advogadoId: validacao.data.advogadoId,
+          senha: validacao.data.senha,
+        },
+      },
+    });
+
+    if (existente) {
+      return {
+        success: false,
+        error: 'Esta senha já está cadastrada para este advogado',
+      };
+    }
+
+    // Verifica se tribunais existem
+    const tribunais = await prisma.tribunalConfig.findMany({
+      where: {
+        id: {
+          in: validacao.data.tribunalConfigIds,
+        },
+      },
+      include: {
+        tribunal: true,
+      },
+    });
+
+    if (tribunais.length !== validacao.data.tribunalConfigIds.length) {
+      return {
+        success: false,
+        error: 'Um ou mais tribunais selecionados não existem',
+      };
+    }
+
+    // Cria credencial com associações
+    const credencial = await prisma.credencial.create({
+      data: {
+        senha: validacao.data.senha,
+        descricao: validacao.data.descricao,
+        advogadoId: validacao.data.advogadoId,
+        tribunais: {
+          create: validacao.data.tribunalConfigIds.map((tribunalConfigId) => {
+            const tribunal = tribunais.find((t) => t.id === tribunalConfigId);
+            // Determina tipo baseado no código do tribunal
+            const codigoTribunal = tribunal?.tribunal.codigo || '';
+            let tipoTribunal = 'TRT';
+            if (codigoTribunal.startsWith('TJ')) tipoTribunal = 'TJ';
+            else if (codigoTribunal.startsWith('TRF')) tipoTribunal = 'TRF';
+
+            return {
+              tribunalConfigId,
+              tipoTribunal,
+            };
+          }),
+        },
+      },
+      include: {
+        tribunais: {
+          include: {
+            tribunalConfig: {
+              include: {
+                tribunal: true,
+              },
+            },
+          },
+        },
+        advogado: true,
+      },
+    });
+
+    return {
+      success: true,
+      data: credencial as CredencialWithRelations,
+    };
+  } catch (error) {
+    console.error('[createCredencialAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao criar credencial',
+    };
+  }
+}
+
+export async function listCredenciaisAction(advogadoId: string) {
+  try {
+    const credenciais = await prisma.credencial.findMany({
+      where: { advogadoId },
+      include: {
+        tribunais: {
+          include: {
+            tribunalConfig: {
+              include: {
+                tribunal: true,
+              },
+            },
+          },
+        },
+        advogado: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return {
+      success: true,
+      data: credenciais as CredencialWithRelations[],
+    };
+  } catch (error) {
+    console.error('[listCredenciaisAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao listar credenciais',
+      data: [],
+    };
+  }
+}
+
+export async function getCredencialAction(id: string) {
+  try {
+    const credencial = await prisma.credencial.findUnique({
+      where: { id },
+      include: {
+        tribunais: {
+          include: {
+            tribunalConfig: {
+              include: {
+                tribunal: true,
+              },
+            },
+          },
+        },
+        advogado: true,
+      },
+    });
+
+    if (!credencial) {
+      return {
+        success: false,
+        error: 'Credencial não encontrada',
+      };
+    }
+
+    return {
+      success: true,
+      data: credencial as CredencialWithRelations,
+    };
+  } catch (error) {
+    console.error('[getCredencialAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao buscar credencial',
+    };
+  }
+}
+
+export async function updateCredencialAction(id: string, input: UpdateCredencialInput) {
+  try {
+    const senhaChanged = input.senha !== undefined;
+
+    // Atualiza credencial
+    const updateData: any = {};
+    if (input.senha) updateData.senha = input.senha;
+    if (input.descricao !== undefined) updateData.descricao = input.descricao;
+
+    // Se senha mudou, reseta validações
+    if (senhaChanged && input.tribunalConfigIds) {
+      // Remove associações antigas
+      await prisma.credencialTribunal.deleteMany({
+        where: { credencialId: id },
+      });
+
+      // Busca tribunais para determinar tipos
+      const tribunais = await prisma.tribunalConfig.findMany({
+        where: {
+          id: {
+            in: input.tribunalConfigIds,
+          },
+        },
+        include: {
+          tribunal: true,
+        },
+      });
+
+      // Cria novas associações
+      updateData.tribunais = {
+        create: input.tribunalConfigIds.map((tribunalConfigId) => {
+          const tribunal = tribunais.find((t) => t.id === tribunalConfigId);
+          const codigoTribunal = tribunal?.tribunal.codigo || '';
+          let tipoTribunal = 'TRT';
+          if (codigoTribunal.startsWith('TJ')) tipoTribunal = 'TJ';
+          else if (codigoTribunal.startsWith('TRF')) tipoTribunal = 'TRF';
+
+          return {
+            tribunalConfigId,
+            tipoTribunal,
+            validadoEm: null, // Reset validation
+          };
+        }),
+      };
+    } else if (input.tribunalConfigIds) {
+      // Apenas atualiza associações sem resetar validações
+      const existentes = await prisma.credencialTribunal.findMany({
+        where: { credencialId: id },
+      });
+
+      const existentesIds = existentes.map((e) => e.tribunalConfigId);
+      const novosIds = input.tribunalConfigIds.filter((id) => !existentesIds.includes(id));
+      const removidosIds = existentesIds.filter((id) => !input.tribunalConfigIds!.includes(id));
+
+      // Remove não selecionados
+      if (removidosIds.length > 0) {
+        await prisma.credencialTribunal.deleteMany({
+          where: {
+            credencialId: id,
+            tribunalConfigId: {
+              in: removidosIds,
+            },
+          },
+        });
+      }
+
+      // Adiciona novos
+      if (novosIds.length > 0) {
+        const tribunais = await prisma.tribunalConfig.findMany({
+          where: {
+            id: {
+              in: novosIds,
+            },
+          },
+          include: {
+            tribunal: true,
+          },
+        });
+
+        await prisma.credencialTribunal.createMany({
+          data: novosIds.map((tribunalConfigId) => {
+            const tribunal = tribunais.find((t) => t.id === tribunalConfigId);
+            const codigoTribunal = tribunal?.tribunal.codigo || '';
+            let tipoTribunal = 'TRT';
+            if (codigoTribunal.startsWith('TJ')) tipoTribunal = 'TJ';
+            else if (codigoTribunal.startsWith('TRF')) tipoTribunal = 'TRF';
+
+            return {
+              credencialId: id,
+              tribunalConfigId,
+              tipoTribunal,
+            };
+          }),
+        });
+      }
+    }
+
+    const credencial = await prisma.credencial.update({
+      where: { id },
+      data: updateData,
+      include: {
+        tribunais: {
+          include: {
+            tribunalConfig: {
+              include: {
+                tribunal: true,
+              },
+            },
+          },
+        },
+        advogado: true,
+      },
+    });
+
+    return {
+      success: true,
+      data: credencial as CredencialWithRelations,
+    };
+  } catch (error) {
+    console.error('[updateCredencialAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao atualizar credencial',
+    };
+  }
+}
+
+export async function deleteCredencialAction(id: string) {
+  try {
+    await prisma.credencial.delete({
+      where: { id },
+    });
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('[deleteCredencialAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao deletar credencial',
+    };
+  }
+}
+
+export async function toggleCredencialAction(id: string) {
+  try {
+    const credencial = await prisma.credencial.findUnique({
+      where: { id },
+    });
+
+    if (!credencial) {
+      return {
+        success: false,
+        error: 'Credencial não encontrada',
+      };
+    }
+
+    const updated = await prisma.credencial.update({
+      where: { id },
+      data: {
+        ativa: !credencial.ativa,
+      },
+    });
+
+    return {
+      success: true,
+      data: updated,
+    };
+  } catch (error) {
+    console.error('[toggleCredencialAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao alterar status da credencial',
+    };
+  }
+}
+
+// ============================================================================
+// CREDENTIAL TESTING
+// ============================================================================
+
+import type { TestCredencialResult, TRTCode, Grau } from '@/lib/types';
+
+// Rate limiting - track last test time per credential
+const lastTestTimes = new Map<string, number>();
+const RATE_LIMIT_MS = 10000; // 10 seconds
+
+/**
+ * Testa credencial executando login no PJE
+ * Atualiza o timestamp de validação se bem-sucedido
+ *
+ * @param credencialId ID da credencial
+ * @param tribunalConfigId ID do tribunal config para testar
+ * @returns Resultado do teste
+ */
+export async function testCredencialAction(
+  credencialId: string,
+  tribunalConfigId: string
+): Promise<TestCredencialResult> {
+  try {
+    // Rate limiting
+    const now = Date.now();
+    const lastTest = lastTestTimes.get(credencialId) || 0;
+    const timeSinceLastTest = now - lastTest;
+
+    if (timeSinceLastTest < RATE_LIMIT_MS) {
+      const waitTime = Math.ceil((RATE_LIMIT_MS - timeSinceLastTest) / 1000);
+      return {
+        success: false,
+        message: `Aguarde ${waitTime} segundos antes de testar novamente (proteção anti-bot)`,
+      };
+    }
+
+    // Busca credencial com advogado
+    const credencial = await prisma.credencial.findUnique({
+      where: { id: credencialId },
+      include: {
+        advogado: true,
+        tribunais: {
+          where: {
+            tribunalConfigId,
+          },
+        },
+      },
+    });
+
+    if (!credencial) {
+      return {
+        success: false,
+        message: 'Credencial não encontrada',
+      };
+    }
+
+    if (credencial.tribunais.length === 0) {
+      return {
+        success: false,
+        message: 'Esta credencial não está associada ao tribunal selecionado',
+      };
+    }
+
+    // Busca configuração do tribunal
+    const tribunalConfig = await prisma.tribunalConfig.findUnique({
+      where: { id: tribunalConfigId },
+      include: {
+        tribunal: true,
+      },
+    });
+
+    if (!tribunalConfig) {
+      return {
+        success: false,
+        message: 'Configuração de tribunal não encontrada',
+      };
+    }
+
+    // Atualiza rate limit
+    lastTestTimes.set(credencialId, now);
+
+    // Executa login
+    console.log(`[Test Credential] Testando credencial para ${credencial.advogado.nome} em ${tribunalConfig.tribunal.codigo}-${tribunalConfig.grau}`);
+
+    const resultado = await executarLoginPJE(
+      credencial.advogado.cpf,
+      credencial.senha,
+      tribunalConfig.tribunal.codigo as TRTCode,
+      tribunalConfig.grau as Grau
+    );
+
+    if (resultado.success) {
+      // Atualiza timestamp de validação
+      await prisma.credencialTribunal.updateMany({
+        where: {
+          credencialId,
+          tribunalConfigId,
+        },
+        data: {
+          validadoEm: new Date(),
+        },
+      });
+
+      return {
+        success: true,
+        message: `Login realizado com sucesso!`,
+        advogadoNome: resultado.perfil?.nome || credencial.advogado.nome,
+      };
+    } else {
+      return {
+        success: false,
+        message: resultado.message || 'Falha no login',
+        errorDetails: resultado.error?.message,
+      };
+    }
+  } catch (error) {
+    console.error('[testCredencialAction] Error:', error);
+    return {
+      success: false,
+      message: 'Erro ao testar credencial',
+      errorDetails: error instanceof Error ? error.message : 'Erro desconhecido',
     };
   }
 }

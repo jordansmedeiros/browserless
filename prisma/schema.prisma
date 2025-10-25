@@ -47,6 +47,7 @@ model TribunalConfig {
   tribunal     Tribunal  @relation(fields: [tribunalId], references: [id], onDelete: Cascade)
   tribunalId   String
   raspagens    Raspagem[]
+  credenciais  CredencialTribunal[]
 
   @@unique([tribunalId, grau])
   @@index([grau])
@@ -126,4 +127,67 @@ model Parte {
 
   @@index([tipo])
   @@index([processoId])
+}
+
+// Modelo: Escritorio
+// Representa um escritório de advocacia (ou NULL para advogados autônomos)
+model Escritorio {
+  id              String       @id @default(uuid())
+  nome            String       // "Silva e Matos" or "Dr. Pedro - Autônomo"
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  advogados       Advogado[]
+}
+
+// Modelo: Advogado
+// Representa um advogado com suas informações profissionais
+model Advogado {
+  id              String       @id @default(uuid())
+  nome            String       // "Dr. João Silva"
+  oabNumero       String       // "123456"
+  oabUf           String       // "MG"
+  cpf             String       // "11111111111" - FIXED per lawyer
+  idAdvogado      String?      // Auto-detected from PJE
+  escritorioId    String?      // NULL for solo lawyer
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  escritorio      Escritorio?  @relation(fields: [escritorioId], references: [id], onDelete: SetNull)
+  credenciais     Credencial[]
+
+  @@unique([oabNumero, oabUf])
+  @@index([cpf])
+}
+
+// Modelo: Credencial
+// Representa uma senha de acesso ao PJE (sem CPF, só a senha)
+model Credencial {
+  id              String                @id @default(uuid())
+  senha           String                // Just the password
+  descricao       String?               // "Senha TRT3 1º grau" or "Senha Universal"
+  ativa           Boolean               @default(true)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  advogado        Advogado              @relation(fields: [advogadoId], references: [id], onDelete: Cascade)
+  advogadoId      String
+  tribunais       CredencialTribunal[]
+
+  @@unique([advogadoId, senha])  // Same password cannot be registered twice for same lawyer
+}
+
+// Modelo: CredencialTribunal
+// Representa a associação de uma credencial com um tribunal config
+model CredencialTribunal {
+  id              String       @id @default(uuid())
+  tipoTribunal    String       // "TRT" | "TJ" | "TRF"
+  validadoEm      DateTime?    // When this credential was last validated for this tribunal
+
+  credencial      Credencial      @relation(fields: [credencialId], references: [id], onDelete: Cascade)
+  credencialId    String
+  tribunalConfig  TribunalConfig  @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
+  tribunalConfigId String
+
+  @@unique([credencialId, tribunalConfigId])
 }

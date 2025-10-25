@@ -41,7 +41,13 @@ export async function executarLoginPJE(
       return {
         success: false,
         message: 'CPF e senha são obrigatórios',
-        error: 'MISSING_CREDENTIALS',
+        error: {
+          type: 'MISSING_CREDENTIALS',
+          category: 'CONFIGURATION',
+          message: 'CPF e senha são obrigatórios',
+          retryable: false,
+          timestamp: new Date().toISOString(),
+        },
       };
     }
 
@@ -116,7 +122,14 @@ export async function executarLoginPJE(
       return {
         success: false,
         message: 'CloudFront bloqueou o acesso (403)',
-        error: 'BLOCKED_BY_CLOUDFRONT',
+        error: {
+          type: 'BLOCKED_BY_CLOUDFRONT',
+          category: 'PERMISSION',
+          message: 'CloudFront bloqueou o acesso (403)',
+          retryable: true,
+          timestamp: new Date().toISOString(),
+          details: { url: finalUrl, title },
+        },
       };
     }
 
@@ -161,14 +174,28 @@ export async function executarLoginPJE(
       return {
         success: false,
         message: 'Credenciais incorretas',
-        error: 'INVALID_CREDENTIALS'
+        error: {
+          type: 'INVALID_CREDENTIALS',
+          category: 'CREDENTIALS',
+          message: 'Credenciais incorretas',
+          retryable: false,
+          timestamp: new Date().toISOString(),
+          details: { url: finalUrl },
+        },
       };
     }
 
     return {
       success: false,
       message: 'Resultado inesperado',
-      error: 'UNEXPECTED_RESULT'
+      error: {
+        type: 'UNEXPECTED_RESULT',
+        category: 'UNKNOWN',
+        message: 'Resultado inesperado',
+        retryable: true,
+        timestamp: new Date().toISOString(),
+        details: { url: finalUrl, title },
+      },
     };
 
   } catch (error) {
@@ -176,7 +203,13 @@ export async function executarLoginPJE(
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Erro desconhecido',
-      error: 'UNKNOWN_ERROR'
+      error: {
+        type: 'UNKNOWN_ERROR',
+        category: 'UNKNOWN',
+        message: error instanceof Error ? error.message : 'Erro desconhecido',
+        retryable: false,
+        timestamp: new Date().toISOString(),
+      },
     };
   } finally {
     if (browser) {
@@ -278,7 +311,13 @@ export async function rasparProcessosPJE(
       processos: [],
       total: 0,
       timestamp: new Date().toISOString(),
-      error: error instanceof Error ? error.message : 'Erro desconhecido'
+      error: {
+        type: 'UNKNOWN_ERROR',
+        category: 'UNKNOWN',
+        message: error instanceof Error ? error.message : 'Erro desconhecido',
+        retryable: false,
+        timestamp: new Date().toISOString(),
+      },
     };
   } finally {
     if (browser) {
@@ -347,4 +386,137 @@ async function rasparAgrupamento(page: any, idAdvogado: number, idAgrupamento: n
   }
 
   return todosProcessos;
+}
+
+// ============================================================================
+// CREDENTIAL MANAGEMENT UTILITIES
+// ============================================================================
+
+import { prisma } from '@/lib/db';
+import type { CredencialParaLogin } from '@/lib/types';
+
+/**
+ * Busca credencial ativa para um TribunalConfig específico
+ * Retorna a credencial mais recentemente validada se houver múltiplas
+ *
+ * @param tribunalConfigId ID do TribunalConfig
+ * @returns Credencial com CPF, senha e idAdvogado ou erro
+ */
+export async function getCredencialParaTribunalConfig(
+  tribunalConfigId: string
+): Promise<CredencialParaLogin> {
+  try {
+    console.log(`[Credential] Buscando credencial para tribunalConfigId: ${tribunalConfigId}`);
+
+    // Busca credenciais ativas associadas a este tribunal config
+    const credenciaisTribunal = await prisma.credencialTribunal.findMany({
+      where: {
+        tribunalConfigId,
+        credencial: {
+          ativa: true,
+        },
+      },
+      include: {
+        credencial: {
+          include: {
+            advogado: true,
+          },
+        },
+      },
+      orderBy: {
+        validadoEm: 'desc', // Mais recentemente validado primeiro
+      },
+    });
+
+    if (credenciaisTribunal.length === 0) {
+      const error = new Error(
+        `Nenhuma credencial ativa encontrada para este tribunal.\n\n` +
+        `Configure credenciais em: /pje/credentials`
+      );
+      console.error('[Credential] Erro:', error.message);
+      throw error;
+    }
+
+    // Pega a primeira (mais recentemente validada)
+    const credencialTribunal = credenciaisTribunal[0];
+    const { credencial } = credencialTribunal;
+    const { advogado } = credencial;
+
+    console.log(`[Credential] Credencial encontrada para advogado: ${advogado.nome} (${advogado.oabNumero}/${advogado.oabUf})`);
+
+    return {
+      cpf: advogado.cpf,
+      senha: credencial.senha,
+      idAdvogado: advogado.idAdvogado,
+      advogadoNome: advogado.nome,
+    };
+  } catch (error) {
+    console.error('[Credential] Erro ao buscar credencial:', error);
+    throw error;
+  }
+}
+
+/**
+ * Detecta e salva automaticamente o idAdvogado do PJE
+ * Chamado após login bem-sucedido se o idAdvogado ainda for NULL
+ *
+ * @param advogadoId ID do advogado no banco de dados
+ * @param page Página do Puppeteer após login bem-sucedido
+ */
+export async function detectAndSaveIdAdvogado(
+  advogadoId: string,
+  page: any
+): Promise<void> {
+  try {
+    console.log(`[Auto-detect] Detectando idAdvogado para advogadoId: ${advogadoId}`);
+
+    // Verifica se já tem idAdvogado
+    const advogado = await prisma.advogado.findUnique({
+      where: { id: advogadoId },
+    });
+
+    if (!advogado) {
+      console.error('[Auto-detect] Advogado não encontrado');
+      return;
+    }
+
+    if (advogado.idAdvogado) {
+      console.log(`[Auto-detect] idAdvogado já existe: ${advogado.idAdvogado}`);
+      return;
+    }
+
+    // Busca perfil no PJE
+    const perfil = await page.evaluate(async () => {
+      try {
+        const response = await fetch('/pje-seguranca/api/token/perfis');
+        if (response.ok) {
+          const data = await response.json();
+          return data[0]; // Primeiro perfil
+        }
+        return null;
+      } catch (e) {
+        return null;
+      }
+    });
+
+    if (!perfil || !perfil.id) {
+      console.warn('[Auto-detect] Não foi possível obter idAdvogado do PJE');
+      return;
+    }
+
+    const idAdvogadoPJE = perfil.id.toString();
+
+    // Salva no banco
+    await prisma.advogado.update({
+      where: { id: advogadoId },
+      data: {
+        idAdvogado: idAdvogadoPJE,
+      },
+    });
+
+    console.log(`[Auto-detect] idAdvogado detectado e salvo: ${idAdvogadoPJE}`);
+  } catch (error) {
+    console.error('[Auto-detect] Erro ao detectar idAdvogado:', error);
+    // Não propaga erro - apenas loga e deixa NULL para tentar na próxima vez
+  }
 }

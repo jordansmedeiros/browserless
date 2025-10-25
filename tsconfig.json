@@ -55,6 +55,7 @@
     "server/src",
     "server/build",
     "server/scripts",
+    "scripts",
     "bin"
   ]
 }

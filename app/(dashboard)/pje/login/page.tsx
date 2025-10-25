@@ -27,7 +27,13 @@ export default function PJELoginPage() {
       setResult({
         success: false,
         message: 'Erro ao processar requisição',
-        error: error instanceof Error ? error.message : 'Erro desconhecido',
+        error: {
+          type: 'UNKNOWN_ERROR',
+          category: 'UNKNOWN',
+          message: error instanceof Error ? error.message : 'Erro desconhecido',
+          retryable: false,
+          timestamp: new Date().toISOString(),
+        },
       });
     } finally {
       setLoading(false);
@@ -111,7 +117,7 @@ export default function PJELoginPage() {
                   )}
                   {result.error && (
                     <p className="mt-2 text-sm text-muted-foreground">
-                      Erro: {result.error}
+                      Erro: {result.error.message}
                     </p>
                   )}
                 </AlertDescription>
