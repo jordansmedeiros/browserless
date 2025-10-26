@@ -100,7 +100,13 @@
       "Bash(cmd /c \"taskkill /F /PID 38620 & taskkill /F /PID 37988 & taskkill /F /PID 20892 & taskkill /F /PID 28260\")",
       "Bash(cmd /c \"taskkill /F /IM node.exe 2>nul & echo Processes killed\")",
       "Bash(cmd /c \"rd /s /q .next 2>nul & echo .next removed\")",
-      "Bash(cmd /c \"timeout /t 30\")"
+      "Bash(cmd /c \"timeout /t 30\")",
+      "Bash(cmd /c \"rd /s /q .next 2>nul & echo .next removido\")",
+      "Bash(npx prisma migrate:*)",
+      "Bash(PGPASSWORD=4c6c4d5fb548a9cb psql:*)",
+      "Bash(cmd /c \"taskkill /F /IM node.exe 2>nul || echo No node processes\")",
+      "Bash(cmd /c \"rd /s /q .next 2>nul & echo Cleaned .next\")",
+      "Bash(openspec show:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,5 +1,5 @@
 // Prisma Schema - Browserless PJE
-// Database: SQLite
+// Database: PostgreSQL
 
 generator client {
   provider = "prisma-client-js"
@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
