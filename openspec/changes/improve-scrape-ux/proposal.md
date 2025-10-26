@@ -1,20 +1,32 @@
 # Change Proposal: improve-scrape-ux
 
-## Summary
+## Why
 
-Improve the user experience of the PJE scraping interface by implementing a wizard-based configuration modal, real-time terminal monitoring with animated logs, and a comprehensive results viewer with multiple visualization options.
+The current PJE scraping interface has poor visual hierarchy (modal title smaller than section titles), overwhelming configuration (requires scrolling), no real-time progress visibility during scraping, and no dedicated results viewer for exploring scraped data. These UX issues reduce user efficiency and satisfaction when performing scraping operations.
 
-## Motivation
+## What Changes
 
-The current scraping interface has several UX issues that make it difficult to use:
+- Implement wizard-based configuration modal with 2-step flow (Tribunal Selection → Configuration)
+- Fix visual hierarchy with proper heading sizes and eliminate modal scrolling
+- Add real-time terminal monitor with live log streaming and SSE connection
+- Create dedicated results viewer page with Table/JSON/File Explorer views
+- Implement data filtering, sorting, and export functionality (CSV, JSON, Markdown)
+- Add comprehensive testing suite (unit, performance, accessibility, responsiveness)
 
-1. **Poor Visual Hierarchy**: The modal title font is smaller than section titles, creating confusion
-2. **Overwhelming Interface**: All configuration steps shown at once require scrolling within the modal
-3. **Limited Progress Visibility**: Users cannot see real-time logs or detailed progress during scraping
-4. **No Results Viewer**: Clicking "Details" in scrape history has no dedicated page for viewing scraped data
-5. **Data Exploration Friction**: No easy way to browse, filter, or export scraped process data
+## Impact
 
-These issues reduce user efficiency and satisfaction when performing scraping operations.
+**User Experience Improvements:**
+- Reduced cognitive load with step-by-step wizard
+- Real-time feedback during scraping operations
+- Multiple data visualization options for exploring results
+- Better visual hierarchy and no modal scrolling
+
+**Technical Changes:**
+- New wizard UI components (WizardContainer, WizardStep, WizardNavigation)
+- Backend structured logging service with EventEmitter
+- SSE endpoint for log streaming with fallback polling
+- New scrape results page with tabbed interface
+- 115 automated tests covering critical functionality
 
 ## Scope
 

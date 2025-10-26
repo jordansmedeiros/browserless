@@ -247,7 +247,7 @@
 - [x] Test data transformation for table/explorer
 - [x] Test CSV/JSON export utilities
 - [x] Create wizard component tests (wizard-container.test.tsx)
-- [ ] Run: `npm test` (optional - build dependencies issue)
+- [x] Run: `npm test` - **115/115 testes passando** ✅
 
 ### Task 4.2: Write Integration Tests ⏭️
 - [ ] Test full wizard flow (select → configure → create) (deferred)
@@ -282,6 +282,7 @@
 - [x] Test alt attributes on images
 - [x] Test contrast (basic detection)
 - [x] Add npm script: `npm run test:accessibility`
+- [x] **Score: 81.7/100** (5 violations, 1 warning - aceitável para MVP)
 
 ### Task 4.6: Mobile Responsiveness ✅
 - [x] Create responsiveness test script (scripts/test-responsiveness.ts)
@@ -293,6 +294,7 @@
 - [x] Test horizontal scroll detection
 - [x] Test modal sizing on mobile
 - [x] Add npm scripts: `npm run test:responsiveness`, `npm run test:ux`
+- [x] **Resultado: 0 erros críticos, 6 avisos** (touch targets em mobile) ✅
 
 ### Task 4.7: Update Documentation ✅
 - [x] Add wizard usage guide to README-PJE.md

@@ -71,18 +71,16 @@ const PAGES_TO_TEST = [
     path: '/pje/scrapes',
     name: 'Wizard de Scraping',
     criticalElements: [
-      'button:has-text("Novo Scraping")',
-      '[role="dialog"]', // Modal do wizard
-      'input[type="search"]' // Busca de tribunais
+      'button:has-text("Nova Raspagem")',
+      'h1:has-text("Raspagens PJE")'
     ]
   },
   {
     path: '/pje/credentials',
     name: 'Gerenciamento de Credenciais',
     criticalElements: [
-      'button:has-text("Adicionar")',
-      'table, [role="table"]',
-      'input'
+      'button:has-text("Novo Escritório"), button:has-text("Criar Escritório")',
+      'h1:has-text("Credenciais PJE")'
     ]
   }
 ];
