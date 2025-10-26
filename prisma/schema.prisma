@@ -201,6 +201,7 @@ model ScrapeJob {
   status        String   // "pending" | "running" | "completed" | "failed" | "canceled"
   scrapeType    String   // "acervo_geral" | "pendentes" | "arquivados" | "minha_pauta"
   scrapeSubType String?  // "com_dado_ciencia" | "sem_prazo" (for "pendentes" only)
+  logs          Json?    // Structured logs: Array of { timestamp, level, message, context }
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   startedAt     DateTime?
@@ -240,7 +241,7 @@ model ScrapeExecution {
   status           String   // "pending" | "running" | "completed" | "failed" | "canceled"
   processosCount   Int      @default(0)
   resultData       String?  // Compressed JSON: { processos: ProcessoPJE[] }
-  executionLogs    String?  // Logs from script execution
+  logs             Json?    // Structured logs: Array of { timestamp, level, message, context }
   errorMessage     String?
   retryAttempt     Int      @default(0)
   createdAt        DateTime @default(now())

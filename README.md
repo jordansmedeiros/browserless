@@ -1,4 +1,4 @@
-# 🏛️ Browserless + PJE - Automação Judicial
+JusBrowserless
 
 > **Fork customizado do [Browserless](https://github.com/browserless/browserless)** com extensões para automação do **PJE (Processo Judicial Eletrônico)** do sistema judiciário brasileiro.
 >
@@ -49,7 +49,6 @@ Sistema completo de automação para **todos os 24 TRTs** (Tribunais Regionais d
 - **Extração de dados** de processos judiciais (acervo geral, pendentes, arquivados)
 - **Anti-detecção avançada** usando Puppeteer Stealth Plugin
 - **Type-safe**: TypeScript com validação em tempo de compilação
-- **Backward compatible**: Código existente continua funcionando (default TRT3)
 
 **Status**: ✅ Funcionando e validado com 24 TRTs (24/10/2025)
 
@@ -116,46 +115,6 @@ Frontend (Next.js)    ←→    Backend (Puppeteer)
 **Status**: ✅ Funcionando em desenvolvimento (http://localhost:3000)
 
 ---
-
-### 🏛️ Automação PJE TRT3
-
-#### ✅ Login Automatizado
-- Acesso automático ao PJE via SSO (Single Sign-On)
-- Clique automatizado no botão "Entrar com PDPJ"
-- Preenchimento de CPF e senha com digitação humana
-- Navegação até o painel do usuário
-
-#### ✅ Anti-Detecção de Bots
-- **Puppeteer-Extra Stealth Plugin** - Oculta marcadores de automação
-- **Digitação realista** - Caractere por caractere com delays
-- **Movimento gradual de mouse** - Simula comportamento humano
-- **Headers realistas** - User-Agent do Chrome 131
-- **Navigator.webdriver oculto** - Bypass de detecção comum
-
-#### ✅ Raspagem de Processos
-- **APIs REST descobertas e documentadas** ([ver docs/pje/APIs.md](docs/pje/APIs.md))
-- **Paginação automática** - Extrai todas as páginas de dados
-- **Múltiplas categorias**:
-  - Acervo Geral (1279 processos)
-  - Pendentes de Manifestação (107 processos)
-  - Arquivados (8769 processos)
-- **Dados estruturados** - Salvos em JSON para análise
-- **Rate limiting inteligente** - Respeita limites da API
-
-#### 📊 Dados Capturados por Processo
-```json
-{
-  "numeroProcesso": "0010014-94.2025.5.03.0022",
-  "classeJudicial": "ATOrd",
-  "descricaoOrgaoJulgador": "22ª VARA DO TRABALHO DE BELO HORIZONTE",
-  "codigoStatusProcesso": "DISTRIBUIDO",
-  "nomeParteAutora": "NOME DO AUTOR",
-  "nomeParteRe": "NOME DO RÉU",
-  "dataAutuacao": "2025-01-10T13:03:15.862",
-  "segredoDeJustica": false,
-  "juizoDigital": true
-}
-```
 
 ### 🌐 Plataforma Browserless
 
@@ -228,7 +187,7 @@ npm run dev
 
 **🎯 Método Recomendado: Interface Web**
 
-O sistema agora usa **gerenciamento de credenciais via interface web**:
+O sistema usa **gerenciamento de credenciais via interface web**:
 
 1. **Inicie o servidor de desenvolvimento**:
    ```bash
@@ -413,26 +372,6 @@ http://localhost:3000/pje/scraping
 ```
 
 O sistema busca automaticamente as credenciais do banco de dados para cada tribunal.
-
----
-
-**⚙️ Scripts Standalone (legado)**
-
-Para testes manuais diretos:
-
-```bash
-# Raspagem do acervo geral
-node server/scripts/pje-trt/trt3/1g/acervo/raspar-acervo-geral.js
-
-# Raspagem de processos pendentes
-node server/scripts/pje-trt/trt3/1g/pendentes/raspar-pendentes-sem-prazo.js
-
-# Raspagem de processos arquivados
-node server/scripts/pje-trt/trt3/1g/arquivados/raspar-arquivados.js
-
-# Raspagem da pauta (audiências)
-node server/scripts/pje-trt/trt3/1g/pauta/raspar-minha-pauta.js
-```
 
 **Resultado**: Arquivos JSON salvos em `data/pje/trt3/1g/`
 
@@ -943,6 +882,6 @@ Para problemas da plataforma Browserless:
 
 <div align="center">
   <p><strong>Última atualização</strong>: Outubro 2025</p>
-  <p>Feito com ❤️ para automação judicial brasileira</p>
+  <p>Feito com ❤️ pela Sinesys/p>
   <p>Baseado em <a href="https://github.com/browserless/browserless">Browserless</a> por <a href="https://browserless.io">browserless.io</a></p>
 </div>

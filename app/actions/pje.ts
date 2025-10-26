@@ -1094,7 +1094,8 @@ export async function testCredencialAction(
 
 // Schema de validação para criação de job
 const createScrapeJobSchema = z.object({
-  tribunalConfigIds: z.array(z.string().uuid()).min(1, 'Selecione ao menos um tribunal'),
+  // tribunalConfigIds aceita formato "TRT3-1g" ou UUIDs
+  tribunalConfigIds: z.array(z.string()).min(1, 'Selecione ao menos um tribunal'),
   scrapeType: z.enum(['acervo_geral', 'pendentes', 'arquivados', 'minha_pauta']),
   scrapeSubType: z.enum(['com_dado_ciencia', 'sem_prazo']).optional(),
 });
@@ -1105,11 +1106,13 @@ const createScrapeJobSchema = z.object({
  */
 export async function createScrapeJobAction(input: CreateScrapeJobInput) {
   try {
+    console.log('[createScrapeJobAction] Iniciando criação de job com input:', JSON.stringify(input));
     const prisma = await getPrisma();
 
     // Validate input
     const validacao = createScrapeJobSchema.safeParse(input);
     if (!validacao.success) {
+      console.error('[createScrapeJobAction] Validação falhou:', validacao.error.issues);
       return {
         success: false,
         error: validacao.error.issues[0].message,
@@ -1117,54 +1120,97 @@ export async function createScrapeJobAction(input: CreateScrapeJobInput) {
     }
 
     const { tribunalConfigIds, scrapeType, scrapeSubType } = validacao.data;
+    console.log('[createScrapeJobAction] Input validado:', { tribunalConfigIds, scrapeType, scrapeSubType });
 
     // Validate that 'pendentes' has a subtype
     if (scrapeType === 'pendentes' && !scrapeSubType) {
+      console.error('[createScrapeJobAction] Pendentes sem subtipo');
       return {
         success: false,
         error: 'Para raspagem de "Pendentes", selecione um sub-tipo',
       };
     }
 
+    // Parse tribunal IDs from format "TRT3-1g" to { codigo: "TRT3", grau: "1g" }
+    console.log('[createScrapeJobAction] Parseando IDs de tribunais...');
+    const tribunalQueries = tribunalConfigIds.map(id => {
+      const [codigo, grau] = id.split('-');
+      if (!codigo || !grau) {
+        throw new Error(`ID de tribunal inválido: ${id}. Esperado formato: TRT3-1g`);
+      }
+      return { codigo, grau, originalId: id };
+    });
+    console.log('[createScrapeJobAction] Tribunais parseados:', tribunalQueries);
+
     // Validate credentials exist for all tribunals
-    const tribunalsWithCredentials = await prisma.tribunalConfig.findMany({
-      where: {
-        id: {
-          in: tribunalConfigIds,
-        },
-        credenciais: {
-          some: {
-            credencial: {
-              ativa: true,
-            },
-          },
-        },
-      },
+    // Search by tribunal codigo + grau instead of UUID
+    console.log('[createScrapeJobAction] Buscando tribunais com credenciais...');
+
+    // Step 1: Find all matching tribunal configs
+    const whereClause = {
+      OR: tribunalQueries.map(q => ({
+        AND: [
+          { tribunal: { codigo: q.codigo } },
+          { grau: q.grau }
+        ]
+      }))
+    };
+
+    console.log('[createScrapeJobAction] Query WHERE clause:', JSON.stringify(whereClause, null, 2));
+
+    const allMatchingTribunals = await prisma.tribunalConfig.findMany({
+      where: whereClause,
       include: {
         tribunal: true,
+        credenciais: {
+          where: {
+            credencial: {
+              ativa: true
+            }
+          },
+          include: {
+            credencial: true
+          }
+        }
       },
     });
 
-    if (tribunalsWithCredentials.length !== tribunalConfigIds.length) {
-      const missing = tribunalConfigIds.filter(
-        id => !tribunalsWithCredentials.find(t => t.id === id)
-      );
+    console.log('[createScrapeJobAction] Tribunais encontrados:', allMatchingTribunals.length);
+    console.log('[createScrapeJobAction] Detalhes:', allMatchingTribunals.map(t => ({
+      id: t.id,
+      codigo: t.tribunal.codigo,
+      grau: t.grau,
+      temCredenciais: t.credenciais.length > 0
+    })));
 
+    // Step 2: Filter only those with active credentials
+    const tribunalsWithCredentials = allMatchingTribunals.filter(t => t.credenciais.length > 0);
+
+    console.log('[createScrapeJobAction] Tribunais com credenciais ativas:', tribunalsWithCredentials.length);
+
+    // Validate all requested tribunals were found with credentials
+    if (tribunalsWithCredentials.length !== tribunalConfigIds.length) {
+      const foundIds = tribunalsWithCredentials.map(
+        t => `${t.tribunal.codigo}-${t.grau}`
+      );
+      const missing = tribunalConfigIds.filter(id => !foundIds.includes(id));
+
+      console.error('[createScrapeJobAction] Credenciais faltando para:', missing);
       return {
         success: false,
-        error: `Credenciais não encontradas para alguns tribunais. Cadastre credenciais antes de criar o job.`,
+        error: `Credenciais não encontradas para: ${missing.join(', ')}. Cadastre credenciais antes de criar o job.`,
       };
     }
 
-    // Create job
+    // Create job using real UUIDs from database
     const job = await prisma.scrapeJob.create({
       data: {
         status: 'pending',
         scrapeType: scrapeType as string,
         scrapeSubType: scrapeSubType as string | undefined,
         tribunals: {
-          create: tribunalConfigIds.map(tribunalConfigId => ({
-            tribunalConfigId,
+          create: tribunalsWithCredentials.map(tc => ({
+            tribunalConfigId: tc.id, // Use real UUID from database
             status: 'pending',
           })),
         },
@@ -1605,37 +1651,10 @@ export async function getActiveJobsStatusAction(jobIds: string[]) {
       },
     });
 
-    const statuses: ScrapeJobProgress[] = jobs.map(job => {
-      const totalTribunals = job.tribunals.length;
-      const completedTribunals = job.tribunals.filter(t => t.status === 'completed').length;
-      const failedTribunals = job.tribunals.filter(t => t.status === 'failed').length;
-
-      // Find current running tribunal
-      const runningTribunal = job.tribunals.find(t => t.status === 'running');
-      let currentTribunal;
-      if (runningTribunal) {
-        const config = runningTribunal.tribunalConfig;
-        currentTribunal = {
-          codigo: `${config.tribunal.codigo}-${config.grau}`,
-          nome: config.tribunal.nome,
-          status: runningTribunal.status as ScrapeJobStatus,
-        };
-      }
-
-      return {
-        jobId: job.id,
-        status: job.status as ScrapeJobStatus,
-        totalTribunals,
-        completedTribunals,
-        failedTribunals,
-        currentTribunal,
-        progressPercentage: totalTribunals > 0 ? Math.round((completedTribunals / totalTribunals) * 100) : 0,
-      };
-    });
-
+    // Return full jobs instead of just progress data
     return {
       success: true,
-      data: statuses,
+      data: jobs,
     };
   } catch (error) {
     console.error('[getActiveJobsStatusAction] Error:', error);

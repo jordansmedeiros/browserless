@@ -94,6 +94,7 @@
     "lighthouse": "^13.0.1",
     "lucide-react": "^0.548.0",
     "micromatch": "^4.0.8",
+    "motion": "^12.23.24",
     "next": "^16.0.0",
     "pg": "^8.16.3",
     "playwright-1.51": "npm:playwright-core@1.51.1",

@@ -5,7 +5,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Browserless + PJE | Automação Judicial Open Source',
+  title: 'JusBrowserless',
   description:
     'Plataforma open source de automação judicial brasileira. Navegadores headless (Browserless) + scripts especializados para o PJE (Processo Judicial Eletrônico). Suporte a todos os 24 TRTs.',
   keywords: [
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   authors: [{ name: 'Browserless Contributors' }],
   creator: 'Browserless',
   publisher: 'Browserless',
-  applicationName: 'Browserless + PJE',
+  applicationName: 'JusBrowserless',
   generator: 'Next.js',
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
@@ -34,8 +34,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'pt_BR',
     url: '/',
-    siteName: 'Browserless + PJE',
-    title: 'Browserless + PJE | Automação Judicial Open Source',
+    siteName: 'JusBrowserless',
+    title: 'JusBrowserless',
     description:
       'Plataforma open source de automação judicial brasileira. Navegadores headless + scripts especializados para PJE.',
     images: [
@@ -43,13 +43,13 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Browserless + PJE - Automação Judicial Open Source',
+        alt: 'JusBrowserless',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Browserless + PJE | Automação Judicial Open Source',
+    title: 'JusBrowserless',
     description:
       'Plataforma open source de automação judicial brasileira com suporte a todos os 24 TRTs.',
     images: ['/og-image.png'],

@@ -10,6 +10,7 @@ import { compressJSON } from '@/lib/utils/compression';
 import { SCRAPING_CONCURRENCY } from '@/config/scraping';
 import { ScrapeJobStatus } from '@/lib/types/scraping';
 import { ScrapingError, formatErrorForLog } from '@/lib/errors/scraping-errors';
+import { createJobLogger, type LogEntry } from './scrape-logger';
 
 /**
  * Limita execuções concorrentes dentro de um job
@@ -44,6 +45,9 @@ class ConcurrencyLimiter {
 export async function executeJob(jobId: string): Promise<void> {
   console.log(`[Orchestrator] Starting job ${jobId}`);
 
+  // Create logger for this job
+  const logger = createJobLogger(jobId);
+
   try {
     // Busca o job com seus tribunais
     const job = await prisma.scrapeJob.findUnique({
@@ -75,6 +79,10 @@ export async function executeJob(jobId: string): Promise<void> {
       throw new Error(`Job ${jobId} not found`);
     }
 
+    logger.info(`Iniciando raspagem de ${job.scrapeType}`, {
+      tribunalCount: job.tribunals.length
+    });
+
     // Atualiza status para running
     await prisma.scrapeJob.update({
       where: { id: jobId },
@@ -92,7 +100,7 @@ export async function executeJob(jobId: string): Promise<void> {
     // Executa raspagem para cada tribunal
     const results = await Promise.allSettled(
       job.tribunals.map(jobTribunal =>
-        limiter.run(() => executeTribunalScraping(job, jobTribunal))
+        limiter.run(() => executeTribunalScraping(job, jobTribunal, logger))
       )
     );
 
@@ -101,6 +109,24 @@ export async function executeJob(jobId: string): Promise<void> {
     const failed = results.filter(r => r.status === 'rejected').length;
 
     console.log(`[Orchestrator] Job ${jobId} completed: ${successful} successful, ${failed} failed`);
+
+    if (failed === 0) {
+      logger.success(`Raspagem concluída com sucesso!`, {
+        successful,
+        total: job.tribunals.length
+      });
+    } else if (successful === 0) {
+      logger.error(`Raspagem falhou em todos os tribunais`, {
+        failed,
+        total: job.tribunals.length
+      });
+    } else {
+      logger.warn(`Raspagem concluída com falhas parciais`, {
+        successful,
+        failed,
+        total: job.tribunals.length
+      });
+    }
 
     // Atualiza status final do job
     const finalStatus = failed === 0
@@ -117,10 +143,21 @@ export async function executeJob(jobId: string): Promise<void> {
       },
     });
 
+    // Persiste logs no banco
+    await persistJobLogs(jobId, logger.getLogs());
+
     // Notifica a fila que o job terminou
     scrapeQueue.markAsCompleted(jobId, finalStatus === ScrapeJobStatus.FAILED ? 'failed' : 'completed');
+
+    // Limpa logs da memória
+    logger.clearLogs();
   } catch (error: any) {
     console.error(`[Orchestrator] Job ${jobId} failed with error:`, error);
+
+    logger.error(`Erro crítico na execução do job: ${error.message}`);
+
+    // Persiste logs no banco mesmo em caso de erro
+    await persistJobLogs(jobId, logger.getLogs());
 
     // Atualiza job como failed
     await prisma.scrapeJob.update({
@@ -134,6 +171,9 @@ export async function executeJob(jobId: string): Promise<void> {
     // Notifica a fila
     scrapeQueue.markAsCompleted(jobId, 'failed');
 
+    // Limpa logs da memória
+    logger.clearLogs();
+
     throw error;
   }
 }
@@ -143,12 +183,15 @@ export async function executeJob(jobId: string): Promise<void> {
  */
 async function executeTribunalScraping(
   job: any,
-  jobTribunal: any
+  jobTribunal: any,
+  logger: ReturnType<typeof createJobLogger>
 ): Promise<void> {
   const tribunalConfig = jobTribunal.tribunalConfig;
   const tribunalCodigo = `${tribunalConfig.tribunal.codigo}-${tribunalConfig.grau}`;
 
   console.log(`[Orchestrator] Starting scraping for ${tribunalCodigo} in job ${job.id}`);
+
+  logger.info(`Iniciando raspagem: ${tribunalCodigo}`);
 
   try {
     // Atualiza status do tribunal para running
@@ -158,10 +201,14 @@ async function executeTribunalScraping(
     });
 
     // Busca credenciais válidas para este tribunal
+    logger.info(`Buscando credenciais para ${tribunalCodigo}...`);
     const credentials = await getCredentialsForTribunal(tribunalConfig.id);
     if (!credentials) {
+      logger.error(`Credenciais não encontradas para ${tribunalCodigo}`);
       throw new Error(`No valid credentials found for tribunal ${tribunalCodigo}`);
     }
+
+    logger.info(`Credenciais encontradas, iniciando autenticação...`);
 
     // Cria registro de execução
     const execution = await prisma.scrapeExecution.create({
@@ -184,6 +231,7 @@ async function executeTribunalScraping(
     };
 
     // Executa o script com retry
+    logger.info(`Executando script de raspagem para ${tribunalCodigo}...`);
     const result = await executeScriptWithRetry({
       credentials,
       tribunalConfig: tribunalConfigForScraping,
@@ -192,6 +240,10 @@ async function executeTribunalScraping(
     });
 
     console.log(`[Orchestrator] Scraping completed for ${tribunalCodigo}: ${result.result.processosCount} processes`);
+
+    logger.success(`Raspagem concluída para ${tribunalCodigo}`, {
+      processosCount: result.result.processosCount
+    });
 
     // Comprime os dados de resultado
     const compressedData = compressJSON({
@@ -217,6 +269,8 @@ async function executeTribunalScraping(
     });
   } catch (error: any) {
     console.error(`[Orchestrator] Failed to scrape ${tribunalCodigo}:`, error);
+
+    logger.error(`Falha na raspagem de ${tribunalCodigo}: ${error.message}`);
 
     // Formata o erro
     const errorLog = error instanceof ScrapingError
@@ -287,6 +341,28 @@ async function getCredentialsForTribunal(
     senha: credencialTribunal.credencial.senha,
     idAdvogado: credencialTribunal.credencial.advogado.idAdvogado || '',
   };
+}
+
+/**
+ * Persiste logs do job no banco de dados
+ */
+async function persistJobLogs(jobId: string, logs: LogEntry[]): Promise<void> {
+  if (logs.length === 0) return;
+
+  try {
+    // Atualiza o job com os logs em formato JSON
+    await prisma.scrapeJob.update({
+      where: { id: jobId },
+      data: {
+        logs: JSON.stringify(logs),
+      },
+    });
+
+    console.log(`[Orchestrator] Persisted ${logs.length} logs for job ${jobId}`);
+  } catch (error: any) {
+    console.error(`[Orchestrator] Failed to persist logs for job ${jobId}:`, error);
+    // Não lança erro para não interromper o fluxo
+  }
 }
 
 /**

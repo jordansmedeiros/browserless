@@ -6,6 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -27,34 +28,56 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Plus, Activity, History, Eye, X, RefreshCw } from 'lucide-react';
+import { Plus, Activity, History, Eye, X, RefreshCw, Terminal as TerminalIcon } from 'lucide-react';
 import { ScrapeConfigForm } from '@/components/pje/scrape-config-form';
 import { ScrapeJobMonitor } from '@/components/pje/scrape-job-monitor';
 import { ScrapeHistory } from '@/components/pje/scrape-history';
 import { ScrapeExecutionDetail } from '@/components/pje/scrape-execution-detail';
+import { TerminalMonitor } from '@/components/pje/terminal-monitor';
 import { TRIBUNAL_CONFIGS } from '@/lib/constants/tribunais';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
 export default function ScrapesPage() {
+  const router = useRouter();
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
+  const [terminalJobId, setTerminalJobId] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [newJobIds, setNewJobIds] = useState<string[]>([]);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [formHasChanges, setFormHasChanges] = useState(false);
 
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
   const handleJobCreated = (jobId: string) => {
+    setFormHasChanges(false);
     setShowConfigDialog(false);
     setNewJobIds((prev) => [...prev, jobId]);
     setRefreshTrigger((prev) => prev + 1);
+    // Open terminal monitor for the new job
+    setTerminalJobId(jobId);
+  };
+
+  const handleViewTerminal = (jobId: string) => {
+    setTerminalJobId(jobId);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open && formHasChanges) {
+      // User is trying to close with unsaved changes
+      const confirmed = window.confirm(
+        'Você tem seleções não salvas. Tem certeza que deseja fechar?'
+      );
+      if (!confirmed) {
+        return; // Don't close
+      }
+    }
+    setFormHasChanges(false);
+    setShowConfigDialog(open);
   };
 
   const handleViewDetails = (jobId: string) => {
-    // For now, we'll show execution details when user clicks on a job
-    // In a full implementation, this would navigate to a dedicated page
-    // or open a modal with job details
-    console.log('View job details:', jobId);
+    router.push(`/pje/scrapes/${jobId}`);
   };
 
   const handleViewExecution = (executionId: string) => {
@@ -117,6 +140,7 @@ export default function ScrapesPage() {
               const activeIds = jobs.map((j) => j.id);
               setNewJobIds((prev) => prev.filter((id) => activeIds.includes(id)));
             }}
+            onViewTerminal={handleViewTerminal}
           />
         </TabsContent>
 
@@ -129,37 +153,45 @@ export default function ScrapesPage() {
       </Tabs>
 
       {/* New Scrape Job Dialog/Drawer */}
-      <ConfigComponent open={showConfigDialog} onOpenChange={setShowConfigDialog}>
-        <ConfigTrigger className={isDesktop ? 'max-w-4xl max-h-[90vh] overflow-y-auto' : ''}>
+      <ConfigComponent open={showConfigDialog} onOpenChange={handleDialogClose}>
+        <ConfigTrigger className={isDesktop ? 'max-w-4xl' : ''}>
           {isDesktop ? (
             <>
               <DialogHeader>
-                <DialogTitle>Configurar Nova Raspagem</DialogTitle>
+                <DialogTitle className="text-2xl font-bold">Configurar Nova Raspagem</DialogTitle>
                 <DialogDescription>
-                  Selecione tribunais e tipo de raspagem para iniciar
+                  Configure sua raspagem em 2 etapas simples
                 </DialogDescription>
               </DialogHeader>
               <div className="py-4">
                 <ScrapeConfigForm
                   tribunais={TRIBUNAL_CONFIGS}
                   onJobCreated={handleJobCreated}
-                  onReset={() => setShowConfigDialog(false)}
+                  onReset={() => {
+                    setFormHasChanges(false);
+                    setShowConfigDialog(false);
+                  }}
+                  onFormChange={() => setFormHasChanges(true)}
                 />
               </div>
             </>
           ) : (
             <>
               <DrawerHeader>
-                <DrawerTitle>Configurar Nova Raspagem</DrawerTitle>
+                <DrawerTitle className="text-2xl font-bold">Configurar Nova Raspagem</DrawerTitle>
                 <DrawerDescription>
-                  Selecione tribunais e tipo de raspagem para iniciar
+                  Configure sua raspagem em 2 etapas simples
                 </DrawerDescription>
               </DrawerHeader>
               <div className="px-4 overflow-y-auto max-h-[calc(90vh-200px)]">
                 <ScrapeConfigForm
                   tribunais={TRIBUNAL_CONFIGS}
                   onJobCreated={handleJobCreated}
-                  onReset={() => setShowConfigDialog(false)}
+                  onReset={() => {
+                    setFormHasChanges(false);
+                    setShowConfigDialog(false);
+                  }}
+                  onFormChange={() => setFormHasChanges(true)}
                 />
               </div>
               <DrawerFooter>
@@ -189,6 +221,33 @@ export default function ScrapesPage() {
               </div>
             </DialogHeader>
             <ScrapeExecutionDetail executionId={selectedExecutionId} />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Terminal Monitor Dialog */}
+      {terminalJobId && (
+        <Dialog open={!!terminalJobId} onOpenChange={() => setTerminalJobId(null)}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <TerminalIcon className="h-5 w-5" />
+                  <DialogTitle>Monitor de Raspagem</DialogTitle>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setTerminalJobId(null)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <DialogDescription>
+                Acompanhe o progresso da raspagem em tempo real
+              </DialogDescription>
+            </DialogHeader>
+            <TerminalMonitor jobId={terminalJobId} isRunning={true} />
           </DialogContent>
         </Dialog>
       )}

@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -15,7 +15,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Loader2, X, ChevronDown, ChevronRight, Circle } from 'lucide-react';
+import { Loader2, X, ChevronDown, ChevronRight, Circle, Terminal } from 'lucide-react';
 import { getActiveJobsStatusAction, cancelScrapeJobAction } from '@/app/actions/pje';
 import type { ScrapeJobWithRelations } from '@/lib/types/scraping';
 
@@ -26,13 +26,28 @@ interface ScrapeJobMonitorProps {
   initialJobIds?: string[];
   /** Enable/disable auto-refresh polling (default: true) */
   autoRefresh?: boolean;
+  /** Callback when user clicks "View Terminal" */
+  onViewTerminal?: (jobId: string) => void;
 }
 
-export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = true }: ScrapeJobMonitorProps) {
+export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = true, onViewTerminal }: ScrapeJobMonitorProps) {
   const [jobs, setJobs] = useState<ScrapeJobWithRelations[]>([]);
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   const [cancelingJobs, setCancelingJobs] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+
+  // Use refs to track latest values without triggering re-renders
+  const onJobsUpdateRef = useRef(onJobsUpdate);
+  const initialJobIdsRef = useRef(initialJobIds);
+
+  // Update refs when props change
+  useEffect(() => {
+    onJobsUpdateRef.current = onJobsUpdate;
+  }, [onJobsUpdate]);
+
+  useEffect(() => {
+    initialJobIdsRef.current = initialJobIds;
+  }, [initialJobIds]);
 
   // Polling for active jobs
   useEffect(() => {
@@ -40,9 +55,9 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
 
     const fetchActiveJobs = async () => {
       try {
-        const jobIds = initialJobIds || jobs.map((j) => j.id);
+        const jobIds = initialJobIdsRef.current || jobs.map((j) => j.id);
 
-        if (jobIds.length === 0 && !initialJobIds) {
+        if (jobIds.length === 0 && !initialJobIdsRef.current) {
           // No jobs to monitor yet
           setIsLoading(false);
           return;
@@ -56,7 +71,7 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
           );
 
           setJobs(activeJobs);
-          onJobsUpdate?.(activeJobs);
+          onJobsUpdateRef.current?.(activeJobs);
 
           // Stop polling if no active jobs
           if (activeJobs.length === 0 && intervalId) {
@@ -83,7 +98,8 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
         clearInterval(intervalId);
       }
     };
-  }, [initialJobIds, onJobsUpdate, autoRefresh]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRefresh]);
 
   const toggleExpand = (jobId: string) => {
     setExpandedJobs((prev) => {
@@ -120,6 +136,7 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
   };
 
   const getProgress = (job: ScrapeJobWithRelations): number => {
+    if (!job.tribunals || job.tribunals.length === 0) return 0;
     const total = job.tribunals.length;
     const completed = job.tribunals.filter(
       (t) => t.status === 'completed' || t.status === 'failed'
@@ -128,8 +145,10 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
   };
 
   const getCurrentTribunal = (job: ScrapeJobWithRelations): string | null => {
+    if (!job.tribunals || job.tribunals.length === 0) return null;
     const running = job.tribunals.find((t) => t.status === 'running');
-    return running?.tribunalConfig?.codigo || null;
+    if (!running?.tribunalConfig?.tribunal) return null;
+    return `${running.tribunalConfig.tribunal.codigo}-${running.tribunalConfig.grau}`;
   };
 
   const getScrapeTypeLabel = (type: string): string => {
@@ -207,7 +226,7 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
                     {getScrapeTypeLabel(job.scrapeType)}
                   </CardTitle>
                   <CardDescription>
-                    {job.tribunals.length} {job.tribunals.length === 1 ? 'tribunal' : 'tribunais'}
+                    {job.tribunals?.length || 0} {job.tribunals?.length === 1 ? 'tribunal' : 'tribunais'}
                     {currentTribunal && (
                       <span className="ml-2 font-medium text-foreground">
                         • Raspando: {currentTribunal}
@@ -217,11 +236,22 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
                 </div>
                 <div className="flex items-center gap-2">
                   {getStatusBadge(job.status)}
+                  {onViewTerminal && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onViewTerminal(job.id)}
+                      title="Ver Terminal"
+                    >
+                      <Terminal className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleCancelJob(job.id)}
                     disabled={isCanceling}
+                    title="Cancelar Job"
                   >
                     {isCanceling ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -243,19 +273,20 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
               </div>
 
               {/* Tribunal List */}
-              <Collapsible open={isExpanded} onOpenChange={() => toggleExpand(job.id)}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" className="w-full justify-between">
-                    <span>Ver tribunais ({job.tribunals.length})</span>
-                    {isExpanded ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-2 space-y-2">
-                  {job.tribunals.map((tribunal) => (
+              {job.tribunals && job.tribunals.length > 0 && (
+                <Collapsible open={isExpanded} onOpenChange={() => toggleExpand(job.id)}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full justify-between">
+                      <span>Ver tribunais ({job.tribunals.length})</span>
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2 space-y-2">
+                    {job.tribunals.map((tribunal) => (
                     <div
                       key={tribunal.id}
                       className="flex items-center justify-between rounded-md border p-2 text-sm"
@@ -276,9 +307,10 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
                       </div>
                       {getStatusBadge(tribunal.status)}
                     </div>
-                  ))}
-                </CollapsibleContent>
-              </Collapsible>
+                    ))}
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
             </CardContent>
           </Card>
         );
