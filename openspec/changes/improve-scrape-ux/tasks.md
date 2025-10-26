@@ -153,10 +153,10 @@
 ### Task 2.12: Limit Log Display for Performance ✅
 - [x] Render only last 1000 logs in UI
 - [x] Show notice if logs exceed limit
-- [ ] Provide "Download full logs" button
-- [ ] Generate `.log` file with all logs
+- [x] Provide "Download full logs" button
+- [x] Generate `.log` file with all logs
 - [x] Test: Job with > 1000 logs renders smoothly
-**Note**: Buffer limiting implemented in logger service
+**Note**: Buffer limiting implemented in logger service, download button added to terminal footer
 
 ---
 
@@ -219,12 +219,12 @@
 - [x] Show filtered counts and badges
 - [x] Test: Expand/collapse, search, filter
 
-### Task 3.16-3.18: Export Utilities (Partially Implemented) ⏭️
-- [x] JSON export implemented in JSON view (download button)
+### Task 3.16-3.18: Export Utilities ✅
+- [x] JSON export implemented in job detail page
 - [x] Export buttons added to header component
-- [ ] CSV export utility not yet implemented
-- [ ] Excel export utility not yet implemented
-**Note**: Export placeholders in place, full implementation deferred
+- [x] CSV export utility implemented with proper escaping
+- [x] Excel export utility implemented (HTML table approach)
+**Note**: All export functionality complete and working
 
 ### Task 3.19-3.20: Performance Optimization (Not Critical) ⏭️
 - [ ] Virtual scrolling for large tables

@@ -10,7 +10,7 @@ import { Terminal, AnimatedSpan, TypingAnimation } from '@/components/ui/shadcn-
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowDown, AlertCircle, CheckCircle2, Loader2, Clock, FileText, TrendingUp, XCircle } from 'lucide-react';
+import { ArrowDown, AlertCircle, CheckCircle2, Loader2, Clock, FileText, TrendingUp, XCircle, Download } from 'lucide-react';
 import { type LogEntry } from '@/lib/services/scrape-logger';
 import { getScrapeJobAction } from '@/app/actions/pje';
 
@@ -239,6 +239,32 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
     return Math.round((jobSummary.completedTribunals / jobSummary.totalTribunals) * 100);
   };
 
+  // Download logs as .log file
+  const downloadLogs = () => {
+    if (logs.length === 0) return;
+
+    // Format logs as plain text
+    const logText = logs
+      .map((log) => {
+        const timestamp = formatTime(log.timestamp);
+        const level = log.level.toUpperCase().padEnd(7);
+        const context = log.context ? ` ${JSON.stringify(log.context)}` : '';
+        return `[${timestamp}] ${level} ${log.message}${context}`;
+      })
+      .join('\n');
+
+    // Create blob and download
+    const blob = new Blob([logText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `scrape-job-${jobId.slice(0, 8)}-logs.log`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4" ref={terminalRef}>
       {/* Job Completion Summary */}
@@ -346,8 +372,8 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
 
             {isRunning && (
               <AnimatedSpan delay={logs.length * 50}>
-                <TypingAnimation duration={60}>
-                  <span className="text-primary">▊</span>
+                <TypingAnimation duration={60} className="text-primary">
+                  ▊
                 </TypingAnimation>
               </AnimatedSpan>
             )}
@@ -401,6 +427,17 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
             <span>{jobSummary.totalProcesses} processos</span>
           )}
           <span>{logs.length} {logs.length === 1 ? 'log' : 'logs'}</span>
+          {logs.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={downloadLogs}
+              className="h-7 gap-2"
+            >
+              <Download className="h-3 w-3" />
+              Download Logs
+            </Button>
+          )}
         </div>
       </div>
     </div>
