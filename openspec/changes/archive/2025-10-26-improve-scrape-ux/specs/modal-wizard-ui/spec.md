@@ -4,7 +4,7 @@
 
 Transform the scrape configuration modal into a multi-step wizard with proper visual hierarchy to improve usability and reduce cognitive load.
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Scraping Configuration Form UI
 
