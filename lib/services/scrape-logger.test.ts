@@ -5,7 +5,7 @@
 
 import { describe, it, beforeEach, afterEach } from 'mocha';
 import { expect } from 'chai';
-import { createJobLogger, scrapeLogEmitter, type LogEntry } from './scrape-logger';
+import { createJobLogger, scrapeLoggerService, type LogEntry } from './scrape-logger';
 
 describe('Scrape Logger Service', () => {
   const testJobId = 'test-job-123';
@@ -17,14 +17,15 @@ describe('Scrape Logger Service', () => {
     receivedLogs = [];
 
     // Listen to log events
-    scrapeLogEmitter.on(`job-${testJobId}-log`, (log: LogEntry) => {
+    scrapeLoggerService.attachLogListener(testJobId, (log: LogEntry) => {
       receivedLogs.push(log);
     });
   });
 
   afterEach(() => {
     // Clean up event listeners
-    scrapeLogEmitter.removeAllListeners(`job-${testJobId}-log`);
+    scrapeLoggerService.removeAllListeners();
+    scrapeLoggerService.clearJobLogs(testJobId);
     receivedLogs = [];
   });
 
@@ -169,8 +170,8 @@ describe('Scrape Logger Service', () => {
       const job1Logs: LogEntry[] = [];
       const job2Logs: LogEntry[] = [];
 
-      scrapeLogEmitter.on('job-job-1-log', (log) => job1Logs.push(log));
-      scrapeLogEmitter.on('job-job-2-log', (log) => job2Logs.push(log));
+      scrapeLoggerService.attachLogListener('job-1', (log) => job1Logs.push(log));
+      scrapeLoggerService.attachLogListener('job-2', (log) => job2Logs.push(log));
 
       job1Logger.info('Job 1 message');
       job2Logger.info('Job 2 message');
@@ -181,8 +182,8 @@ describe('Scrape Logger Service', () => {
       expect(job2Logs[0].message).to.equal('Job 2 message');
 
       // Cleanup
-      scrapeLogEmitter.removeAllListeners('job-job-1-log');
-      scrapeLogEmitter.removeAllListeners('job-job-2-log');
+      scrapeLoggerService.clearJobLogs('job-1');
+      scrapeLoggerService.clearJobLogs('job-2');
     });
   });
 

@@ -10,7 +10,9 @@
       "Bash(npx prisma:*)",
       "Bash(openspec validate:*)",
       "Bash(npm install:*)",
-      "Bash(test -f:*)"
+      "Bash(test -f:*)",
+      "Bash(npx mocha:*)",
+      "Bash(npx tsx:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,10 @@
+{
+  "spec": [
+    "lib/**/*.test.ts",
+    "__tests__/**/*.test.ts"
+  ],
+  "node-option": [
+    "import=tsx"
+  ],
+  "timeout": 5000
+}

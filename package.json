@@ -43,7 +43,10 @@
     "pje:scrape": "node server/scripts/pje/raspar-todos-processos.js",
     "test:multi-trt": "node --import ./scripts/ts-loader.mjs scripts/test-all-trts-scraping.ts",
     "test:trt-validation": "node --import ./scripts/ts-loader.mjs scripts/test-multi-trt.ts",
-    "test:failed-trts": "npx tsx scripts/test-failed-trts.ts"
+    "test:failed-trts": "npx tsx scripts/test-failed-trts.ts",
+    "test:accessibility": "npx tsx scripts/test-accessibility.ts",
+    "test:responsiveness": "npx tsx scripts/test-responsiveness.ts",
+    "test:ux": "npm run test:accessibility && npm run test:responsiveness"
   },
   "files": [
     "assets/*",
@@ -229,10 +232,12 @@
     "@types/react-dom": "^19.2.2",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.1",
+    "esbuild": "^0.25.11",
     "happy-dom": "^20.0.8",
     "postcss": "^8.5.6",
     "prisma": "^6.18.0",
     "tailwindcss-animate": "^1.0.7",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   },
   "overrides": {
