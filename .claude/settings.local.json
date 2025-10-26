@@ -12,7 +12,11 @@
       "Bash(npm install:*)",
       "Bash(test -f:*)",
       "Bash(npx mocha:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(curl:*)",
+      "Bash(npm run test:accessibility:*)",
+      "Bash(NEXT_PUBLIC_APP_URL=http://localhost:3003 npm run test:accessibility:*)",
+      "Bash(NEXT_PUBLIC_APP_URL=http://localhost:3003 npm run test:responsiveness:*)"
     ],
     "deny": [],
     "ask": []
