@@ -232,11 +232,17 @@ async function executeTribunalScraping(
 
     // Executa o script com retry
     logger.info(`Executando script de raspagem para ${tribunalCodigo}...`);
+    logger.info('Conectando ao logger de tempo real...');
     const result = await executeScriptWithRetry({
       credentials,
       tribunalConfig: tribunalConfigForScraping,
       scrapeType: job.scrapeType,
       scrapeSubType: job.scrapeSubType,
+      logger: {
+        info: (msg: string, ctx?: any) => logger.info(msg, ctx),
+        warn: (msg: string, ctx?: any) => logger.warn(msg, ctx),
+        error: (msg: string, ctx?: any) => logger.error(msg, ctx),
+      },
     });
 
     console.log(`[Orchestrator] Scraping completed for ${tribunalCodigo}: ${result.result.processosCount} processes`);
@@ -250,6 +256,13 @@ async function executeTribunalScraping(
       processos: result.result.processos,
     });
 
+    // Converte logs de string para estrutura LogEntry
+    const structuredLogs: LogEntry[] = result.logs.map(logLine => ({
+      timestamp: new Date().toISOString(),
+      level: 'info' as const,
+      message: logLine,
+    }));
+
     // Atualiza execução com resultado
     await prisma.scrapeExecution.update({
       where: { id: execution.id },
@@ -257,7 +270,7 @@ async function executeTribunalScraping(
         status: ScrapeJobStatus.COMPLETED,
         processosCount: result.result.processosCount,
         resultData: compressedData,
-        logs: result.logs,
+        logs: structuredLogs,
         completedAt: new Date(),
       },
     });
@@ -272,10 +285,27 @@ async function executeTribunalScraping(
 
     logger.error(`Falha na raspagem de ${tribunalCodigo}: ${error.message}`);
 
-    // Formata o erro
-    const errorLog = error instanceof ScrapingError
-      ? formatErrorForLog(error)
-      : { type: 'unknown', message: error.message, retryable: false, timestamp: new Date().toISOString() };
+    // Formata o erro como LogEntry estruturado
+    const errorLogEntry: LogEntry = error instanceof ScrapingError
+      ? {
+          timestamp: new Date().toISOString(),
+          level: 'error' as const,
+          message: error.message,
+          context: {
+            type: error.type,
+            retryable: error.retryable,
+            ...formatErrorForLog(error),
+          },
+        }
+      : {
+          timestamp: new Date().toISOString(),
+          level: 'error' as const,
+          message: error.message,
+          context: {
+            type: 'unknown',
+            retryable: false,
+          },
+        };
 
     // Atualiza execução como failed
     const execution = await prisma.scrapeExecution.findFirst({
@@ -287,13 +317,15 @@ async function executeTribunalScraping(
     });
 
     if (execution) {
-      const existingLogs = execution.logs ? (Array.isArray(execution.logs) ? execution.logs : [execution.logs]) : [];
+      const existingLogs = execution.logs
+        ? (Array.isArray(execution.logs) ? execution.logs as LogEntry[] : [execution.logs as LogEntry])
+        : [];
       await prisma.scrapeExecution.update({
         where: { id: execution.id },
         data: {
           status: ScrapeJobStatus.FAILED,
-          errorMessage: errorLog.message,
-          logs: [...existingLogs, errorLog],
+          errorMessage: errorLogEntry.message,
+          logs: [...existingLogs, errorLogEntry],
           completedAt: new Date(),
         },
       });

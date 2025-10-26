@@ -3,9 +3,8 @@
  * Executa scripts de raspagem como subprocessos
  */
 
-import { exec, spawn } from 'child_process';
-import { promisify } from 'util';
-import { resolveScriptPath, SCRAPING_RETRY, isRetryableError as configIsRetryable } from '@/config/scraping';
+import { spawn } from 'child_process';
+import { resolveScriptPath, SCRAPING_RETRY } from '@/config/scraping';
 import {
   ScrapingResult,
   ScrapeType,
@@ -13,12 +12,15 @@ import {
 } from '@/lib/types/scraping';
 import {
   classifyError,
-  isRetryableError,
   formatErrorForLog,
   ScrapingError
 } from '@/lib/errors/scraping-errors';
 
-const execAsync = promisify(exec);
+/**
+ * Limite máximo de linhas de log mantidas em memória
+ * Mantém as últimas N linhas para evitar consumo excessivo de memória
+ */
+const MAX_LOG_LINES = 1000;
 
 /**
  * Credenciais para login no PJE
@@ -50,6 +52,7 @@ export interface ExecuteScriptOptions {
   timeout?: number;
   logger?: {
     info: (msg: string, ctx?: any) => void;
+    warn: (msg: string, ctx?: any) => void;
     error: (msg: string, ctx?: any) => void;
   };
 }
@@ -79,8 +82,8 @@ export async function executeScript(
   try {
     // Resolve o caminho do script
     const scriptPath = resolveScriptPath(options.scrapeType, options.scrapeSubType);
-    logs.push(`[Executor] Script path: ${scriptPath}`);
-    logs.push(`[Executor] Tribunal: ${options.tribunalConfig.codigo || options.tribunalConfig.urlBase}`);
+    addLogLine(logs, `[Executor] Script path: ${scriptPath}`);
+    addLogLine(logs, `[Executor] Tribunal: ${options.tribunalConfig.codigo || options.tribunalConfig.urlBase}`);
 
     // Prepara as variáveis de ambiente
     const env = {
@@ -95,28 +98,33 @@ export async function executeScript(
       PJE_OUTPUT_FILE: '',
     };
 
-    logs.push(`[Executor] Starting script execution...`);
+    addLogLine(logs, `[Executor] Starting script execution...`);
 
-    // Executa o script com timeout
+    // Envia log inicial ao logger se presente
+    options.logger?.info(`[Executor] Starting script execution...`);
+
+    // Executa o script com spawn para streaming em tempo real
     const timeout = options.timeout || SCRAPING_RETRY.scriptTimeout;
-    const { stdout, stderr } = await execAsync(`node "${scriptPath}"`, {
+    const { stdout, stderr, exitCode } = await executeScriptWithSpawn(
+      scriptPath,
       env,
       timeout,
-      maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large JSON outputs
-    });
-
-    // Captura stderr como logs
-    if (stderr) {
-      logs.push(`[Script stderr] ${stderr}`);
-    }
+      options.logger,
+      logs
+    );
 
     // Parse do resultado JSON do stdout
-    logs.push(`[Executor] Parsing script output...`);
+    addLogLine(logs, `[Executor] Parsing script output...`);
+    options.logger?.info(`[Executor] Parsing script output...`);
     const result = parseScriptOutput(stdout);
 
     const duration = Date.now() - startTime;
-    logs.push(`[Executor] Execution completed in ${duration}ms`);
-    logs.push(`[Executor] Processes scraped: ${result.processosCount}`);
+    addLogLine(logs, `[Executor] Execution completed in ${duration}ms`);
+    addLogLine(logs, `[Executor] Processes scraped: ${result.processosCount}`);
+
+    // Envia logs finais ao logger
+    options.logger?.info(`[Executor] Execution completed in ${duration}ms`);
+    options.logger?.info(`[Executor] Processes scraped: ${result.processosCount}`);
 
     return {
       result,
@@ -125,16 +133,24 @@ export async function executeScript(
     };
   } catch (error: any) {
     const duration = Date.now() - startTime;
-    logs.push(`[Executor] Execution failed after ${duration}ms`);
+    addLogLine(logs, `[Executor] Execution failed after ${duration}ms`);
 
     // Classifica o erro
     const scrapingError = classifyError(error);
-    logs.push(`[Executor] Error classified as: ${scrapingError.type} (retryable: ${scrapingError.retryable})`);
-    logs.push(`[Executor] Error: ${scrapingError.message}`);
+    addLogLine(logs, `[Executor] Error classified as: ${scrapingError.type} (retryable: ${scrapingError.retryable})`);
+    addLogLine(logs, `[Executor] Error: ${scrapingError.message}`);
+
+    // Envia sumário do erro ao logger
+    options.logger?.error(`[Executor] Execution failed after ${duration}ms`);
+    options.logger?.error(
+      `Erro classificado: ${scrapingError.type} (retryable: ${scrapingError.retryable})`,
+      { type: scrapingError.type, retryable: scrapingError.retryable }
+    );
+    options.logger?.error(scrapingError.message);
 
     // Adiciona stderr ao log se disponível
     if (error.stderr) {
-      logs.push(`[Script stderr] ${error.stderr}`);
+      addLogLine(logs, `[Script stderr] ${error.stderr}`);
     }
 
     throw scrapingError;
@@ -158,10 +174,20 @@ export async function executeScriptWithRetry(
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      allLogs.push(`\n=== Attempt ${attempt + 1}/${maxAttempts} ===`);
+      const attemptMsg = `\n=== Attempt ${attempt + 1}/${maxAttempts} ===`;
+      addLogLine(allLogs, attemptMsg);
+
+      // Envia log de tentativa ao logger se presente
+      if (attempt > 0) {
+        options.logger?.info(`Tentativa ${attempt + 1}/${maxAttempts}...`);
+      }
 
       const result = await executeScript(options);
-      allLogs.push(...result.logs);
+
+      // Adiciona logs respeitando MAX_LOG_LINES
+      for (const line of result.logs) {
+        addLogLine(allLogs, line);
+      }
 
       // Sucesso - retorna resultado
       return {
@@ -170,11 +196,16 @@ export async function executeScriptWithRetry(
       };
     } catch (error: any) {
       lastError = error instanceof ScrapingError ? error : classifyError(error);
-      allLogs.push(`[Retry] Attempt ${attempt + 1} failed: ${lastError.message}`);
+      const failMsg = `[Retry] Attempt ${attempt + 1} failed: ${lastError.message}`;
+      addLogLine(allLogs, failMsg);
+
+      // Envia erro ao logger
+      options.logger?.error(`Tentativa ${attempt + 1} falhou: ${lastError.message}`);
 
       // Se não é retryable, falha imediatamente
       if (!lastError.retryable) {
-        allLogs.push(`[Retry] Error is not retryable, aborting`);
+        addLogLine(allLogs, `[Retry] Error is not retryable, aborting`);
+        options.logger?.error(`Erro não recuperável, abortando`);
         throw Object.assign(lastError, {
           message: `${lastError.message} (after ${attempt + 1} attempt${attempt > 0 ? 's' : ''})`
         });
@@ -182,7 +213,8 @@ export async function executeScriptWithRetry(
 
       // Se é a última tentativa, falha
       if (attempt === maxAttempts - 1) {
-        allLogs.push(`[Retry] Max attempts reached, aborting`);
+        addLogLine(allLogs, `[Retry] Max attempts reached, aborting`);
+        options.logger?.error(`Máximo de tentativas atingido, abortando`);
         throw Object.assign(lastError, {
           message: `${lastError.message} (after ${maxAttempts} attempts)`
         });
@@ -190,13 +222,146 @@ export async function executeScriptWithRetry(
 
       // Aguarda antes de tentar novamente
       const delay = SCRAPING_RETRY.retryDelays[attempt] || SCRAPING_RETRY.retryDelays[SCRAPING_RETRY.retryDelays.length - 1];
-      allLogs.push(`[Retry] Waiting ${delay}ms before retry...`);
+      addLogLine(allLogs, `[Retry] Waiting ${delay}ms before retry...`);
+      options.logger?.info(`Aguardando ${Math.round(delay / 1000)}s antes de tentar novamente...`);
       await sleep(delay);
     }
   }
 
   // Não deveria chegar aqui, mas por garantia
   throw lastError || new Error('Unknown error during retry');
+}
+
+/**
+ * Executa script usando spawn para streaming em tempo real
+ */
+function executeScriptWithSpawn(
+  scriptPath: string,
+  env: NodeJS.ProcessEnv,
+  timeout: number,
+  logger?: { info: (msg: string, ctx?: any) => void; warn: (msg: string, ctx?: any) => void; error: (msg: string, ctx?: any) => void },
+  logs?: string[]
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return new Promise((resolve, reject) => {
+    const childProcess = spawn('node', [scriptPath], {
+      env,
+    });
+
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
+    let timeoutId: NodeJS.Timeout | null = null;
+    let killTimeoutId: NodeJS.Timeout | null = null;
+    let killed = false;
+
+    // Configura timeout manual
+    if (timeout) {
+      timeoutId = setTimeout(() => {
+        killed = true;
+        childProcess.kill('SIGTERM');
+
+        // Escalona para SIGKILL após 5s se o processo não morrer
+        killTimeoutId = setTimeout(() => {
+          childProcess.kill('SIGKILL');
+        }, 5000);
+
+        reject(new Error(`Script execution timed out after ${timeout}ms`));
+      }, timeout);
+    }
+
+    // Processa stderr em tempo real (logs)
+    childProcess.stderr?.on('data', (data: Buffer) => {
+      stderrBuffer += data.toString();
+      const lines = stderrBuffer.split('\n');
+      stderrBuffer = lines.pop() || ''; // Guarda linha incompleta
+
+      lines.forEach(line => {
+        const trimmedLine = line.trim();
+        if (trimmedLine) {
+          const logEntry = `[Script] ${trimmedLine}`;
+
+          // Adiciona ao array local
+          if (logs) {
+            addLogLine(logs, logEntry);
+          }
+
+          // Envia ao logger em tempo real com heurística de severidade
+          if (logger) {
+            const upperLine = trimmedLine.toUpperCase();
+            if (upperLine.startsWith('ERROR') || upperLine.startsWith('FATAL') || upperLine.includes('ERROR:')) {
+              logger.error(trimmedLine);
+            } else if (upperLine.startsWith('WARN') || upperLine.startsWith('WARNING') || upperLine.includes('WARN:')) {
+              logger.warn(trimmedLine);
+            } else {
+              // stderr por padrão é tratado como erro
+              logger.error(trimmedLine);
+            }
+          }
+        }
+      });
+    });
+
+    // Coleta stdout (JSON de resultado)
+    childProcess.stdout?.on('data', (data: Buffer) => {
+      stdoutBuffer += data.toString();
+    });
+
+    // Processa erro do processo
+    childProcess.on('error', (error) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (killTimeoutId) clearTimeout(killTimeoutId);
+      if (!killed) {
+        reject(error);
+      }
+    });
+
+    // Processa finalização
+    childProcess.on('close', (code) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (killTimeoutId) clearTimeout(killTimeoutId);
+
+      if (killed) {
+        return; // Já rejeitado pelo timeout
+      }
+
+      // Processa linha final de stderr se houver
+      if (stderrBuffer.trim()) {
+        const trimmedLine = stderrBuffer.trim();
+        const logEntry = `[Script] ${trimmedLine}`;
+        if (logs) {
+          addLogLine(logs, logEntry);
+        }
+
+        // Envia ao logger com heurística de severidade
+        if (logger) {
+          const upperLine = trimmedLine.toUpperCase();
+          if (upperLine.startsWith('ERROR') || upperLine.startsWith('FATAL') || upperLine.includes('ERROR:')) {
+            logger.error(trimmedLine);
+          } else if (upperLine.startsWith('WARN') || upperLine.startsWith('WARNING') || upperLine.includes('WARN:')) {
+            logger.warn(trimmedLine);
+          } else {
+            // stderr por padrão é tratado como erro
+            logger.error(trimmedLine);
+          }
+        }
+      }
+
+      if (code === 0) {
+        resolve({
+          stdout: stdoutBuffer,
+          stderr: stderrBuffer,
+          exitCode: code,
+        });
+      } else {
+        const error = new Error(`Script exited with code ${code}`);
+        Object.assign(error, {
+          code,
+          stderr: stderrBuffer,
+          stdout: stdoutBuffer,
+        });
+        reject(error);
+      }
+    });
+  });
 }
 
 /**
@@ -208,9 +373,21 @@ export async function executeScriptWithRetry(
  */
 function parseScriptOutput(stdout: string): ScrapingResult {
   try {
-    // Remove linhas de log e mantém apenas o JSON final
     const lines = stdout.trim().split('\n');
-    const jsonLine = lines[lines.length - 1]; // Assume que o JSON é a última linha
+
+    // Busca pela última linha que seja um JSON válido (começa com { e termina com })
+    let jsonLine: string | null = null;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i].trim();
+      if (line.startsWith('{') && line.endsWith('}')) {
+        jsonLine = line;
+        break;
+      }
+    }
+
+    if (!jsonLine) {
+      throw new Error('No valid JSON object found in script output');
+    }
 
     const parsed = JSON.parse(jsonLine);
 
@@ -229,6 +406,19 @@ function parseScriptOutput(stdout: string): ScrapingResult {
     };
   } catch (error: any) {
     throw new Error(`Failed to parse script output: ${error.message}\nOutput: ${stdout.substring(0, 500)}`);
+  }
+}
+
+/**
+ * Adiciona log ao array mantendo limite de linhas
+ * @param logs - Array de logs
+ * @param line - Linha de log a adicionar
+ */
+function addLogLine(logs: string[], line: string): void {
+  logs.push(line);
+  if (logs.length > MAX_LOG_LINES) {
+    // Mantém apenas as últimas MAX_LOG_LINES linhas
+    logs.splice(0, logs.length - MAX_LOG_LINES);
   }
 }
 
