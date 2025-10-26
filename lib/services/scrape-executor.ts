@@ -3,7 +3,7 @@
  * Executa scripts de raspagem como subprocessos
  */
 
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import { resolveScriptPath, SCRAPING_RETRY, isRetryableError as configIsRetryable } from '@/config/scraping';
 import {
@@ -48,6 +48,10 @@ export interface ExecuteScriptOptions {
   scrapeType: ScrapeType;
   scrapeSubType?: ScrapeSubType;
   timeout?: number;
+  logger?: {
+    info: (msg: string, ctx?: any) => void;
+    error: (msg: string, ctx?: any) => void;
+  };
 }
 
 /**
