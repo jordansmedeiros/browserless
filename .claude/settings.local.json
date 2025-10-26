@@ -3,7 +3,14 @@
     "allow": [
       "*",
       "Bash(ls:*)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Bash(openspec list:*)",
+      "Bash(openspec archive add-pje-credentials-management:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma:*)",
+      "Bash(openspec validate:*)",
+      "Bash(npm install:*)",
+      "Bash(test -f:*)"
     ],
     "deny": [],
     "ask": []

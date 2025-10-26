@@ -75,6 +75,119 @@ browserless/
    - Você vê cada ação em tempo real
    - Fica aberto para inspeção
 
+5. **🧙 Wizard de Configuração de Scraping** *(Novo)*
+   - Interface passo-a-passo para configurar scraping
+   - **Etapa 1**: Seleção de tribunais com busca e filtros
+   - **Etapa 2**: Configuração de tipo de scraping e subtipo
+   - Validação em tempo real antes de avançar
+   - Sem necessidade de scroll dentro do modal
+   - Confirmação ao fechar com alterações não salvas
+
+6. **📟 Monitor de Terminal em Tempo Real** *(Novo)*
+   - Acompanhamento de logs de scraping em tempo real via SSE
+   - Logs coloridos por nível (info, success, warn, error)
+   - Auto-scroll inteligente com controle manual
+   - Fallback automático para polling se SSE falhar
+   - Reabrir terminal para jobs em andamento
+   - Download completo de logs em formato .log
+   - Resumo de conclusão com estatísticas
+
+7. **📊 Visualizador de Resultados** *(Novo)*
+   - Página dedicada para visualizar resultados de scraping
+   - **Visualização em Tabela**:
+     - Colunas dinâmicas baseadas nos dados coletados
+     - Ordenação por qualquer coluna
+     - Busca e filtros em tempo real
+     - Paginação configurável (25/50/100/200 itens)
+     - Seleção de múltiplos itens
+   - **Visualização JSON**:
+     - JSON formatado e com highlight
+     - Busca dentro do JSON
+     - Copiar para clipboard
+     - Download do arquivo JSON
+   - **Explorador de Arquivos**:
+     - Estrutura hierárquica (Tribunal → Processos)
+     - Expandir/colapsar nós
+     - Filtro por termo de busca
+     - Detalhes inline dos processos
+   - **Exportação**:
+     - Exportar para CSV
+     - Exportar para JSON
+     - Exportar para Excel (.xls)
+
+---
+
+## 📖 Guias de Uso das Novas Funcionalidades
+
+### 🧙 Como Usar o Wizard de Scraping
+
+1. Acesse a página de scraping: `/pje/scrapes`
+2. Clique em **"Novo Scraping"**
+3. **Etapa 1 - Selecionar Tribunais**:
+   - Use a busca para filtrar tribunais por nome ou código
+   - Marque os tribunais desejados
+   - Clique em **"Próximo"** (desabilitado se nenhum tribunal selecionado)
+4. **Etapa 2 - Configurar Scraping**:
+   - Selecione o tipo de scraping (Todos ou Pendentes)
+   - Se "Pendentes", selecione os subtipos desejados
+   - Revise o resumo da configuração
+   - Clique em **"Iniciar Scraping"**
+5. O terminal abrirá automaticamente mostrando o progresso
+
+### 📟 Como Usar o Monitor de Terminal
+
+**Durante o Scraping**:
+- O terminal abre automaticamente após iniciar um job
+- Logs aparecem em tempo real com cores:
+  - **Verde**: Sucesso
+  - **Vermelho**: Erros
+  - **Amarelo**: Avisos
+  - **Cinza**: Informações gerais
+- Auto-scroll mantém você na última mensagem
+- Clique em **"Rolar para baixo"** se desabilitar o auto-scroll
+
+**Reabrir Terminal**:
+- Na lista de jobs ativos, clique em **"Visualizar Terminal"**
+- Todos os logs anteriores serão carregados
+- Streaming continua se o job ainda estiver rodando
+
+**Ao Concluir**:
+- Resumo com estatísticas aparece automaticamente
+- Download de logs completo disponível no rodapé
+- Terminal pode ser fechado (dados permanecem salvos)
+
+### 📊 Como Usar o Visualizador de Resultados
+
+**Acessar Resultados**:
+1. Vá para `/pje/scrapes`
+2. Clique em **"Ver Detalhes"** em um job concluído
+3. Ou acesse diretamente: `/pje/scrapes/[job-id]`
+
+**Visualização em Tabela**:
+- Clique em cabeçalhos de coluna para ordenar
+- Use a caixa de busca para filtrar processos
+- Ajuste itens por página (25/50/100/200)
+- Selecione múltiplos itens com checkboxes
+- Navegue entre páginas com os controles de paginação
+
+**Visualização JSON**:
+- Veja todos os dados em formato JSON estruturado
+- Use a busca para encontrar campos específicos
+- Clique em **"Copiar JSON"** para clipboard
+- Clique em **"Download JSON"** para salvar arquivo
+
+**Explorador de Arquivos**:
+- Navegue pela estrutura hierárquica
+- Clique em tribunais para expandir/colapsar
+- Clique em processos para ver detalhes
+- Use **"Expandir Tudo"** / **"Colapsar Tudo"** para controle rápido
+- Filtro de busca funciona em toda a árvore
+
+**Exportar Dados**:
+- **CSV**: Compatível com Excel, Google Sheets
+- **JSON**: Formato estruturado para programação
+- **Excel**: Arquivo .xls direto para Microsoft Excel
+
 ---
 
 ## 📊 Resultado do Teste
@@ -142,6 +255,14 @@ Veja a [documentação completa](scripts/pje/README.md) para mais soluções.
 
 ## 📝 Changelog
 
+### v2.0.0 - 26/10/2025
+- ✅ Wizard de configuração de scraping com 2 etapas
+- ✅ Monitor de terminal em tempo real com SSE
+- ✅ Visualizador de resultados com 3 modos de visualização
+- ✅ Exportação de dados (CSV, JSON, Excel)
+- ✅ Conexão PostgreSQL configurada
+- ✅ Sistema de gerenciamento de credenciais completo
+
 ### v1.0.0 - 24/10/2025
 - ✅ Login funcionando com sucesso
 - ✅ Anti-detecção completo
@@ -150,5 +271,5 @@ Veja a [documentação completa](scripts/pje/README.md) para mais soluções.
 
 ---
 
-**Última atualização**: 24 de Outubro de 2025
-**Compatível com**: PJE TRT3
+**Última atualização**: 26 de Outubro de 2025
+**Compatível com**: PJE TRT3, TRT (todos), TJ, TRF

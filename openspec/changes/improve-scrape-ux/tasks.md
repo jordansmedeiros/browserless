@@ -281,17 +281,17 @@
 - [ ] Test results page on various screen sizes
 - [ ] Adjust layouts for mobile if needed
 
-### Task 4.7: Update Documentation
-- [ ] Add wizard usage guide to README-PJE.md
-- [ ] Document terminal monitoring feature
-- [ ] Document results viewer capabilities
-- [ ] Add screenshots to docs
+### Task 4.7: Update Documentation ✅
+- [x] Add wizard usage guide to README-PJE.md
+- [x] Document terminal monitoring feature
+- [x] Document results viewer capabilities
+- [ ] Add screenshots to docs (optional, can be added later)
 
-### Task 4.8: Validate OpenSpec
-- [ ] Run `openspec validate improve-scrape-ux --strict`
-- [ ] Fix any validation errors
-- [ ] Ensure all requirements have scenarios
-- [ ] Verify spec deltas are complete
+### Task 4.8: Validate OpenSpec ✅
+- [x] Run `openspec validate improve-scrape-ux --strict`
+- [x] Fix any validation errors
+- [x] Ensure all requirements have scenarios
+- [x] Verify spec deltas are complete
 
 ---
 

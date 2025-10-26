@@ -1,6 +1,3 @@
-// Prisma Schema - Browserless PJE
-// Database: PostgreSQL
-
 generator client {
   provider = "prisma-client-js"
   output   = "../node_modules/.prisma/client"
@@ -11,20 +8,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Modelo: Tribunal
-// Representa um Tribunal Regional do Trabalho (TRT)
 model Tribunal {
-  id         String   @id @default(uuid())
-  codigo     String   @unique  // "TRT1", "TRT2", ..., "TRT24"
-  nome       String              // "TRT da 3ª Região"
-  regiao     String              // "Sudeste", "Sul", "Nordeste", "Centro-Oeste", "Norte"
-  uf         String              // "MG", "SP", "RJ", etc.
-  cidadeSede String              // "Belo Horizonte", "São Paulo", etc.
-  ativo      Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Relações
+  id         String           @id @default(uuid())
+  codigo     String           @unique
+  nome       String
+  regiao     String
+  uf         String
+  cidadeSede String
+  ativo      Boolean          @default(true)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
   configs    TribunalConfig[]
 
   @@index([codigo])
@@ -32,46 +25,38 @@ model Tribunal {
   @@index([ativo])
 }
 
-// Modelo: TribunalConfig
-// Representa a configuração de URLs para um grau específico de um Tribunal
 model TribunalConfig {
-  id           String   @id @default(uuid())
-  grau         String              // "1g" | "2g"
-  urlBase      String              // "https://pje.trt3.jus.br"
-  urlLoginSeam String              // "https://pje.trt3.jus.br/primeirograu/login.seam"
-  urlApi       String              // "https://pje.trt3.jus.br/pje-comum-api/api"
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Relações
-  tribunal     Tribunal  @relation(fields: [tribunalId], references: [id], onDelete: Cascade)
-  tribunalId   String
-  raspagens    Raspagem[]
-  credenciais  CredencialTribunal[]
-  scrapeJobTribunals ScrapeJobTribunal[]
+  id                 String               @id @default(uuid())
+  grau               String
+  urlBase            String
+  urlLoginSeam       String
+  urlApi             String
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  tribunalId         String
+  credenciais        CredencialTribunal[]
+  raspagens          Raspagem[]
   scrapeExecutions   ScrapeExecution[]
+  scrapeJobTribunals ScrapeJobTribunal[]
+  tribunal           Tribunal             @relation(fields: [tribunalId], references: [id], onDelete: Cascade)
 
   @@unique([tribunalId, grau])
   @@index([grau])
 }
 
-// Modelo: Raspagem
-// Representa uma execução de raspagem no PJE
 model Raspagem {
-  id            String    @id @default(uuid())
-  status        String    // "success" | "error" | "running"
-  tipo          String    // "login" | "processos" | "detalhes"
-  idAgrupamento Int?      // ID do agrupamento no PJE (1=Acervo, 2=Pendentes, etc)
-  totalProcessos Int      @default(0)
-  errorMessage  String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  completedAt   DateTime?
-
-  // Relações
-  processos         Processo[]
-  tribunalConfig    TribunalConfig? @relation(fields: [tribunalConfigId], references: [id], onDelete: SetNull)
-  tribunalConfigId  String?
+  id               String          @id @default(uuid())
+  status           String
+  tipo             String
+  idAgrupamento    Int?
+  totalProcessos   Int             @default(0)
+  errorMessage     String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  completedAt      DateTime?
+  tribunalConfigId String?
+  processos        Processo[]
+  tribunalConfig   TribunalConfig? @relation(fields: [tribunalConfigId], references: [id])
 
   @@index([status])
   @@index([tipo])
@@ -79,33 +64,25 @@ model Raspagem {
   @@index([tribunalConfigId])
 }
 
-// Modelo: Processo
-// Representa um processo judicial do PJE
 model Processo {
-  id                 String   @id @default(uuid())
-  numeroProcesso     String   @unique
-  dataAjuizamento    String?
-  classe             String?
-  assunto            String?
-  vara               String?
-  fase               String?
-  valor              Float?
-  nomeParteAutora    String?
-  nomeParteRe        String?
-
-  // Dados adicionais do PJE
-  idProcesso         String?  // ID interno do PJE
+  id                     String    @id @default(uuid())
+  numeroProcesso         String    @unique
+  dataAjuizamento        String?
+  classe                 String?
+  assunto                String?
+  vara                   String?
+  fase                   String?
+  valor                  Float?
+  nomeParteAutora        String?
+  nomeParteRe            String?
+  idProcesso             String?
   dataUltimaMovimentacao String?
-  situacao           String?
-
-  // Metadados
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  // Relações
-  raspagem           Raspagem? @relation(fields: [raspagemId], references: [id], onDelete: SetNull)
-  raspagemId         String?
-  partes             Parte[]
+  situacao               String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  raspagemId             String?
+  partes                 Parte[]
+  raspagem               Raspagem? @relation(fields: [raspagemId], references: [id])
 
   @@index([numeroProcesso])
   @@index([nomeParteAutora])
@@ -113,147 +90,118 @@ model Processo {
   @@index([createdAt])
 }
 
-// Modelo: Parte
-// Representa uma parte (autor, réu, advogado) de um processo
 model Parte {
-  id            String  @id @default(uuid())
-  nome          String
-  tipo          String  // "autor" | "reu" | "advogado" | "outro"
-  documento     String? // CPF/CNPJ
-
-  // Relações
-  processo      Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
-  processoId    String
-
-  createdAt     DateTime @default(now())
+  id         String   @id @default(uuid())
+  nome       String
+  tipo       String
+  documento  String?
+  processoId String
+  createdAt  DateTime @default(now())
+  processo   Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
 
   @@index([tipo])
   @@index([processoId])
 }
 
-// Modelo: Escritorio
-// Representa um escritório de advocacia (ou NULL para advogados autônomos)
 model Escritorio {
-  id              String       @id @default(uuid())
-  nome            String       // "Silva e Matos" or "Dr. Pedro - Autônomo"
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-
-  advogados       Advogado[]
+  id        String     @id @default(uuid())
+  nome      String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  advogados Advogado[]
 }
 
-// Modelo: Advogado
-// Representa um advogado com suas informações profissionais
 model Advogado {
-  id              String       @id @default(uuid())
-  nome            String       // "Dr. João Silva"
-  oabNumero       String       // "123456"
-  oabUf           String       // "MG"
-  cpf             String       // "11111111111" - FIXED per lawyer
-  idAdvogado      String?      // Auto-detected from PJE
-  escritorioId    String?      // NULL for solo lawyer
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-
-  escritorio      Escritorio?  @relation(fields: [escritorioId], references: [id], onDelete: SetNull)
-  credenciais     Credencial[]
+  id           String       @id @default(uuid())
+  nome         String
+  oabNumero    String
+  oabUf        String
+  cpf          String
+  idAdvogado   String?
+  escritorioId String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  escritorio   Escritorio?  @relation(fields: [escritorioId], references: [id])
+  credenciais  Credencial[]
 
   @@unique([oabNumero, oabUf])
   @@index([cpf])
 }
 
-// Modelo: Credencial
-// Representa uma senha de acesso ao PJE (sem CPF, só a senha)
 model Credencial {
-  id              String                @id @default(uuid())
-  senha           String                // Just the password
-  descricao       String?               // "Senha TRT3 1º grau" or "Senha Universal"
-  ativa           Boolean               @default(true)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  id         String               @id @default(uuid())
+  senha      String
+  descricao  String?
+  ativa      Boolean              @default(true)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  advogadoId String
+  advogado   Advogado             @relation(fields: [advogadoId], references: [id], onDelete: Cascade)
+  tribunais  CredencialTribunal[]
 
-  advogado        Advogado              @relation(fields: [advogadoId], references: [id], onDelete: Cascade)
-  advogadoId      String
-  tribunais       CredencialTribunal[]
-
-  @@unique([advogadoId, senha])  // Same password cannot be registered twice for same lawyer
+  @@unique([advogadoId, senha])
 }
 
-// Modelo: CredencialTribunal
-// Representa a associação de uma credencial com um tribunal config
 model CredencialTribunal {
-  id              String       @id @default(uuid())
-  tipoTribunal    String       // "TRT" | "TJ" | "TRF"
-  validadoEm      DateTime?    // When this credential was last validated for this tribunal
-
-  credencial      Credencial      @relation(fields: [credencialId], references: [id], onDelete: Cascade)
-  credencialId    String
-  tribunalConfig  TribunalConfig  @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
+  id               String         @id @default(uuid())
+  tipoTribunal     String
+  validadoEm       DateTime?
+  credencialId     String
   tribunalConfigId String
+  credencial       Credencial     @relation(fields: [credencialId], references: [id], onDelete: Cascade)
+  tribunalConfig   TribunalConfig @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
 
   @@unique([credencialId, tribunalConfigId])
 }
 
-// Modelo: ScrapeJob
-// Representa um job de raspagem (pode incluir múltiplos tribunais)
 model ScrapeJob {
-  id            String   @id @default(uuid())
-  status        String   // "pending" | "running" | "completed" | "failed" | "canceled"
-  scrapeType    String   // "acervo_geral" | "pendentes" | "arquivados" | "minha_pauta"
-  scrapeSubType String?  // "com_dado_ciencia" | "sem_prazo" (for "pendentes" only)
-  logs          Json?    // Structured logs: Array of { timestamp, level, message, context }
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id            String              @id @default(uuid())
+  status        String
+  scrapeType    String
+  scrapeSubType String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
   startedAt     DateTime?
   completedAt   DateTime?
-
-  // Relações
-  tribunals     ScrapeJobTribunal[]
+  logs          Json?
   executions    ScrapeExecution[]
+  tribunals     ScrapeJobTribunal[]
 
   @@index([status])
   @@index([scrapeType])
   @@index([createdAt])
 }
 
-// Modelo: ScrapeJobTribunal
-// Representa a associação de um job com um tribunal específico
 model ScrapeJobTribunal {
-  id               String   @id @default(uuid())
-  status           String   // "pending" | "running" | "completed" | "failed" | "canceled"
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  // Relações
-  scrapeJob        ScrapeJob       @relation(fields: [scrapeJobId], references: [id], onDelete: Cascade)
+  id               String         @id @default(uuid())
+  status           String
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
   scrapeJobId      String
-  tribunalConfig   TribunalConfig  @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
   tribunalConfigId String
+  scrapeJob        ScrapeJob      @relation(fields: [scrapeJobId], references: [id], onDelete: Cascade)
+  tribunalConfig   TribunalConfig @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
 
   @@unique([scrapeJobId, tribunalConfigId])
   @@index([status])
 }
 
-// Modelo: ScrapeExecution
-// Representa uma execução individual de raspagem para um tribunal
 model ScrapeExecution {
-  id               String   @id @default(uuid())
-  status           String   // "pending" | "running" | "completed" | "failed" | "canceled"
-  processosCount   Int      @default(0)
-  resultData       String?  // Compressed JSON: { processos: ProcessoPJE[] }
-  logs             Json?    // Structured logs: Array of { timestamp, level, message, context }
+  id               String         @id @default(uuid())
+  status           String
+  processosCount   Int            @default(0)
+  resultData       String?
   errorMessage     String?
-  retryAttempt     Int      @default(0)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  retryAttempt     Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
   startedAt        DateTime?
   completedAt      DateTime?
-
-  // Relações
-  scrapeJob        ScrapeJob       @relation(fields: [scrapeJobId], references: [id], onDelete: Cascade)
   scrapeJobId      String
-  tribunalConfig   TribunalConfig  @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
   tribunalConfigId String
+  logs             Json?
+  scrapeJob        ScrapeJob      @relation(fields: [scrapeJobId], references: [id], onDelete: Cascade)
+  tribunalConfig   TribunalConfig @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([scrapeJobId])
