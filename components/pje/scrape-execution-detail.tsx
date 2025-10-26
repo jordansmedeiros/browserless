@@ -255,7 +255,7 @@ export function ScrapeExecutionDetail({ executionId }: ScrapeExecutionDetailProp
       </Card>
 
       {/* Execution Logs */}
-      {execution.executionLogs && (
+      {execution.logs && (
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -266,7 +266,7 @@ export function ScrapeExecutionDetail({ executionId }: ScrapeExecutionDetailProp
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[300px] w-full rounded-md border">
-              <pre className="p-4 text-xs font-mono whitespace-pre-wrap">{execution.executionLogs}</pre>
+              <pre className="p-4 text-xs font-mono whitespace-pre-wrap">{JSON.stringify(execution.logs, null, 2)}</pre>
             </ScrollArea>
           </CardContent>
         </Card>

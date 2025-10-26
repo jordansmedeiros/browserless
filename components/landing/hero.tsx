@@ -21,7 +21,7 @@ export function Hero({ githubStats }: HeroProps) {
         <div className="flex flex-col items-center text-center">
           {/* Main Heading */}
           <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-            Browserless + PJE
+            JusBrowserless
           </h1>
 
           {/* Subheading */}

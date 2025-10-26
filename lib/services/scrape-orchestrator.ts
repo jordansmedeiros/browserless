@@ -257,7 +257,7 @@ async function executeTribunalScraping(
         status: ScrapeJobStatus.COMPLETED,
         processosCount: result.result.processosCount,
         resultData: compressedData,
-        executionLogs: result.logs.join('\n'),
+        logs: result.logs,
         completedAt: new Date(),
       },
     });
@@ -287,14 +287,13 @@ async function executeTribunalScraping(
     });
 
     if (execution) {
+      const existingLogs = execution.logs ? (Array.isArray(execution.logs) ? execution.logs : [execution.logs]) : [];
       await prisma.scrapeExecution.update({
         where: { id: execution.id },
         data: {
           status: ScrapeJobStatus.FAILED,
           errorMessage: errorLog.message,
-          executionLogs: execution.executionLogs
-            ? `${execution.executionLogs}\n\n[ERROR] ${JSON.stringify(errorLog, null, 2)}`
-            : `[ERROR] ${JSON.stringify(errorLog, null, 2)}`,
+          logs: [...existingLogs, errorLog],
           completedAt: new Date(),
         },
       });

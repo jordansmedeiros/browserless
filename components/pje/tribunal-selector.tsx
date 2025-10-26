@@ -17,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Search, CheckSquare, Square, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, CheckSquare, Square } from 'lucide-react';
 import type { TribunalConfigConstant } from '@/lib/constants/tribunais';
 import type { Regiao } from '@/lib/types/tribunal';
 
@@ -34,7 +34,7 @@ function IndeterminateCheckbox({ indeterminate, ...props }: IndeterminateCheckbo
 
   useEffect(() => {
     if (ref.current) {
-      ref.current.indeterminate = indeterminate ?? false;
+      (ref.current as any).indeterminate = indeterminate ?? false;
     }
   }, [indeterminate]);
 
@@ -54,44 +54,79 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRegion, setSelectedRegion] = useState<Regiao | 'Todas'>('Todas');
 
-  // Agrupa tribunais por código (TRT1, TRT2, etc)
-  const tribunaisAgrupados = useMemo(() => {
-    const grupos = new Map<string, TribunalConfigConstant[]>();
+  // Determina o tipo de tribunal baseado no código
+  const getTipoTribunal = (codigo: string): 'TRT' | 'TJ' | 'TRF' | 'Superior' => {
+    if (codigo.startsWith('TRT')) return 'TRT';
+    if (codigo.startsWith('TJ')) return 'TJ';
+    if (codigo.startsWith('TRF')) return 'TRF';
+    return 'Superior';
+  };
+
+  // Agrupa tribunais primeiro por tipo, depois por código
+  const tribunaisAgrupadosPorTipo = useMemo(() => {
+    // Primeiro agrupa por código
+    const gruposPorCodigo = new Map<string, TribunalConfigConstant[]>();
 
     tribunais.forEach((t) => {
-      const existing = grupos.get(t.codigo) || [];
-      grupos.set(t.codigo, [...existing, t]);
+      const existing = gruposPorCodigo.get(t.codigo) || [];
+      gruposPorCodigo.set(t.codigo, [...existing, t]);
     });
 
-    // Ordena por número do TRT
-    return Array.from(grupos.entries())
-      .sort((a, b) => {
-        const numA = parseInt(a[0].replace('TRT', ''), 10);
-        const numB = parseInt(b[0].replace('TRT', ''), 10);
-        return numA - numB;
-      })
-      .map(([codigo, configs]) => ({
+    // Depois agrupa por tipo
+    const tipos: Record<string, Array<{ codigo: string; configs: TribunalConfigConstant[]; info: TribunalConfigConstant }>> = {
+      TRT: [],
+      TJ: [],
+      TRF: [],
+      Superior: [],
+    };
+
+    Array.from(gruposPorCodigo.entries()).forEach(([codigo, configs]) => {
+      const tipo = getTipoTribunal(codigo);
+      tipos[tipo].push({
         codigo,
         configs: configs.sort((a, b) => a.grau.localeCompare(b.grau)),
-        info: configs[0], // Usa info do primeiro para metadados comuns
-      }));
+        info: configs[0],
+      });
+    });
+
+    // Ordena cada tipo
+    Object.keys(tipos).forEach((tipo) => {
+      tipos[tipo].sort((a, b) => {
+        const numA = parseInt(a.codigo.replace(/\D/g, ''), 10);
+        const numB = parseInt(b.codigo.replace(/\D/g, ''), 10);
+        return numA - numB;
+      });
+    });
+
+    return tipos;
   }, [tribunais]);
 
-  // Filtro por busca e região
+  // Filtro por busca e região - aplica filtros em cada tipo
   const tribunaisFiltrados = useMemo(() => {
-    return tribunaisAgrupados.filter((grupo) => {
-      const matchSearch =
-        searchTerm === '' ||
-        grupo.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        grupo.info.nomeCompleto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        grupo.info.uf.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        grupo.info.cidadeSede.toLowerCase().includes(searchTerm.toLowerCase());
+    const filtrados: typeof tribunaisAgrupadosPorTipo = {
+      TRT: [],
+      TJ: [],
+      TRF: [],
+      Superior: [],
+    };
 
-      const matchRegion = selectedRegion === 'Todas' || grupo.info.regiao === selectedRegion;
+    Object.entries(tribunaisAgrupadosPorTipo).forEach(([tipo, grupos]) => {
+      filtrados[tipo as keyof typeof filtrados] = grupos.filter((grupo) => {
+        const matchSearch =
+          searchTerm === '' ||
+          grupo.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          grupo.info.nomeCompleto.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          grupo.info.uf.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          grupo.info.cidadeSede.toLowerCase().includes(searchTerm.toLowerCase());
 
-      return matchSearch && matchRegion;
+        const matchRegion = selectedRegion === 'Todas' || grupo.info.regiao === selectedRegion;
+
+        return matchSearch && matchRegion;
+      });
     });
-  }, [tribunaisAgrupados, searchTerm, selectedRegion]);
+
+    return filtrados;
+  }, [tribunaisAgrupadosPorTipo, searchTerm, selectedRegion]);
 
   // Regiões únicas
   const regioes: Regiao[] = ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
@@ -209,68 +244,200 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
         ))}
       </div>
 
-      {/* Lista de tribunais com scroll */}
-      <div className="max-h-[400px] overflow-y-auto rounded-md border">
+      {/* Lista de tribunais agrupados por tipo */}
+      <div className="rounded-md border">
         <Accordion type="multiple" className="w-full">
-          {tribunaisFiltrados.map((grupo) => {
-            const selectionState = getTribunalSelectionState(grupo.configs);
-
-            return (
-              <AccordionItem key={grupo.codigo} value={grupo.codigo}>
-                {/* Reorganizado: Checkbox fora do AccordionTrigger para evitar nested buttons */}
-                <div className="flex items-center hover:bg-accent">
-                  <div className="flex items-center px-4 py-4 gap-3">
-                    <IndeterminateCheckbox
-                      checked={selectionState === 'all'}
-                      indeterminate={selectionState === 'partial'}
-                      onCheckedChange={() => handleToggleTribunal(grupo.configs)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                  <AccordionTrigger className="flex-1 py-4 pr-4 hover:no-underline">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="flex flex-col items-start flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">{grupo.codigo}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {grupo.info.uf}
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs">
-                            {grupo.info.regiao}
-                          </Badge>
-                        </div>
-                        <span className="text-sm text-muted-foreground truncate max-w-full">
-                          {grupo.info.nomeCompleto} • {grupo.info.cidadeSede}
-                        </span>
-                      </div>
-                    </div>
-                  </AccordionTrigger>
+          {/* Tribunais Regionais do Trabalho */}
+          {tribunaisFiltrados.TRT.length > 0 && (
+            <AccordionItem value="trt">
+              <AccordionTrigger className="px-4 hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Tribunais Regionais do Trabalho</span>
+                  <Badge variant="secondary">{tribunaisFiltrados.TRT.length}</Badge>
                 </div>
-                <AccordionContent className="px-4 pb-4">
-                  <div className="space-y-2 pl-8">
-                    {grupo.configs.map((config) => (
-                      <div key={config.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`tc-${config.id}`}
-                          checked={selectedIds.includes(config.id)}
-                          onCheckedChange={() => handleToggleGrau(config.id)}
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="max-h-[250px] overflow-y-auto divide-y">
+                  {tribunaisFiltrados.TRT.map((grupo) => {
+                    const selectionState = getTribunalSelectionState(grupo.configs);
+                    return (
+                      <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
+                        <IndeterminateCheckbox
+                          checked={selectionState === 'all'}
+                          indeterminate={selectionState === 'partial'}
+                          onCheckedChange={() => handleToggleTribunal(grupo.configs)}
                         />
-                        <label
-                          htmlFor={`tc-${config.id}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                        >
-                          {config.grau === '1g' ? '1º Grau' : '2º Grau'}
-                        </label>
+                        <div className="flex items-center gap-2 min-w-[180px]">
+                          <span className="font-semibold">{grupo.codigo}</span>
+                          <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
+                          <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
+                        </div>
+                        <div className="flex items-center gap-4 ml-auto">
+                          {grupo.configs.map((config) => (
+                            <div key={config.id} className="flex items-center gap-2">
+                              <Checkbox
+                                id={`tc-${config.id}`}
+                                checked={selectedIds.includes(config.id)}
+                                onCheckedChange={() => handleToggleGrau(config.id)}
+                              />
+                              <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                                {config.grau === '1g' ? '1º Grau' : '2º Grau'}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            );
-          })}
+                    );
+                  })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          )}
+
+          {/* Tribunais de Justiça */}
+          {tribunaisFiltrados.TJ.length > 0 && (
+            <AccordionItem value="tj">
+              <AccordionTrigger className="px-4 hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Tribunais de Justiça</span>
+                  <Badge variant="secondary">{tribunaisFiltrados.TJ.length}</Badge>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="max-h-[250px] overflow-y-auto divide-y">
+                  {tribunaisFiltrados.TJ.map((grupo) => {
+                    const selectionState = getTribunalSelectionState(grupo.configs);
+                    return (
+                      <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
+                        <IndeterminateCheckbox
+                          checked={selectionState === 'all'}
+                          indeterminate={selectionState === 'partial'}
+                          onCheckedChange={() => handleToggleTribunal(grupo.configs)}
+                        />
+                        <div className="flex items-center gap-2 min-w-[180px]">
+                          <span className="font-semibold">{grupo.codigo}</span>
+                          <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
+                          <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
+                        </div>
+                        <div className="flex items-center gap-4 ml-auto">
+                          {grupo.configs.map((config) => (
+                            <div key={config.id} className="flex items-center gap-2">
+                              <Checkbox
+                                id={`tc-${config.id}`}
+                                checked={selectedIds.includes(config.id)}
+                                onCheckedChange={() => handleToggleGrau(config.id)}
+                              />
+                              <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                                {config.grau === '1g' ? '1º Grau' : '2º Grau'}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          )}
+
+          {/* Tribunais Regionais Federais */}
+          {tribunaisFiltrados.TRF.length > 0 && (
+            <AccordionItem value="trf">
+              <AccordionTrigger className="px-4 hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Tribunais Regionais Federais</span>
+                  <Badge variant="secondary">{tribunaisFiltrados.TRF.length}</Badge>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="max-h-[250px] overflow-y-auto divide-y">
+                  {tribunaisFiltrados.TRF.map((grupo) => {
+                    const selectionState = getTribunalSelectionState(grupo.configs);
+                    return (
+                      <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
+                        <IndeterminateCheckbox
+                          checked={selectionState === 'all'}
+                          indeterminate={selectionState === 'partial'}
+                          onCheckedChange={() => handleToggleTribunal(grupo.configs)}
+                        />
+                        <div className="flex items-center gap-2 min-w-[180px]">
+                          <span className="font-semibold">{grupo.codigo}</span>
+                          <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
+                          <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
+                        </div>
+                        <div className="flex items-center gap-4 ml-auto">
+                          {grupo.configs.map((config) => (
+                            <div key={config.id} className="flex items-center gap-2">
+                              <Checkbox
+                                id={`tc-${config.id}`}
+                                checked={selectedIds.includes(config.id)}
+                                onCheckedChange={() => handleToggleGrau(config.id)}
+                              />
+                              <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                                {config.grau === '1g' ? '1º Grau' : '2º Grau'}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          )}
+
+          {/* Tribunais Superiores */}
+          {tribunaisFiltrados.Superior.length > 0 && (
+            <AccordionItem value="superior">
+              <AccordionTrigger className="px-4 hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Tribunais Superiores</span>
+                  <Badge variant="secondary">{tribunaisFiltrados.Superior.length}</Badge>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="max-h-[250px] overflow-y-auto divide-y">
+                  {tribunaisFiltrados.Superior.map((grupo) => {
+                    const selectionState = getTribunalSelectionState(grupo.configs);
+                    return (
+                      <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
+                        <IndeterminateCheckbox
+                          checked={selectionState === 'all'}
+                          indeterminate={selectionState === 'partial'}
+                          onCheckedChange={() => handleToggleTribunal(grupo.configs)}
+                        />
+                        <div className="flex items-center gap-2 min-w-[180px]">
+                          <span className="font-semibold">{grupo.codigo}</span>
+                          <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
+                          <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
+                        </div>
+                        <div className="flex items-center gap-4 ml-auto">
+                          {grupo.configs.map((config) => (
+                            <div key={config.id} className="flex items-center gap-2">
+                              <Checkbox
+                                id={`tc-${config.id}`}
+                                checked={selectedIds.includes(config.id)}
+                                onCheckedChange={() => handleToggleGrau(config.id)}
+                              />
+                              <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                                {config.grau === '1g' ? '1º Grau' : '2º Grau'}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          )}
         </Accordion>
 
-        {tribunaisFiltrados.length === 0 && (
+        {/* Mensagem quando não há tribunais após filtro */}
+        {Object.values(tribunaisFiltrados).every((arr) => arr.length === 0) && (
           <div className="py-12 text-center text-sm text-muted-foreground">
             Nenhum tribunal encontrado
           </div>

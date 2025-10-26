@@ -4,10 +4,17 @@
  */
 
 import type { ProcessoPJE } from './pje';
-import type { TribunalConfig, ScrapeJob, ScrapeJobTribunal, ScrapeExecution } from '@prisma/client';
+import type { TribunalConfig, ScrapeJob, ScrapeJobTribunal, ScrapeExecution, Tribunal } from '@prisma/client';
 
-// Re-export Prisma types
-export type { ScrapeExecution, TribunalConfig, ScrapeJob, ScrapeJobTribunal } from '@prisma/client';
+// Re-export Prisma types (TribunalConfig already exported from ./tribunal)
+export type { ScrapeExecution, ScrapeJob, ScrapeJobTribunal, Tribunal } from '@prisma/client';
+
+/**
+ * TribunalConfig with Tribunal relation
+ */
+export type TribunalConfigWithTribunal = TribunalConfig & {
+  tribunal: Tribunal;
+};
 
 /**
  * Status de um job de raspagem
@@ -43,9 +50,11 @@ export enum ScrapeSubType {
  */
 export interface ScrapeJobWithRelations extends ScrapeJob {
   tribunals: (ScrapeJobTribunal & {
-    tribunalConfig: TribunalConfig;
+    tribunalConfig: TribunalConfigWithTribunal;
   })[];
-  executions: ScrapeExecution[];
+  executions: (ScrapeExecution & {
+    tribunalConfig?: TribunalConfigWithTribunal;
+  })[];
 }
 
 /**

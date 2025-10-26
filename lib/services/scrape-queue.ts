@@ -47,9 +47,17 @@ class ScrapeQueue {
   /** Processamento está ativo? */
   private processing = false;
 
+  /** Callback para execução de jobs (será substituído pelo orchestrator) */
+  private triggerJobExecution: (jobId: string) => Promise<void>;
+
   private constructor() {
     // Singleton - construtor privado
     this.startCleanupInterval();
+
+    // Define implementação padrão
+    this.triggerJobExecution = async (jobId: string) => {
+      console.log(`[Queue] Default triggerJobExecution called for job ${jobId} - orchestrator callback not set!`);
+    };
   }
 
   /**
@@ -251,7 +259,13 @@ class ScrapeQueue {
 
     // Delega a execução para o orchestrator
     // (o orchestrator chamará markAsCompleted quando terminar)
-    this.triggerJobExecution(next.jobId);
+    // IMPORTANTE: Não await aqui para permitir processamento concorrente
+    // Erros são tratados dentro do callback do orchestrator
+    this.triggerJobExecution(next.jobId).catch((error) => {
+      console.error(`[Queue] Unhandled error in job ${next.jobId}:`, error);
+      // Marca como failed em caso de erro não tratado
+      this.markAsCompleted(next.jobId, 'failed');
+    });
 
     // Processa próximo se ainda houver capacidade
     if (this.hasCapacity() && this.queue.length > 0) {
@@ -259,17 +273,6 @@ class ScrapeQueue {
     }
   }
 
-  /**
-   * Dispara a execução de um job
-   * (deve ser substituído por callback do orchestrator)
-   */
-  private async triggerJobExecution(jobId: string): Promise<void> {
-    // Esta função será substituída por um callback que chama o orchestrator
-    // Por enquanto, apenas registra
-    console.log(`[Queue] Triggering execution of job ${jobId}`);
-
-    // O orchestrator deve chamar markAsCompleted quando terminar
-  }
 
   /**
    * Define o callback para execução de jobs
@@ -277,6 +280,7 @@ class ScrapeQueue {
    * @param callback - Função que será chamada para executar um job
    */
   public setExecutionCallback(callback: (jobId: string) => Promise<void>): void {
+    console.log('[Queue] Execution callback set');
     this.triggerJobExecution = callback;
   }
 

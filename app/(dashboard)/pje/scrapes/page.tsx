@@ -158,10 +158,7 @@ export default function ScrapesPage() {
           {isDesktop ? (
             <>
               <DialogHeader>
-                <DialogTitle className="text-2xl font-bold">Configurar Nova Raspagem</DialogTitle>
-                <DialogDescription>
-                  Configure sua raspagem em 2 etapas simples
-                </DialogDescription>
+                <DialogTitle className="text-2xl font-bold">Nova Raspagem</DialogTitle>
               </DialogHeader>
               <div className="py-4">
                 <ScrapeConfigForm
@@ -178,10 +175,7 @@ export default function ScrapesPage() {
           ) : (
             <>
               <DrawerHeader>
-                <DrawerTitle className="text-2xl font-bold">Configurar Nova Raspagem</DrawerTitle>
-                <DrawerDescription>
-                  Configure sua raspagem em 2 etapas simples
-                </DrawerDescription>
+                <DrawerTitle className="text-2xl font-bold">Nova Raspagem</DrawerTitle>
               </DrawerHeader>
               <div className="px-4 overflow-y-auto max-h-[calc(90vh-200px)]">
                 <ScrapeConfigForm

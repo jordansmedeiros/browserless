@@ -6,14 +6,11 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
 import { WizardContainer } from '@/components/ui/wizard-container';
 import { WizardStep } from '@/components/ui/wizard-step';
 import { WizardNavigation } from '@/components/ui/wizard-navigation';
-import { Loader2, Play, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { TribunalSelector } from './tribunal-selector';
 import { ScrapeTypeSelector } from './scrape-type-selector';
 import { createScrapeJobAction } from '@/app/actions/pje';
@@ -71,30 +68,6 @@ export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChang
   const isValid = useMemo(() => {
     return Object.values(stepValidation).every((valid) => valid);
   }, [stepValidation]);
-
-  // Estimated time calculation
-  const estimatedTime = useMemo(() => {
-    if (selectedTribunalIds.length === 0 || !selectedType) return null;
-
-    const timePerTribunal: Record<ScrapeType, number> = {
-      acervo_geral: 10, // 10 minutes
-      pendentes: selectedSubTypes.length * 6.5, // 6.5 min per subtype
-      arquivados: 10,
-      minha_pauta: 2,
-    };
-
-    const minutesPerTribunal = timePerTribunal[selectedType];
-    const totalMinutes = minutesPerTribunal * selectedTribunalIds.length;
-
-    return Math.ceil(totalMinutes);
-  }, [selectedTribunalIds.length, selectedType, selectedSubTypes.length]);
-
-  const formatEstimatedTime = (minutes: number): string => {
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}h ${mins}min`;
-  };
 
   // Form submission
   const handleSubmit = async () => {
@@ -161,22 +134,6 @@ export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChang
     onReset?.();
   };
 
-  // Get scrape type label
-  const getScrapeTypeLabel = () => {
-    switch (selectedType) {
-      case 'acervo_geral':
-        return 'Acervo Geral';
-      case 'pendentes':
-        return 'Pendentes de Manifestação';
-      case 'arquivados':
-        return 'Processos Arquivados';
-      case 'minha_pauta':
-        return 'Minha Pauta';
-      default:
-        return '';
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Message */}
@@ -199,36 +156,16 @@ export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChang
         stepValidation={stepValidation}
       >
         {/* Step 1: Tribunal Selection */}
-        <WizardStep
-          step={1}
-          title="Selecionar Tribunais"
-          description="Escolha um ou mais tribunais para raspar"
-        >
-          <div className="max-h-[400px] overflow-y-auto pr-2">
-            <TribunalSelector
-              tribunais={tribunais}
-              selectedIds={selectedTribunalIds}
-              onChange={setSelectedTribunalIds}
-            />
-          </div>
-
-          {/* Step 1 Validation message */}
-          {!stepValidation[1] && selectedTribunalIds.length === 0 && currentStep === 1 && (
-            <Alert className="mt-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Selecione pelo menos um tribunal para continuar
-              </AlertDescription>
-            </Alert>
-          )}
+        <WizardStep step={1}>
+          <TribunalSelector
+            tribunais={tribunais}
+            selectedIds={selectedTribunalIds}
+            onChange={setSelectedTribunalIds}
+          />
         </WizardStep>
 
         {/* Step 2: Configuration */}
-        <WizardStep
-          step={2}
-          title="Configurar Raspagem"
-          description="Defina o tipo de dados a serem coletados"
-        >
+        <WizardStep step={2}>
           <div className="space-y-6">
             {/* Scrape Type Selection */}
             <div>
@@ -239,71 +176,6 @@ export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChang
                 onSubTypesChange={setSelectedSubTypes}
               />
             </div>
-
-            {/* Step 2 Validation message */}
-            {!stepValidation[2] && currentStep === 2 && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  {!selectedType && 'Selecione um tipo de raspagem'}
-                  {selectedType === 'pendentes' &&
-                    selectedSubTypes.length === 0 &&
-                    'Selecione pelo menos um sub-tipo para Pendentes'}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Configuration Summary */}
-            {stepValidation[2] && (
-              <>
-                <Separator />
-                <Card className="border-primary">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Resumo da Configuração</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Tribunais</p>
-                        <p className="text-2xl font-bold">{selectedTribunalIds.length}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Tipo de Raspagem</p>
-                        <p className="text-lg font-semibold">{getScrapeTypeLabel()}</p>
-                      </div>
-                    </div>
-
-                    {selectedType === 'pendentes' && selectedSubTypes.length > 0 && (
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Sub-tipos</p>
-                        <div className="flex gap-2">
-                          {selectedSubTypes.map((subType) => (
-                            <span
-                              key={subType}
-                              className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
-                            >
-                              {subType === 'com_dado_ciencia' ? 'Com Dado Ciência' : 'Sem Prazo'}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {estimatedTime && (
-                      <div className="flex items-center gap-2 rounded-md bg-muted p-3">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm font-medium">Tempo estimado</p>
-                          <p className="text-sm text-muted-foreground">
-                            Aproximadamente {formatEstimatedTime(estimatedTime)}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </>
-            )}
           </div>
         </WizardStep>
 

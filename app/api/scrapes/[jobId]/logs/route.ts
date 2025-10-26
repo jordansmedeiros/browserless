@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
+import { prisma } from '@/lib/prisma';
 import { scrapeLoggerService, type LogEntry } from '@/lib/services/scrape-logger';
 
 export async function GET(
@@ -55,7 +55,7 @@ export async function GET(
     // Get persisted logs from executions
     for (const execution of job.executions) {
       if (execution.logs && Array.isArray(execution.logs)) {
-        allLogs = allLogs.concat(execution.logs as LogEntry[]);
+        allLogs = allLogs.concat(execution.logs as unknown as LogEntry[]);
       }
     }
 

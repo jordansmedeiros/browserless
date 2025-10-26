@@ -303,7 +303,7 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
                               : 'text-gray-300'
                           }`}
                         />
-                        <span>{tribunal.tribunalConfig?.codigo || 'N/A'}</span>
+                        <span>{tribunal.tribunalConfig?.tribunal?.codigo || 'N/A'}</span>
                       </div>
                       {getStatusBadge(tribunal.status)}
                     </div>

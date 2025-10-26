@@ -7,7 +7,7 @@ import '@testing-library/jest-dom';
 import { expect } from 'chai';
 
 // Configuração global para testes
-globalThis.expect = expect as any;
+(globalThis as any).expect = expect;
 
 // Mock de funcionalidades de navegador que podem estar faltando
 if (typeof window !== 'undefined') {
