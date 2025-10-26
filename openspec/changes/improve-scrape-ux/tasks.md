@@ -241,12 +241,12 @@
 
 ## Phase 4: Testing and Polish
 
-### Task 4.1: Write Unit Tests
-- [ ] Test wizard validation logic
-- [ ] Test log formatting functions
-- [ ] Test data transformation for table/explorer
-- [ ] Test CSV/JSON export utilities
-- [ ] Run: `npm test`
+### Task 4.1: Write Unit Tests ✅
+- [x] Test wizard validation logic
+- [x] Test log formatting functions
+- [x] Test data transformation for table/explorer
+- [x] Test CSV/JSON export utilities
+- [ ] Run: `npm test` (blocked by pre-existing build issue in server code)
 
 ### Task 4.2: Write Integration Tests
 - [ ] Test full wizard flow (select → configure → create)

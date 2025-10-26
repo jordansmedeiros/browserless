@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "*",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npm test:*)"
     ],
     "deny": [],
     "ask": []
