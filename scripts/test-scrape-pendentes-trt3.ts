@@ -127,6 +127,10 @@ async function testScrape() {
     console.log('   - Dados comprimidos:', compressedData.length, 'bytes');
     console.log('   ✅ Compressão OK (não salvando no banco neste teste)');
 
+    // DEBUG: Ver dados do advogado no resultado
+    console.log('\n🔍 Dados do advogado no resultado:');
+    console.log(JSON.stringify(result.result.advogado, null, 2));
+
     // 6. Atualiza ID do advogado no banco se foi capturado
     if (result.result.advogado?.idAdvogado && result.result.advogado?.cpf) {
       console.log('\n🔄 Atualizando ID do advogado no banco...');
