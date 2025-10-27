@@ -4,6 +4,7 @@
  */
 
 import { spawn } from 'child_process';
+import { dirname } from 'path';
 import { resolveScriptPath, SCRAPING_RETRY } from '@/config/scraping';
 import {
   ScrapingResult,
@@ -243,8 +244,9 @@ function executeScriptWithSpawn(
   logs?: string[]
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
-    const childProcess = spawn('node', [scriptPath], {
+    const childProcess = spawn(process.execPath, [scriptPath], {
       env,
+      cwd: dirname(scriptPath),
     });
 
     let stdoutBuffer = '';
@@ -373,23 +375,44 @@ function executeScriptWithSpawn(
  */
 function parseScriptOutput(stdout: string): ScrapingResult {
   try {
-    const lines = stdout.trim().split('\n');
+    const trimmed = stdout.trim();
 
-    // Busca pela última linha que seja um JSON válido (começa com { e termina com })
-    let jsonLine: string | null = null;
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i].trim();
-      if (line.startsWith('{') && line.endsWith('}')) {
-        jsonLine = line;
-        break;
+    // Tenta encontrar o último bloco JSON balanceado {...}
+    let jsonString: string | null = null;
+    let braceCount = 0;
+    let startIndex = -1;
+
+    // Busca de trás para frente pelo último objeto JSON completo
+    for (let i = trimmed.length - 1; i >= 0; i--) {
+      if (trimmed[i] === '}') {
+        if (braceCount === 0) {
+          startIndex = i;
+        }
+        braceCount++;
+      } else if (trimmed[i] === '{') {
+        braceCount--;
+        if (braceCount === 0 && startIndex !== -1) {
+          // Encontrou um bloco balanceado completo
+          jsonString = trimmed.substring(i, startIndex + 1);
+          break;
+        }
       }
     }
 
-    if (!jsonLine) {
+    // Fallback: tenta parsear a saída completa após remover prefixos não-JSON
+    if (!jsonString) {
+      const firstBrace = trimmed.indexOf('{');
+      const lastBrace = trimmed.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        jsonString = trimmed.substring(firstBrace, lastBrace + 1);
+      }
+    }
+
+    if (!jsonString) {
       throw new Error('No valid JSON object found in script output');
     }
 
-    const parsed = JSON.parse(jsonLine);
+    const parsed = JSON.parse(jsonString);
 
     // Valida estrutura básica
     if (typeof parsed.success !== 'boolean') {
@@ -405,7 +428,8 @@ function parseScriptOutput(stdout: string): ScrapingResult {
       error: parsed.error,
     };
   } catch (error: any) {
-    throw new Error(`Failed to parse script output: ${error.message}\nOutput: ${stdout.substring(0, 500)}`);
+    const snippet = stdout.substring(0, 500);
+    throw new Error(`Failed to parse script output: ${error.message}\nOutput snippet: ${snippet}${stdout.length > 500 ? '...' : ''}`);
   }
 }
 
