@@ -46,7 +46,8 @@
     "test:failed-trts": "npx tsx scripts/test-failed-trts.ts",
     "test:accessibility": "npx tsx scripts/test-accessibility.ts",
     "test:responsiveness": "npx tsx scripts/test-responsiveness.ts",
-    "test:ux": "npm run test:accessibility && npm run test:responsiveness"
+    "test:ux": "npm run test:accessibility && npm run test:responsiveness",
+    "postinstall": "patch-package"
   },
   "files": [
     "assets/*",
