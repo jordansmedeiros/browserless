@@ -48,17 +48,9 @@ class ScrapeQueue {
   /** Processamento está ativo? */
   private processing = false;
 
-  /** Callback para execução de jobs (será substituído pelo orchestrator) */
-  private triggerJobExecution: (jobId: string) => Promise<void>;
-
   private constructor() {
     // Singleton - construtor privado
     this.startCleanupInterval();
-
-    // Define implementação padrão
-    this.triggerJobExecution = async (jobId: string) => {
-      console.log(`[Queue] Default triggerJobExecution called for job ${jobId} - orchestrator callback not set!`);
-    };
   }
 
   /**
@@ -75,28 +67,12 @@ class ScrapeQueue {
    * Adiciona um job à fila
    * @deprecated Jobs são descobertos via polling - não use este método
    * @param jobId - ID do job a ser enfileirado
-   * @throws Error se o job já estiver na fila ou em execução
+   * @throws Error sempre - método não deve mais ser utilizado
    */
   public enqueue(jobId: string): void {
-    console.warn('[Queue] DEPRECATED: enqueue() should not be called - orchestrator uses polling');
-
-    // Verifica se já está na fila ou em execução
-    if (this.isInQueue(jobId) || this.running.has(jobId)) {
-      throw new Error(`Job ${jobId} is already queued or running`);
-    }
-
-    // Adiciona à fila
-    this.queue.push({
-      jobId,
-      enqueuedAt: new Date(),
-    });
-
-    console.log(`[Queue] Job ${jobId} enqueued. Queue size: ${this.queue.length}`);
-
-    // Inicia processamento se não estiver ativo
-    if (!this.processing) {
-      this.startProcessing();
-    }
+    throw new Error(
+      `[Queue] enqueue() is deprecated and should not be called - orchestrator uses database polling to discover jobs. Job ${jobId} should be created with status PENDING in the database.`
+    );
   }
 
   /**
@@ -227,71 +203,6 @@ class ScrapeQueue {
     };
   }
 
-  /**
-   * Inicia o processamento da fila
-   * @deprecated Processing is now handled by orchestrator polling
-   */
-  private startProcessing(): void {
-    if (this.processing) return;
-
-    // Early return if queue is empty (no jobs to process)
-    if (this.queue.length === 0) {
-      console.log('[Queue] DEPRECATED: startProcessing called but queue is empty');
-      return;
-    }
-
-    this.processing = true;
-    console.log('[Queue] Started processing');
-
-    this.processNextIfAvailable();
-  }
-
-  /**
-   * Processa o próximo job se houver capacidade
-   */
-  private async processNextIfAvailable(): Promise<void> {
-    // Verifica capacidade
-    if (!this.hasCapacity()) {
-      console.log('[Queue] No capacity available, waiting...');
-      return;
-    }
-
-    // Pega próximo da fila
-    const next = this.peek();
-    if (!next) {
-      console.log('[Queue] Queue is empty, stopping processing');
-      this.processing = false;
-      return;
-    }
-
-    // Marca como running
-    this.markAsRunning(next.jobId);
-
-    // Delega a execução para o orchestrator
-    // (o orchestrator chamará markAsCompleted quando terminar)
-    // IMPORTANTE: Não await aqui para permitir processamento concorrente
-    // Erros são tratados dentro do callback do orchestrator
-    this.triggerJobExecution(next.jobId).catch((error) => {
-      console.error(`[Queue] Unhandled error in job ${next.jobId}:`, error);
-      // Marca como failed em caso de erro não tratado
-      this.markAsCompleted(next.jobId, 'failed');
-    });
-
-    // Processa próximo se ainda houver capacidade
-    if (this.hasCapacity() && this.queue.length > 0) {
-      setImmediate(() => this.processNextIfAvailable());
-    }
-  }
-
-
-  /**
-   * Define o callback para execução de jobs
-   * @deprecated Callback não é mais usado - orchestrator usa polling
-   * @param callback - Função que será chamada para executar um job
-   */
-  public setExecutionCallback(callback: (jobId: string) => Promise<void>): void {
-    console.warn('[Queue] DEPRECATED: setExecutionCallback() is no longer used');
-  }
 
   /**
    * Verifica se um job está na fila de espera

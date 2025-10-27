@@ -1506,12 +1506,17 @@ export async function retryScrapeExecutionAction(executionId: string) {
     }
 
     // Create a new execution record with incremented retry attempt
+    const previousAttempt = originalExecution.retryAttempt ?? 0;
+    const nextAttempt = previousAttempt + 1;
+
+    console.log(`[retryScrapeExecutionAction] Retrying execution ${executionId}: attempt ${previousAttempt} -> ${nextAttempt}`);
+
     const newExecution = await prisma.scrapeExecution.create({
       data: {
         scrapeJobId: originalExecution.scrapeJobId,
         tribunalConfigId: originalExecution.tribunalConfigId,
         status: ScrapeJobStatus.PENDING,
-        retryAttempt: originalExecution.retryAttempt + 1,
+        retryAttempt: nextAttempt,
       },
     });
 

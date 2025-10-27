@@ -121,8 +121,9 @@ export async function executeJob(jobId: string): Promise<void> {
     // Conta sucessos e falhas
     const successful = results.filter(r => r.status === 'fulfilled').length;
     const failed = results.filter(r => r.status === 'rejected').length;
+    const hasPartialFailures = failed > 0 && successful > 0;
 
-    console.log(`[Orchestrator] Job ${jobId} completed: ${successful} successful, ${failed} failed`);
+    console.log(`[Orchestrator] Job ${jobId} completed: ${successful} successful, ${failed} failed${hasPartialFailures ? ' (PARTIAL FAILURES)' : ''}`);
 
     if (failed === 0) {
       logger.success(`Raspagem concluída com sucesso!`, {
@@ -138,16 +139,32 @@ export async function executeJob(jobId: string): Promise<void> {
       logger.warn(`Raspagem concluída com falhas parciais`, {
         successful,
         failed,
-        total: job.tribunals.length
+        total: job.tribunals.length,
+        hasPartialFailures: true
       });
     }
 
     // Atualiza status final do job
+    // NOTA: Caso parcial (successful > 0 && failed > 0) é marcado como COMPLETED
+    // Para adicionar status COMPLETED_WITH_ERRORS no futuro:
+    // 1. Estender ScrapeJobStatus em lib/types/scraping.ts
+    // 2. Atualizar schema do banco (se necessário)
+    // 3. Atualizar UI para exibir o novo status
     const finalStatus = failed === 0
       ? ScrapeJobStatus.COMPLETED
       : successful === 0
         ? ScrapeJobStatus.FAILED
         : ScrapeJobStatus.COMPLETED; // Completou com falhas parciais
+
+    // Adiciona metadata sobre falhas parciais nos logs
+    if (hasPartialFailures) {
+      logger.warn('Job completado com falhas parciais - alguns tribunais falharam', {
+        successfulTribunals: successful,
+        failedTribunals: failed,
+        totalTribunals: job.tribunals.length,
+        partialFailure: true
+      });
+    }
 
     await prisma.scrapeJob.update({
       where: { id: jobId },
