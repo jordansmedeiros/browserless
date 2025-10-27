@@ -138,13 +138,16 @@ class ScrapeQueue {
    * @param jobId - ID do job
    * @param status - Status final (completed ou failed)
    */
-  public markAsCompleted(jobId: string, status: 'completed' | 'failed'): void {
+  public markAsCompleted(jobId: string, status: ScrapeJobStatus.COMPLETED | ScrapeJobStatus.FAILED | 'completed' | 'failed'): void {
     // Remove do set de running
     this.running.delete(jobId);
 
+    // Normaliza para string interna
+    const internalStatus = (status === ScrapeJobStatus.COMPLETED || status === 'completed') ? 'completed' : 'failed';
+
     // Adiciona ao map de completed
     this.completed.set(jobId, {
-      status,
+      status: internalStatus,
       completedAt: new Date(),
     });
 

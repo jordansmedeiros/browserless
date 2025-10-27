@@ -161,7 +161,7 @@ export async function executeJob(jobId: string): Promise<void> {
     await persistJobLogs(jobId, logger.getLogs());
 
     // Notifica a fila que o job terminou
-    scrapeQueue.markAsCompleted(jobId, finalStatus === ScrapeJobStatus.FAILED ? 'failed' : 'completed');
+    scrapeQueue.markAsCompleted(jobId, finalStatus);
 
     // Limpa logs da memória
     logger.clearLogs();
@@ -183,7 +183,7 @@ export async function executeJob(jobId: string): Promise<void> {
     });
 
     // Notifica a fila
-    scrapeQueue.markAsCompleted(jobId, 'failed');
+    scrapeQueue.markAsCompleted(jobId, ScrapeJobStatus.FAILED);
 
     // Limpa logs da memória
     logger.clearLogs();

@@ -1490,7 +1490,7 @@ export async function retryScrapeExecutionAction(executionId: string) {
     }
 
     // Only allow retry for failed executions
-    if (originalExecution.status !== 'failed') {
+    if (originalExecution.status !== ScrapeJobStatus.FAILED) {
       return {
         success: false,
         error: 'Apenas execuções falhadas podem ser reexecutadas',
@@ -1528,7 +1528,7 @@ export async function retryScrapeExecutionAction(executionId: string) {
     });
 
     // If the job was marked as failed/completed, update it back to pending
-    if (originalExecution.scrapeJob.status === 'failed' || originalExecution.scrapeJob.status === 'completed') {
+    if (originalExecution.scrapeJob.status === ScrapeJobStatus.FAILED || originalExecution.scrapeJob.status === ScrapeJobStatus.COMPLETED) {
       await prisma.scrapeJob.update({
         where: { id: originalExecution.scrapeJobId },
         data: {
@@ -1578,7 +1578,7 @@ export async function cancelScrapeJobAction(jobId: string) {
       };
     }
 
-    if (job.status === 'completed' || job.status === 'canceled' || job.status === 'failed') {
+    if (job.status === ScrapeJobStatus.COMPLETED || job.status === ScrapeJobStatus.CANCELED || job.status === ScrapeJobStatus.FAILED) {
       return {
         success: false,
         error: 'Job já foi finalizado e não pode ser cancelado',
@@ -1589,7 +1589,7 @@ export async function cancelScrapeJobAction(jobId: string) {
     await prisma.scrapeJob.update({
       where: { id: jobId },
       data: {
-        status: 'canceled',
+        status: ScrapeJobStatus.CANCELED,
         completedAt: new Date(),
       },
     });
@@ -1598,10 +1598,10 @@ export async function cancelScrapeJobAction(jobId: string) {
     await prisma.scrapeJobTribunal.updateMany({
       where: {
         scrapeJobId: jobId,
-        status: 'pending',
+        status: ScrapeJobStatus.PENDING,
       },
       data: {
-        status: 'canceled',
+        status: ScrapeJobStatus.CANCELED,
       },
     });
 
