@@ -1,5 +1,5 @@
 diff --git a/node_modules/puppeteer-extra-plugin-user-data-dir/index.js b/node_modules/puppeteer-extra-plugin-user-data-dir/index.js
-index 935505a..174ed0a 100644
+index 935505a..3c8736f 100644
 --- a/node_modules/puppeteer-extra-plugin-user-data-dir/index.js
 +++ b/node_modules/puppeteer-extra-plugin-user-data-dir/index.js
 @@ -5,7 +5,7 @@ const fs = require('fs')
@@ -11,3 +11,43 @@ index 935505a..174ed0a 100644
  const debug = require('debug')('puppeteer-extra-plugin:user-data-dir')
  const mkdtempAsync = util.promisify(fs.mkdtemp)
  const { PuppeteerExtraPlugin } = require('puppeteer-extra-plugin')
+@@ -63,7 +63,7 @@ class Plugin extends PuppeteerExtraPlugin {
+     this._isTemporary = true
+   }
+ 
+-  deleteUserDataDir() {
++  async deleteUserDataDir() {
+     debug('removeUserDataDir', this._userDataDir)
+ 
+     if (!this._userDataDir) {
+@@ -71,17 +71,19 @@ class Plugin extends PuppeteerExtraPlugin {
+       return
+     }
+ 
+-    // We're using rimraf here because it throw errors and don't seem to freeze the process
+-    // If ressources busy or locked by chrome try again 4 times, then give up. overall a timout of 400ms
+-    rimraf(
+-      this._userDataDir,
+-      {
+-        maxBusyTries: 4
+-      },
+-      err => {
+-        debug(err)
+-      }
+-    )
++    // We're using rimraf here to clean up temporary profile
++    // rimraf v6 uses async/await API instead of callbacks
++    try {
++      await rimraf(this._userDataDir, {
++        maxRetries: 3,
++        retryDelay: 100
++      })
++      debug('User data dir cleaned successfully')
++    } catch (err) {
++      // Ignore cleanup errors (e.g., EBUSY on Windows)
++      // These are non-critical and don't affect scraping results
++      debug('Cleanup error (ignored):', err.message || err)
++    }
+   }
+ 
+   async writeFilesToProfile() {

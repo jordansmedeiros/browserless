@@ -208,12 +208,7 @@ async function rasparPendentesManifestation() {
       }
     });
 
-    // DEBUG: Log completo da resposta da API (agora no contexto Node.js)
-    console.error('\n🔍 [DEBUG] Resposta completa da API /pje-seguranca/api/token/perfis:');
-    console.error(JSON.stringify(advogadoInfo.todosPerfis, null, 2));
-    console.error('\n🔍 [DEBUG] Perfil de advogado identificado:');
-    console.error(JSON.stringify(advogadoInfo.perfilCompleto, null, 2));
-    console.error('');
+    // DEBUG removido - já validado que funciona
 
     let idAdvogado;
     if (advogadoInfo.error) {
