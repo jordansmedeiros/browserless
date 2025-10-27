@@ -1510,16 +1510,20 @@ export async function retryScrapeExecutionAction(executionId: string) {
       data: {
         scrapeJobId: originalExecution.scrapeJobId,
         tribunalConfigId: originalExecution.tribunalConfigId,
-        status: 'pending',
+        status: ScrapeJobStatus.PENDING,
         retryAttempt: originalExecution.retryAttempt + 1,
       },
     });
 
     // Update the tribunal status back to pending
-    await prisma.scrapeJobTribunal.update({
-      where: { id: originalExecution.tribunalConfigId },
+    // Usa updateMany com filtro correto ao invés de update com ID errado
+    await prisma.scrapeJobTribunal.updateMany({
+      where: {
+        scrapeJobId: originalExecution.scrapeJobId,
+        tribunalConfigId: originalExecution.tribunalConfigId,
+      },
       data: {
-        status: 'pending',
+        status: ScrapeJobStatus.PENDING,
       },
     });
 

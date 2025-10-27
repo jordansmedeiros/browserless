@@ -94,14 +94,17 @@ export async function executeJob(jobId: string): Promise<void> {
     // Log para terminal do servidor
     console.log(`[Orchestrator] Iniciando raspagem de ${job.scrapeType} para ${job.tribunals.length} tribunais`);
 
-    // Atualiza status para running
-    await prisma.scrapeJob.update({
-      where: { id: jobId },
-      data: {
-        status: ScrapeJobStatus.RUNNING,
-        startedAt: new Date(),
-      },
-    });
+    // Valida que o job está em running (já deve ter sido marcado pelo claim atômico)
+    if (job.status !== ScrapeJobStatus.RUNNING) {
+      console.warn(`[Orchestrator] Job ${jobId} status is ${job.status}, expected RUNNING - updating`);
+      await prisma.scrapeJob.update({
+        where: { id: jobId },
+        data: {
+          status: ScrapeJobStatus.RUNNING,
+          startedAt: new Date(),
+        },
+      });
+    }
 
     console.log(`[Orchestrator] Job ${jobId} has ${job.tribunals.length} tribunals to process`);
 
@@ -470,11 +473,12 @@ async function persistJobLogs(jobId: string, logs: LogEntry[]): Promise<void> {
   if (logs.length === 0) return;
 
   try {
-    // Atualiza o job com os logs em formato JSON
+    // Atualiza o job com os logs em formato JSON nativo
+    // Salva array JSON diretamente (assumindo coluna do tipo Json no schema)
     await prisma.scrapeJob.update({
       where: { id: jobId },
       data: {
-        logs: JSON.stringify(logs),
+        logs: logs as any,
       },
     });
 
@@ -512,31 +516,67 @@ async function pollPendingJobs(): Promise<void> {
 
     const availableSlots = SCRAPING_CONCURRENCY.maxConcurrentJobs - scrapeQueue.getStats().running;
 
-    // Busca jobs pendentes do banco
-    const pendingJobs = await prisma.scrapeJob.findMany({
-      where: {
-        status: ScrapeJobStatus.PENDING,
-        startedAt: null,
-      },
-      orderBy: {
-        createdAt: 'asc', // FIFO
-      },
-      take: availableSlots,
+    // Claim atômico de jobs dentro de uma transação
+    const claimedJobs = await prisma.$transaction(async (tx) => {
+      // 1. Busca jobs pendentes do banco
+      const pendingJobs = await tx.scrapeJob.findMany({
+        where: {
+          status: ScrapeJobStatus.PENDING,
+          startedAt: null,
+        },
+        orderBy: {
+          createdAt: 'asc', // FIFO
+        },
+        take: availableSlots,
+      });
+
+      if (pendingJobs.length === 0) {
+        return [];
+      }
+
+      const jobIds = pendingJobs.map(j => j.id);
+      const now = new Date();
+
+      // 2. Atualiza jobs para status 'running' com startedAt
+      const updateResult = await tx.scrapeJob.updateMany({
+        where: {
+          id: { in: jobIds },
+          status: ScrapeJobStatus.PENDING, // Garante que ainda estão pending
+          startedAt: null,
+        },
+        data: {
+          status: ScrapeJobStatus.RUNNING,
+          startedAt: now,
+        },
+      });
+
+      // 3. Valida que o número de linhas atualizadas corresponde ao esperado
+      if (updateResult.count !== pendingJobs.length) {
+        console.warn(`[Orchestrator] Claimed ${updateResult.count} jobs but found ${pendingJobs.length} - race condition detected`);
+
+        // Re-busca apenas os jobs que foram efetivamente atualizados
+        const actuallyClaimedJobs = await tx.scrapeJob.findMany({
+          where: {
+            id: { in: jobIds },
+            status: ScrapeJobStatus.RUNNING,
+            startedAt: now,
+          },
+        });
+
+        return actuallyClaimedJobs;
+      }
+
+      return pendingJobs;
     });
 
-    if (pendingJobs.length > 0) {
+    if (claimedJobs.length > 0) {
       const stats = scrapeQueue.getStats();
-      console.log(`[Orchestrator] Polling found ${pendingJobs.length} pending jobs, capacity: ${stats.running}/${stats.capacity}`);
+      console.log(`[Orchestrator] Claimed ${claimedJobs.length} jobs atomically, capacity: ${stats.running}/${stats.capacity}`);
 
-      // Processa cada job encontrado
-      for (const job of pendingJobs) {
-        if (!scrapeQueue.hasCapacity()) {
-          console.log('[Orchestrator] Capacity reached during polling, stopping');
-          break;
-        }
-
+      // Processa cada job claimed
+      for (const job of claimedJobs) {
         try {
-          // Marca como running
+          // Marca como running na fila local
           scrapeQueue.markAsRunning(job.id);
 
           // Executa job de forma assíncrona (sem await)
@@ -640,17 +680,26 @@ export function initializeOrchestrator(): void {
 
 /**
  * Verifica e marca jobs que foram interrompidos (servidor reiniciou)
+ * Aplica filtro de tempo para evitar falsos positivos em jobs recém-iniciados
  */
 async function checkForInterruptedJobs(): Promise<void> {
   try {
+    // Considera interrompidos apenas jobs com mais de 15 minutos em RUNNING
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+
     const interruptedJobs = await prisma.scrapeJob.findMany({
       where: {
         status: ScrapeJobStatus.RUNNING,
+        startedAt: {
+          lt: fifteenMinutesAgo,
+        },
       },
     });
 
     if (interruptedJobs.length > 0) {
-      console.log(`[Orchestrator] Found ${interruptedJobs.length} interrupted jobs`);
+      console.log(
+        `[Orchestrator] Found ${interruptedJobs.length} interrupted jobs (running > 15min), marking as failed`
+      );
 
       await Promise.all(
         interruptedJobs.map(job =>
@@ -665,6 +714,8 @@ async function checkForInterruptedJobs(): Promise<void> {
       );
 
       console.log('[Orchestrator] Marked interrupted jobs as failed');
+    } else {
+      console.log('[Orchestrator] No interrupted jobs found (checked jobs running > 15min)');
     }
   } catch (error: any) {
     console.error('[Orchestrator] Error checking for interrupted jobs:', error);
