@@ -81,8 +81,12 @@ export async function executeScript(
   const logs: string[] = [];
 
   try {
-    // Resolve o caminho do script
-    const scriptPath = resolveScriptPath(options.scrapeType, options.scrapeSubType);
+    // Resolve o caminho do script (passa código do tribunal para encontrar script específico)
+    const scriptPath = resolveScriptPath(
+      options.scrapeType,
+      options.scrapeSubType,
+      options.tribunalConfig.codigo
+    );
     addLogLine(logs, `[Executor] Script path: ${scriptPath}`);
     addLogLine(logs, `[Executor] Tribunal: ${options.tribunalConfig.codigo || options.tribunalConfig.urlBase}`);
 
@@ -458,14 +462,16 @@ function sleep(ms: number): Promise<void> {
  *
  * @param scrapeType - Tipo de raspagem
  * @param scrapeSubType - Sub-tipo de raspagem
+ * @param tribunalCodigo - Código do tribunal (opcional)
  * @returns true se o script existe
  */
 export async function validateScriptExists(
   scrapeType: ScrapeType,
-  scrapeSubType?: ScrapeSubType
+  scrapeSubType?: ScrapeSubType,
+  tribunalCodigo?: string
 ): Promise<boolean> {
   try {
-    const scriptPath = resolveScriptPath(scrapeType, scrapeSubType);
+    const scriptPath = resolveScriptPath(scrapeType, scrapeSubType, tribunalCodigo);
     const { access } = await import('fs/promises');
     const { constants } = await import('fs');
 

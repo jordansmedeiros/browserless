@@ -156,7 +156,7 @@ export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChang
         stepValidation={stepValidation}
       >
         {/* Step 1: Tribunal Selection */}
-        <WizardStep step={1}>
+        <WizardStep step={1} title="Selecionar Tribunais">
           <TribunalSelector
             tribunais={tribunais}
             selectedIds={selectedTribunalIds}
@@ -165,7 +165,7 @@ export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChang
         </WizardStep>
 
         {/* Step 2: Configuration */}
-        <WizardStep step={2}>
+        <WizardStep step={2} title="Configurar Raspagem">
           <div className="space-y-6">
             {/* Scrape Type Selection */}
             <div>

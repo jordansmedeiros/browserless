@@ -5,6 +5,7 @@
 
 import { ScrapeType, ScrapeSubType, SCRAPE_TYPE_TO_SCRIPT, SCRAPE_SUBTYPE_TO_SCRIPT } from '@/lib/types/scraping';
 import path from 'path';
+import { existsSync } from 'fs';
 
 /**
  * Configuração de limites de execução concorrente
@@ -47,20 +48,21 @@ export const SCRAPING_POLLING = {
 
 /**
  * Diretório base dos scripts de raspagem
- * Usa scripts genéricos em pje-common que funcionam com qualquer tribunal
  */
-const SCRIPTS_BASE_DIR = path.join(process.cwd(), 'server', 'scripts', 'pje-common');
+const SCRIPTS_BASE_DIR = path.join(process.cwd(), 'server', 'scripts');
 
 /**
- * Resolve o caminho do script baseado no tipo e sub-tipo de raspagem
+ * Resolve o caminho do script baseado no tipo, sub-tipo e tribunal
  *
  * @param scrapeType - Tipo de raspagem
  * @param scrapeSubType - Sub-tipo de raspagem (opcional, usado para "pendentes")
+ * @param tribunalCodigo - Código do tribunal (ex: "TRT3-1g") - opcional
  * @returns Caminho absoluto do script
  */
 export function resolveScriptPath(
   scrapeType: ScrapeType,
-  scrapeSubType?: ScrapeSubType
+  scrapeSubType?: ScrapeSubType,
+  tribunalCodigo?: string
 ): string {
   let scriptName: string;
 
@@ -72,7 +74,60 @@ export function resolveScriptPath(
     scriptName = SCRAPE_TYPE_TO_SCRIPT[scrapeType];
   }
 
-  return path.join(SCRIPTS_BASE_DIR, scriptName);
+  // DEBUG: Log inicial
+  console.log('[resolveScriptPath] Input:', { scrapeType, scrapeSubType, tribunalCodigo });
+
+  // Se temos código de tribunal, tenta usar script específico
+  if (tribunalCodigo) {
+    // Parse "TRT3-1g" -> tribunal="TRT3", grau="1g"
+    const match = tribunalCodigo.match(/^([A-Z]+\d+)-(\dg)$/i);
+    console.log('[resolveScriptPath] Match result:', match);
+    if (match) {
+      const tribunal = match[1].toLowerCase(); // "trt3"
+      const grau = match[2]; // "1g"
+
+      // Mapeia tipo de scrape para subpasta
+      let subfolder = '';
+      switch (scrapeType) {
+        case ScrapeType.PENDENTES:
+          subfolder = 'pendentes';
+          break;
+        case ScrapeType.ACERVO_GERAL:
+          subfolder = 'acervo';
+          break;
+        case ScrapeType.ARQUIVADOS:
+          subfolder = 'arquivados';
+          break;
+        case ScrapeType.MINHA_PAUTA:
+          subfolder = 'pauta';
+          break;
+      }
+
+      // Tenta path específico do tribunal: pje-trt/trt3/1g/pendentes/script.js
+      const specificPath = path.join(
+        SCRIPTS_BASE_DIR,
+        'pje-trt',
+        tribunal,
+        grau,
+        subfolder,
+        scriptName
+      );
+
+      // Verifica se existe (sync é ok aqui, é rápido)
+      console.log('[resolveScriptPath] Tentando path específico:', specificPath);
+      if (existsSync(specificPath)) {
+        console.log('[resolveScriptPath] ✅ Encontrado! Usando path específico');
+        return specificPath;
+      } else {
+        console.log('[resolveScriptPath] ❌ Não existe, tentando fallback');
+      }
+    }
+  }
+
+  // Fallback: usa script genérico em pje-common
+  const fallbackPath = path.join(SCRIPTS_BASE_DIR, 'pje-common', scriptName);
+  console.log('[resolveScriptPath] Usando fallback:', fallbackPath);
+  return fallbackPath;
 }
 
 /**
