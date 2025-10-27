@@ -121,26 +121,31 @@ extensions/                  - Browserless SDK extensions
 - CLI scaffolding and documentation live in `bin/scaffold/README.md`.
 ### Testing Strategy
 
-**Framework**: Mocha with TypeScript support via ts-node/esm
+**Frameworks**:
+- Mocha 11 for automation and service code, executed with `ts-node/esm`.
+- React Testing Library + Happy DOM for dashboard components (via `npm run test:ux`).
+- Playwright-powered smoke checks wrapped in custom `scripts/test-*.ts` utilities executed with `tsx`.
 
 **Configuration**:
-- Test files: `build/**/*.spec.js` (compiled from `.spec.ts`)
-- Timeout: 45 seconds per test
-- Slow threshold: 5 seconds
-- Coverage: c8 with text/html/lcov reporters
+- Mocha specs compile to `build/**/*.spec.js` (generated from TypeScript sources under `server/src`).
+- Default timeout 45s and slow threshold 5s as defined in `package.json`.
+- UI tests rely on the `tsx` runner with `happy-dom` and Testing Library assertions.
 
 **Running Tests**:
 ```bash
-npm test              # Run tests
-npm run coverage      # Run with coverage report
-npm run build:tests   # Build TypeScript + functions + debugger
+npm test                 # Build server bundles and run mocha suite
+npm run coverage         # Mocha with c8 coverage output
+npm run build:tests      # Prebuild TS + functions + debugger assets
+npm run test:ux          # Accessibility + responsiveness checks (Testing Library + Happy DOM)
+npm run test:accessibility
+npm run test:responsiveness
 ```
 
 **Testing Approach**:
-- Tests written in TypeScript alongside source files
-- Build required before running tests
-- Integration tests for browser automation
-- Mock external services where appropriate
+- Build artifacts via `npm run build:tests` before executing integration suites.
+- Mock external PJE endpoints where possible; leverage environment variables for credentialed runs.
+- Browser automation regression steps run through `scripts/test-*-trt*.ts` (`tsx` runner) against sandboxed environments.
+- Capture artifacts under `data/test-*` to analyze scraping regressions.
 
 ### Git Workflow
 
@@ -321,34 +326,26 @@ GET /pje-comum-api/api/paineladvogado/{id}/processos
 ### Key Documentation
 - [README.md](README.md) - Main project documentation
 - [README-PJE.md](README-PJE.md) - PJE automation quick start
-- [scripts/pje/README.md](scripts/pje/README.md) - Complete PJE documentation
-- [scripts/pje/README-RASPAGEM.md](scripts/pje/README-RASPAGEM.md) - Scraping guide
+- [server/scripts/pje-trt/README.md](server/scripts/pje-trt/README.md) - TRT automation overview
+- [server/scripts/pje-trt/trt3/README.md](server/scripts/pje-trt/trt3/README.md) - TRT3-specific scraping flows
 - [docs/pje/APIs.md](docs/pje/APIs.md) - PJE API reference
 - [docs/pje/ANTI-BOT-DETECTION.md](docs/pje/ANTI-BOT-DETECTION.md) - Anti-detection techniques
+- [docs/pje/ESTRUTURA.md](docs/pje/ESTRUTURA.md) - Module structure map
 - [ESTRUTURA-ORGANIZADA.md](ESTRUTURA-ORGANIZADA.md) - Project reorganization history
 
 ### Configuration Files
-- [package.json](package.json) - Dependencies and scripts
-- [tsconfig.json](tsconfig.json) - TypeScript configuration
-- [.claude/settings.local.json](.claude/settings.local.json) - Claude Code permissions
+- [package.json](package.json) - Dependencies, scripts, and Playwright version matrix
+- [tsconfig.json](tsconfig.json) - Next.js app compiler settings and path aliases
+- [server/tsconfig.json](server/tsconfig.json) - Browserless service build config (tsc -> server/build)
+- [prisma/schema.prisma](prisma/schema.prisma) - Database schema for tribunals, credentials, and scrape history
+- [.env.example](.env.example) - Environment variable template (PJE credentials, database URL)
+- [next.config.mjs](next.config.mjs) - Next.js runtime configuration
+- [tailwind.config.ts](tailwind.config.ts) - Tailwind and design system configuration
 
 ### Key Scripts
-- [scripts/pje/login.js](scripts/pje/login.js) - Validated PJE login automation
-- [scripts/pje/capturar-api.js](scripts/pje/capturar-api.js) - API discovery tool
-- [scripts/pje/raspar-processos.js](scripts/pje/raspar-processos.js) - Simple scraper
-- [scripts/pje/raspar-todos-processos.js](scripts/pje/raspar-todos-processos.js) - Full scraper
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+- [server/scripts/pje-trt/common/login.js](server/scripts/pje-trt/common/login.js) - Validated TRT Single Sign-On automation
+- [server/scripts/pje-trt/common/capturar-api.js](server/scripts/pje-trt/common/capturar-api.js) - API discovery and session capture tool
+- [server/scripts/pje-trt/trt3/1g/acervo/raspar-acervo-geral.js](server/scripts/pje-trt/trt3/1g/acervo/raspar-acervo-geral.js) - Acervo Geral scraper
+- [server/scripts/pje-trt/trt3/1g/pendentes/raspar-pendentes-no-prazo-dada-ciencia.js](server/scripts/pje-trt/trt3/1g/pendentes/raspar-pendentes-no-prazo-dada-ciencia.js) - Pendentes com prazo scraper
+- [app/actions/pje.ts](app/actions/pje.ts) - Next.js server actions bridging UI and automation
+- [scripts/test-all-trts-scraping.ts](scripts/test-all-trts-scraping.ts) - Multi-tribunal scraping smoke test
