@@ -292,6 +292,8 @@ async function rasparPendentesManifestation() {
     console.error('='.repeat(70) + '\n');
 
     // Saída JSON para stdout (para integração com sistema de fila)
+    console.error(`\n🔍 [DEBUG] global.advogadoInfo antes de montar resultado:`, global.advogadoInfo);
+
     const resultado = {
       success: true,
       processosCount: processos.length,
@@ -304,6 +306,8 @@ async function rasparPendentesManifestation() {
         nome: global.advogadoInfo.nome,
       } : null,
     };
+
+    console.error(`🔍 [DEBUG] resultado.advogado:`, resultado.advogado);
     console.log(JSON.stringify(resultado));
 
   } catch (error) {
