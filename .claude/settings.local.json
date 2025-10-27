@@ -36,7 +36,8 @@
       "Bash(timeout 8 bash:*)",
       "Bash(taskkill //F //PID 22572)",
       "Bash(node -e:*)",
-      "Bash(wait)"
+      "Bash(wait)",
+      "Bash(npx patch-package:*)"
     ],
     "deny": [],
     "ask": []
