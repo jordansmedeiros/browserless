@@ -2,10 +2,12 @@
 
 ## Purpose
 
-This is a **fork of Browserless** - a headless browser platform - with custom extensions for **PJE (Processo Judicial Eletrônico)** automation. The project serves two main purposes:
+This is a **fork of Browserless** - a headless browser platform - augmented with a Next.js dashboard and custom extensions for **PJE (Processo Judicial Eletronico)** automation. The project serves three main purposes:
 
-1. **Core Browserless Platform**: Deploy and manage headless browsers (Chromium, Firefox, WebKit, Edge) in Docker for remote browser automation
-2. **PJE Legal Automation**: Automated login, data scraping, and process management for Brazil's electronic legal process system (PJE TRT3)
+1. **Core Browserless Platform**: Deploy and manage headless browsers (Chromium, Firefox, WebKit, Edge) in Docker for remote browser automation.
+2. **PJE Legal Automation**: Automated login, data scraping, and process management for Brazil's electronic legal process system (PJE TRT3).
+3. **Operations Dashboard**: Next.js 16 app for configuring credentials, monitoring scrapes, and launching workflows from a modern UI.
+
 
 ### Key Goals
 - Provide a reliable, production-ready headless browser service
@@ -13,43 +15,41 @@ This is a **fork of Browserless** - a headless browser platform - with custom ex
 - Implement sophisticated anti-bot detection mechanisms for PJE access
 - Enable automated scraping of legal process data from PJE courts
 - Maintain compatibility with upstream Browserless while adding custom legal automation features
+- Provide a self-service UI tailored to TRT3 legal automation workflows
 
 ## Tech Stack
 
-### Core Technologies
-- **TypeScript** (ES2022) - Primary language with strict mode enabled
-- **Node.js** v24 - Runtime environment (exactly v24, not v25)
-- **Puppeteer** v24.26.1 - Chrome automation (with puppeteer-extra for stealth)
-- **Playwright** v1.56.1 (+ versioned: 1.51-1.54) - Multi-browser automation
-- **Docker** - Deployment and containerization
+### Application Platform
+- **Next.js** 16 (App Router + React Server Components) powers the dashboard in `app/` and surfaces server actions for PJE flows.
+- **React** 19 with hooks, client components, and 'use server' actions for orchestration.
+- **Tailwind CSS** 3.4 with Radix UI primitives, class-variance-authority, tailwind-merge, and shadcn-style component patterns.
+- **Prisma** 6.18.0 with PostgreSQL (`DATABASE_URL`) for credential storage, scrape history, and tribunal metadata.
+- **Zod** + `@hookform/resolvers` + React Hook Form for schema-backed forms.
 
-### Web Automation & Anti-Detection
-- `puppeteer-extra` - Plugin system for Puppeteer
-- `puppeteer-extra-plugin-stealth` - Anti-bot detection bypass
-- `lighthouse` - Performance metrics and auditing
+### Automation Runtime
+- **Node.js** v24 (exact range `>= 24 < 25`) running the Browserless fork and automation scripts.
+- **TypeScript** 5.9 in strict mode across both the Next.js app and the `server/` service.
+- **Puppeteer** 24.26.1 bundled with `puppeteer-extra` and the stealth plugin for Chromium hardening.
+- **Playwright** 1.56.1 plus pinned compatibility builds (`playwright-1.51`–`1.54`) to support legacy court requirements.
+- `lighthouse`, `systeminformation`, `tar-fs`, and `file-type` for audits, telemetry, and artifact handling.
+- **Docker** images to package headless browser workloads for deployment.
 
-### Backend & APIs
-- `http-proxy` - Proxying browser connections
-- `joi` - Request validation
-- `debug` - Logging and debugging
-- `get-port` - Dynamic port allocation
-- `queue` - Request queueing and parallelism
+### Backend & Services
+- `http-proxy`, `queue`, and `get-port` coordinate browser sessions and request isolation.
+- Custom TypeScript service under `server/` compiled with `tsc` and launched via env-cmd + Node.
+- `@prisma/client`, `pg`, and `dotenv` handle database access and configuration management.
+- `commander` CLIs for automation utilities and scaffolding.
+- `debug` provides structured logging, with `gradient-string` for CLI UX.
+- `patch-package` maintains local vendor fixes post-install.
 
-### Build & Development
-- **TypeScript Compiler** - Build system
-- **esbuild** - Fast bundler for function builds
-- **ESLint** + TypeScript plugin - Linting with sorted imports
-- **Prettier** - Code formatting (semi, trailing commas, single quotes, 80 width)
-- **Mocha** - Testing framework with 45s timeout
-- **c8** - Code coverage
-- **ts-node** - Development execution
-
-### Utilities
-- `typescript-json-schema` - JSON schema generation from types
-- `systeminformation` - System metrics
-- `tar-fs` - Archive handling
-- `file-type` - File type detection
-
+### Build & Tooling
+- **TypeScript Compiler** (tsc) + project references for `server/` builds.
+- **esbuild** packaging for function builds and development helpers.
+- **tsx** and `ts-node/esm` for executing TypeScript scripts during development.
+- **ESLint** 9 with `@typescript-eslint` and enforced sorted imports.
+- **Prettier** 3 configured for semicolons, single quotes, trailing commas, and 80 column width.
+- **Mocha** 11 with `ts-node/esm` loader and **c8** for coverage reports.
+- **Playwright CLI** (`npm run install:browsers`) to install Chromium, Firefox, WebKit, and Edge binaries.
 ## Project Conventions
 
 ### Code Style
@@ -69,52 +69,56 @@ This is a **fork of Browserless** - a headless browser platform - with custom ex
 - No async promise executors allowed
 
 **Naming Conventions**:
-- Files: kebab-case (e.g., `login-pje.js`, `raspar-processos.js`)
-- Functions/variables: camelCase
-- Types/Interfaces: PascalCase
-- Constants: UPPER_SNAKE_CASE for config values
+- Files: kebab-case (e.g., `server/scripts/pje-trt/trt3/1g/raspar-acervo-geral.js`, `app/(dashboard)/pje/login/page.tsx`).
+- Functions/variables: camelCase.
+- Types/Interfaces: PascalCase.
+- Constants: UPPER_SNAKE_CASE for config values.
 
 **TypeScript Configuration**:
-- Target: ES2022
-- Module: ES2022 (ESM modules throughout)
-- Strict mode enabled
-- Declaration files generated
-- No implicit returns
-- No unused locals or parameters
+- App `tsconfig.json`: target ES2022, module `esnext`, moduleResolution `bundler`, `noEmit`, and path aliases (`@/*`, `@/lib/*`, etc.) for Next.js compilation.
+- Server `server/tsconfig.json`: outputs to `server/build/`, module `es2022`, strict null checks, declarations enabled, and enforces noUnused locals/parameters.
+- All TypeScript builds run in strict mode with JSON module support and ESM-first modules.
 
-### Architecture Patterns
+## Architecture Patterns
 
 **Core Architecture**:
-- Browser service listens for WebSocket connections and REST API requests
-- Each connection spawns a browser instance
-- Connection proxied into Chrome/Firefox/WebKit
-- Browsers closed after session completion
-- Queue management for parallelism control
+- Next.js App Router in `app/` serves dashboard pages, server actions, and API routes.
+- The `server/` package (TypeScript compiled to `server/build/`) hosts the Browserless engine and automation APIs consumed by the UI.
+- Browser sessions are proxied through `http-proxy`; each request spawns an isolated Chromium/Firefox/WebKit/Edge instance and is torn down when complete.
+- Queue orchestration via the `queue` library controls concurrency and protects system resources.
 
-**PJE Extensions** (located in `scripts/pje/`):
-- Login automation with anti-detection measures
-- API discovery and documentation (`docs/pje/APIs.md`)
-- Data scrapers organized in `scripts/pje/raspadores/`
-- Results saved to `data/pje/` directory
+**PJE Automation Modules** (under `server/scripts/pje-trt/` and `server/scripts/pje-common/`):
+- `common/login.js` automates TRT Single Sign-On with stealth hardening.
+- `trt3/1g/*` directories hold acervo, pendentes, arquivados, and pauta scrapers.
+- Shared utilities in `server/scripts/pje-trt/common/` centralize selectors, waits, and error handling.
+- Results default to `data/pje/trt3/1g/` with one JSON file per scrape run.
+
+**Dashboard Workflows**:
+- Server actions in `app/(pje)/` call into automation services via `server/api` adapters.
+- Credentials and scrape history persist through Prisma models defined in `prisma/`.
+- UI components (shadcn style) live in `components/` with reusable hooks in `hooks/` and helper modules in `lib/`.
 
 **File Organization**:
 ```
-src/           - Core TypeScript source code
-build/         - Compiled JavaScript output
-scripts/       - Build and automation scripts
-  pje/         - PJE-specific automation scripts
-docs/pje/      - PJE technical documentation
-data/pje/      - Scraped data output
-functions/     - Custom function extensions
-external/      - External dependencies
-static/        - Static assets
+app/                         - Next.js routes, layouts, and server actions
+components/                  - Shared UI components (shadcn + Radix)
+config/                      - Zod schemas, feature flags, and runtime config
+hooks/                       - React hooks for client/server interop
+lib/                         - Shared utilities and service clients
+server/src/                  - Browserless core service TypeScript source
+server/scripts/pje-trt/      - TRT-specific automation scripts
+server/scripts/pje-common/   - Shared PJE helpers reused across tribunals
+server/build/                - Compiled JavaScript output for the service
+data/pje/                    - Local storage for scraped artifacts
+docs/pje/                    - PJE technical documentation
+prisma/                      - Database schema and generated client config
+public/                      - Static assets served by Next.js
+extensions/                  - Browserless SDK extensions
 ```
 
 **Extension System**:
-- NodeJS SDK allows extending routes and functionality
-- Custom functions can be added to `functions/` directory
-- See `bin/scaffold/README.md` for SDK documentation
-
+- Browserless Node SDK extensions remain under `extensions/`.
+- CLI scaffolding and documentation live in `bin/scaffold/README.md`.
 ### Testing Strategy
 
 **Framework**: Mocha with TypeScript support via ts-node/esm
@@ -184,7 +188,7 @@ npm start            # Start built application
 - **Debug Viewer**: Visual interface showing active sessions
 - **Session Management**: Automatic timeouts and health checks
 
-### PJE (Processo Judicial Eletrônico) Automation
+### PJE (Processo Judicial Eletronico) Automation
 
 **Domain**: Brazilian electronic legal process system (TRT3 - Labor Court)
 
@@ -333,3 +337,18 @@ GET /pje-comum-api/api/paineladvogado/{id}/processos
 - [scripts/pje/capturar-api.js](scripts/pje/capturar-api.js) - API discovery tool
 - [scripts/pje/raspar-processos.js](scripts/pje/raspar-processos.js) - Simple scraper
 - [scripts/pje/raspar-todos-processos.js](scripts/pje/raspar-todos-processos.js) - Full scraper
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
