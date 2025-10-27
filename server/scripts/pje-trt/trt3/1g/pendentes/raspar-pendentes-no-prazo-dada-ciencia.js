@@ -163,13 +163,78 @@ async function rasparPendentesManifestation() {
     await delay(5000);
 
     // ====================================================================
-    // PASSO 2: DEFINIR ID DO ADVOGADO
+    // PASSO 2: BUSCAR ID DO ADVOGADO
     // ====================================================================
 
-    console.error('👤 Configurando ID do advogado...\n');
+    console.error('👤 Buscando ID do advogado via API...\n');
 
-    const idAdvogado = ID_ADVOGADO;
-    console.error(`✅ ID do advogado: ${idAdvogado}\n`);
+    // Busca perfis do usuário logado
+    const advogadoInfo = await page.evaluate(async () => {
+      try {
+        const response = await fetch('/pje-seguranca/api/token/perfis');
+        if (!response.ok) {
+          return { error: `HTTP ${response.status}` };
+        }
+        const perfis = await response.json();
+
+        // Busca perfil de advogado
+        const perfilAdvogado = perfis.find(p =>
+          p.identificadorPapel === 'ADVOGADO' ||
+          p.papel?.toLowerCase().includes('advogado')
+        );
+
+        // Extrai CPF e nome da localizacao se disponível
+        // Formato: "NOME COMPLETO (CPF)"
+        let cpf = null;
+        let nome = null;
+        if (perfilAdvogado?.localizacao) {
+          const match = perfilAdvogado.localizacao.match(/^(.+?)\s*\(([0-9.-]+)\)$/);
+          if (match) {
+            nome = match[1].trim();
+            cpf = match[2].replace(/[.-]/g, ''); // Remove formatação do CPF
+          }
+        }
+
+        // CORREÇÃO FINAL: O campo correto é "idPerfil"
+        return {
+          idAdvogado: perfilAdvogado?.idPerfil,  // ← CORRETO!
+          cpf: cpf,
+          nome: nome || perfilAdvogado?.papel,
+          perfilCompleto: perfilAdvogado, // Para debug
+          todosPerfis: perfis, // Retorna todos para debug
+        };
+      } catch (error) {
+        return { error: error.message };
+      }
+    });
+
+    // DEBUG: Log completo da resposta da API (agora no contexto Node.js)
+    console.error('\n🔍 [DEBUG] Resposta completa da API /pje-seguranca/api/token/perfis:');
+    console.error(JSON.stringify(advogadoInfo.todosPerfis, null, 2));
+    console.error('\n🔍 [DEBUG] Perfil de advogado identificado:');
+    console.error(JSON.stringify(advogadoInfo.perfilCompleto, null, 2));
+    console.error('');
+
+    let idAdvogado;
+    if (advogadoInfo.error) {
+      console.error(`⚠️  Erro ao buscar ID do advogado: ${advogadoInfo.error}`);
+      console.error('   Usando ID_ADVOGADO do .env como fallback...\n');
+      idAdvogado = ID_ADVOGADO;
+    } else if (advogadoInfo.idAdvogado) {
+      idAdvogado = advogadoInfo.idAdvogado;
+      console.error(`✅ ID do advogado obtido da API: ${idAdvogado}`);
+      console.error(`   Nome: ${advogadoInfo.nome}`);
+      console.error(`   CPF: ${advogadoInfo.cpf}\n`);
+
+      // Retorna info do advogado no resultado para salvar no banco
+      global.advogadoInfo = advogadoInfo;
+    } else {
+      console.error('⚠️  ID do advogado não encontrado na resposta da API');
+      console.error('   Usando ID_ADVOGADO do .env como fallback...\n');
+      idAdvogado = ID_ADVOGADO;
+    }
+
+    console.error(`✅ ID do advogado configurado: ${idAdvogado}\n`);
 
     // ====================================================================
     // PASSO 3: RASPAR PROCESSOS COM FILTROS
@@ -236,7 +301,13 @@ async function rasparPendentesManifestation() {
       success: true,
       processosCount: processos.length,
       processos: processos,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      // Inclui info do advogado para salvar no banco
+      advogado: global.advogadoInfo ? {
+        idAdvogado: global.advogadoInfo.idAdvogado,
+        cpf: global.advogadoInfo.cpf,
+        nome: global.advogadoInfo.nome,
+      } : null,
     };
     console.log(JSON.stringify(resultado));
 

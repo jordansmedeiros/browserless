@@ -35,7 +35,8 @@
       "Bash(taskkill //F //PID 46012)",
       "Bash(timeout 8 bash:*)",
       "Bash(taskkill //F //PID 22572)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(wait)"
     ],
     "deny": [],
     "ask": []

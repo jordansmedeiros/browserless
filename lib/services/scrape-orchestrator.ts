@@ -11,6 +11,7 @@ import { SCRAPING_CONCURRENCY } from '@/config/scraping';
 import { ScrapeJobStatus } from '@/lib/types/scraping';
 import { ScrapingError, formatErrorForLog } from '@/lib/errors/scraping-errors';
 import { createJobLogger, type LogEntry } from './scrape-logger';
+import { persistProcessos } from './scrape-data-persister';
 
 /**
  * Limita execuções concorrentes dentro de um job
@@ -275,6 +276,34 @@ async function executeTribunalScraping(
       },
     });
 
+    // Salva processos nas tabelas específicas por tipo
+    try {
+      logger.info(`Salvando ${result.result.processosCount} processos no banco...`);
+      const savedCount = await persistProcessos(execution.id, job.scrapeType, result.result);
+      logger.success(`${savedCount} processos salvos no banco com sucesso`);
+    } catch (error: any) {
+      logger.error(`Erro ao salvar processos no banco: ${error.message}`);
+      console.error(`[Orchestrator] Erro ao persistir processos:`, error);
+      // Não lança erro para não falhar a execução, apenas loga
+    }
+
+    // Atualiza ID do advogado no banco se foi retornado pela raspagem
+    if (result.result.advogado?.idAdvogado && result.result.advogado?.cpf) {
+      try {
+        logger.info(`Atualizando ID do advogado no banco...`);
+        await updateAdvogadoIdFromScraping(
+          result.result.advogado.cpf,
+          result.result.advogado.idAdvogado,
+          result.result.advogado.nome
+        );
+        logger.success(`ID do advogado atualizado: ${result.result.advogado.idAdvogado}`);
+      } catch (error: any) {
+        logger.error(`Erro ao atualizar ID do advogado: ${error.message}`);
+        console.error(`[Orchestrator] Erro ao atualizar advogado:`, error);
+        // Não lança erro para não falhar a execução
+      }
+    }
+
     // Atualiza status do tribunal para completed
     await prisma.scrapeJobTribunal.update({
       where: { id: jobTribunal.id },
@@ -338,6 +367,42 @@ async function executeTribunalScraping(
     });
 
     throw error;
+  }
+}
+
+/**
+ * Atualiza ID do advogado no banco com dados obtidos na raspagem
+ */
+async function updateAdvogadoIdFromScraping(
+  cpf: string,
+  idAdvogado: string,
+  nome?: string
+): Promise<void> {
+  console.log(`[Orchestrator] Atualizando ID do advogado ${cpf} -> ${idAdvogado}`);
+
+  // Busca advogado pelo CPF
+  const advogado = await prisma.advogado.findFirst({
+    where: { cpf }
+  });
+
+  if (!advogado) {
+    console.warn(`[Orchestrator] Advogado com CPF ${cpf} não encontrado no banco`);
+    return;
+  }
+
+  // Atualiza apenas se o ID não estiver configurado ou for diferente
+  if (!advogado.idAdvogado || advogado.idAdvogado !== idAdvogado) {
+    await prisma.advogado.update({
+      where: { id: advogado.id },
+      data: {
+        idAdvogado,
+        // Atualiza nome também se fornecido e diferente
+        ...(nome && nome !== advogado.nome ? { nome } : {}),
+      }
+    });
+    console.log(`[Orchestrator] ID do advogado atualizado: ${advogado.nome} -> ${idAdvogado}`);
+  } else {
+    console.log(`[Orchestrator] ID do advogado já está configurado corretamente`);
   }
 }
 

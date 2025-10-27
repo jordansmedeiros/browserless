@@ -127,6 +127,28 @@ async function testScrape() {
     console.log('   - Dados comprimidos:', compressedData.length, 'bytes');
     console.log('   ✅ Compressão OK (não salvando no banco neste teste)');
 
+    // 6. Atualiza ID do advogado no banco se foi capturado
+    if (result.result.advogado?.idAdvogado && result.result.advogado?.cpf) {
+      console.log('\n🔄 Atualizando ID do advogado no banco...');
+      try {
+        const advogadoAtualizado = await prisma.advogado.update({
+          where: { cpf: result.result.advogado.cpf },
+          data: {
+            idAdvogado: result.result.advogado.idAdvogado,
+            ...(result.result.advogado.nome ? { nome: result.result.advogado.nome } : {})
+          }
+        });
+        console.log('   ✅ ID do advogado atualizado no banco!');
+        console.log('   - CPF:', advogadoAtualizado.cpf);
+        console.log('   - ID Advogado:', advogadoAtualizado.idAdvogado);
+        console.log('   - Nome:', advogadoAtualizado.nome);
+      } catch (error: any) {
+        console.error('   ❌ Erro ao atualizar advogado:', error.message);
+      }
+    } else {
+      console.log('\n⚠️  ID do advogado não foi capturado na raspagem');
+    }
+
     console.log('\n╔═══════════════════════════════════════════════════════════════════╗');
     console.log('║   TESTE CONCLUÍDO COM SUCESSO! ✅                                  ║');
     console.log('╚═══════════════════════════════════════════════════════════════════╝\n');

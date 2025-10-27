@@ -28,16 +28,16 @@ export async function persistProcessos(
   try {
     switch (scrapeType) {
       case ScrapeType.PENDENTES:
-        return await persistProcessosPendentes(executionId, result.processos);
+        return await persistPendentesManifestacao(executionId, result.processos);
 
       case ScrapeType.ACERVO_GERAL:
-        return await persistProcessosAcervoGeral(executionId, result.processos);
+        return await persistProcessos(executionId, result.processos);
 
       case ScrapeType.ARQUIVADOS:
         return await persistProcessosArquivados(executionId, result.processos);
 
       case ScrapeType.MINHA_PAUTA:
-        return await persistProcessosMinhaPauta(executionId, result.processos);
+        return await persistMinhaPauta(executionId, result.processos);
 
       default:
         console.warn(`[DataPersister] Tipo de raspagem não suportado: ${scrapeType}`);
@@ -52,7 +52,7 @@ export async function persistProcessos(
 /**
  * Salva processos pendentes de manifestação
  */
-async function persistProcessosPendentes(
+async function persistPendentesManifestacao(
   executionId: string,
   processos: any[]
 ): Promise<number> {
@@ -97,7 +97,7 @@ async function persistProcessosPendentes(
 /**
  * Salva processos do acervo geral
  */
-async function persistProcessosAcervoGeral(
+async function persistProcessos(
   executionId: string,
   processos: any[]
 ): Promise<number> {
@@ -171,7 +171,7 @@ async function persistProcessosArquivados(
 /**
  * Salva processos da minha pauta (audiências/sessões)
  */
-async function persistProcessosMinhaPauta(
+async function persistMinhaPauta(
   executionId: string,
   processos: any[]
 ): Promise<number> {
