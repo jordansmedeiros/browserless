@@ -37,7 +37,9 @@
       "Bash(taskkill //F //PID 22572)",
       "Bash(node -e:*)",
       "Bash(wait)",
-      "Bash(npx patch-package:*)"
+      "Bash(npx patch-package:*)",
+      "Bash(tasklist:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

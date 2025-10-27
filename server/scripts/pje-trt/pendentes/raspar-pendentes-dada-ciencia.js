@@ -1,23 +1,22 @@
 /**
  * Raspagem PJE - Pendentes de Manifestação
- * Filtros: Sem Prazo
+ * Filtro: Dada Ciência
  *
  * Este script:
  * 1. Faz login no PJE
  * 2. Obtém processos pendentes filtrados por:
- *    - Prazo: Sem prazo (I)
+ *    - Ciência: Dada ciência (C)
  * 3. Salva em JSON com nomenclatura padronizada
- * 4. Baixa PDFs dos documentos
  *
  * COMO USAR:
  * 1. Configure as credenciais no arquivo .env (PJE_CPF, PJE_SENHA, PJE_ID_ADVOGADO)
- * 2. Execute: node scripts/pje-trt/trt3/1g/pendentes/raspar-pendentes-sem-prazo.js
- * 3. Veja resultados em: data/pje/trt3/1g/pendentes/
+ * 2. Execute via sistema de filas ou diretamente
+ * 3. Veja resultados salvos no banco de dados
  *
- * PADRÃO DE NOMENCLATURA:
- * pend-I-{timestamp}.json
+ * PADRÃO DE NOMENCLATURA (arquivo local):
+ * pend-C-{timestamp}.json
  * - pend = Pendentes de Manifestação
- * - I = Sem prazo (Intimação)
+ * - C = Com ciência (dada)
  * - timestamp = YYYYMMDD-HHMMSS
  */
 
@@ -60,16 +59,20 @@ const CPF = process.env.PJE_CPF;
 const SENHA = process.env.PJE_SENHA;
 const ID_ADVOGADO = parseInt(process.env.PJE_ID_ADVOGADO, 10);
 
-const PJE_LOGIN_URL = 'https://pje.trt3.jus.br/primeirograu/login.seam';
-const DATA_DIR = 'data/pje/trt3/1g/pendentes';
-const PDF_DIR = 'data/pje/trt3/1g/pendentes/pdfs';
+// URLs do PJE (genéricas para qualquer tribunal)
+const PJE_LOGIN_URL = process.env.PJE_LOGIN_URL || 'https://pje.trt3.jus.br/primeirograu/login.seam';
+const PJE_BASE_URL = process.env.PJE_BASE_URL || 'https://pje.trt3.jus.br';
+
+// Diretórios de dados (local, apenas para debug)
+const DATA_DIR = 'data/pje/pendentes';
+const PDF_DIR = 'data/pje/pendentes/pdfs';
 
 // Configurações do raspador
 const CONFIG = {
-  trt: 'trt3',
-  grau: '1g',
   agrupador: 'pend', // Pendentes de Manifestação
-  filtros: ['I'],    // I = Sem prazo (Intimação)
+  filtros: {
+    ciencia: 'C',    // C = Dada ciência
+  },
   api: {
     tipoPainelAdvogado: 2,
     idPainelAdvogadoEnum: 2,
@@ -89,13 +92,12 @@ function gerarNomeArquivo() {
     .replace('T', '-')
     .split('.')[0]; // YYYYMMDD-HHMMSS
 
-  const filtros = CONFIG.filtros.join('-');
-  return `${CONFIG.agrupador}-${filtros}-${timestamp}.json`;
+  return `${CONFIG.agrupador}-${CONFIG.filtros.ciencia}-${timestamp}.json`;
 }
 
 async function rasparPendentesManifestation() {
   console.error('╔═══════════════════════════════════════════════════════════════════╗');
-  console.error('║   RASPAGEM: PENDENTES - SEM PRAZO                                 ║');
+  console.error('║   RASPAGEM: PENDENTES - DADA CIÊNCIA                              ║');
   console.error('╚═══════════════════════════════════════════════════════════════════╝\n');
 
   // Criar diretórios
@@ -159,20 +161,96 @@ async function rasparPendentesManifestation() {
     await delay(5000);
 
     // ====================================================================
-    // PASSO 2: DEFINIR ID DO ADVOGADO
+    // PASSO 2: BUSCAR ID DO ADVOGADO
     // ====================================================================
 
-    console.error('👤 Configurando ID do advogado...\n');
+    console.error('👤 Buscando ID do advogado do token JWT...\n');
 
-    const idAdvogado = ID_ADVOGADO;
-    console.error(`✅ ID do advogado: ${idAdvogado}\n`);
+    // Extrai ID do advogado do token JWT (cookie access_token)
+    const advogadoInfo = await page.evaluate(async () => {
+      try {
+        // Função para decodificar JWT
+        const decodeJWT = (token) => {
+          try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(
+              atob(base64)
+                .split('')
+                .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+            );
+            return JSON.parse(jsonPayload);
+          } catch (e) {
+            return null;
+          }
+        };
+
+        // Obtém o cookie access_token
+        const cookies = document.cookie.split(';');
+        let accessToken = null;
+
+        for (const cookie of cookies) {
+          const [name, value] = cookie.trim().split('=');
+          if (name === 'access_token') {
+            accessToken = value;
+            break;
+          }
+        }
+
+        if (!accessToken) {
+          return { error: 'Token access_token não encontrado nos cookies' };
+        }
+
+        // Decodifica o JWT
+        const decodedToken = decodeJWT(accessToken);
+
+        if (!decodedToken) {
+          return { error: 'Falha ao decodificar token JWT' };
+        }
+
+        // Extrai informações do token
+        // O campo "id" contém o ID do advogado (não confundir com "perfil")
+        return {
+          idAdvogado: decodedToken.id,  // ← ID correto do advogado
+          cpf: decodedToken.login,
+          nome: decodedToken.nome,
+          perfil: decodedToken.perfil,  // Para referência (mas não é usado na API)
+          tokenCompleto: decodedToken,  // Para debug
+        };
+      } catch (error) {
+        return { error: error.message };
+      }
+    });
+
+    let idAdvogado;
+    if (advogadoInfo.error) {
+      console.error(`⚠️  Erro ao extrair ID do advogado do JWT: ${advogadoInfo.error}`);
+      console.error('   Usando ID_ADVOGADO do .env como fallback...\n');
+      idAdvogado = ID_ADVOGADO;
+    } else if (advogadoInfo.idAdvogado) {
+      idAdvogado = advogadoInfo.idAdvogado;
+      console.error(`✅ ID do advogado extraído do JWT: ${idAdvogado}`);
+      console.error(`   Nome: ${advogadoInfo.nome}`);
+      console.error(`   CPF: ${advogadoInfo.cpf}`);
+      console.error(`   Perfil ID: ${advogadoInfo.perfil}\n`);
+
+      // Retorna info do advogado no resultado para salvar no banco
+      global.advogadoInfo = advogadoInfo;
+    } else {
+      console.error('⚠️  ID do advogado não encontrado no token JWT');
+      console.error('   Usando ID_ADVOGADO do .env como fallback...\n');
+      idAdvogado = ID_ADVOGADO;
+    }
+
+    console.error(`✅ ID do advogado configurado: ${idAdvogado}\n`);
 
     // ====================================================================
     // PASSO 3: RASPAR PROCESSOS COM FILTROS
     // ====================================================================
 
-    console.error('📋 Filtros aplicados:');
-    console.error(`   - Prazo: Sem prazo (${CONFIG.filtros.join(', ')})\n`);
+    console.error('📋 Filtro aplicado:');
+    console.error(`   - Ciência: Dada ciência (${CONFIG.filtros.ciencia})\n`);
     console.error('🔄 Iniciando raspagem...\n');
 
     const processos = await rasparComFiltros(page, idAdvogado);
@@ -184,8 +262,7 @@ async function rasparPendentesManifestation() {
     console.error('\n🗑️  Limpando arquivos antigos...\n');
 
     const arquivos = await fs.readdir(DATA_DIR);
-    const filtrosStr = CONFIG.filtros.join('-');
-    const padrao = new RegExp(`^${CONFIG.agrupador}-${filtrosStr}-`);
+    const padrao = new RegExp(`^${CONFIG.agrupador}-${CONFIG.filtros.ciencia}-`);
 
     for (const arquivo of arquivos) {
       if (padrao.test(arquivo)) {
@@ -196,7 +273,7 @@ async function rasparPendentesManifestation() {
     }
 
     // ====================================================================
-    // PASSO 4: SALVAR RESULTADOS
+    // PASSO 5: SALVAR RESULTADOS
     // ====================================================================
 
     const nomeArquivo = gerarNomeArquivo();
@@ -207,10 +284,8 @@ async function rasparPendentesManifestation() {
     console.error('\n' + '='.repeat(70));
     console.error('📊 RELATÓRIO FINAL');
     console.error('='.repeat(70) + '\n');
-    console.error(`TRT: ${CONFIG.trt.toUpperCase()}`);
-    console.error(`Grau: ${CONFIG.grau.toUpperCase()}`);
     console.error(`Agrupador: Pendentes de Manifestação`);
-    console.error(`Filtros: Sem prazo (${CONFIG.filtros.join(', ')})`);
+    console.error(`Filtro: Dada ciência (${CONFIG.filtros.ciencia})`);
     console.error(`Data da raspagem: ${new Date().toISOString()}`);
     console.error(`Total de processos: ${processos.length}`);
     console.error(`Arquivo: ${nomeArquivo}\n`);
@@ -232,7 +307,13 @@ async function rasparPendentesManifestation() {
       success: true,
       processosCount: processos.length,
       processos: processos,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      // Inclui info do advogado para salvar no banco
+      advogado: global.advogadoInfo ? {
+        idAdvogado: String(global.advogadoInfo.idAdvogado), // Converte para string
+        cpf: global.advogadoInfo.cpf,
+        nome: global.advogadoInfo.nome,
+      } : null,
     };
     console.log(JSON.stringify(resultado));
 
@@ -329,7 +410,7 @@ async function enriquecerProcesso(page, processo) {
 
     // 1. Adiciona URL para visualizar documento
     if (proc.idDocumento) {
-      enriquecido.urlDocumento = `https://pje.trt3.jus.br/pjekz/processo/${proc.id}/documento/${proc.idDocumento}`;
+      enriquecido.urlDocumento = `${window.location.origin}/pjekz/processo/${proc.id}/documento/${proc.idDocumento}`;
 
       // 2. Busca metadados do documento
       try {
@@ -404,8 +485,8 @@ async function rasparComFiltros(page, idAdvogado) {
         // Monta URL com filtros
         const params = new URLSearchParams();
 
-        // Adiciona filtros (pode ser um ou mais)
-        cfg.filtros.forEach(filtro => params.append('agrupadorExpediente', filtro));
+        // Adiciona filtro de ciência
+        params.append('agrupadorExpediente', cfg.filtros.ciencia);
 
         // Adiciona parâmetros da API
         params.append('pagina', pagina);

@@ -55,14 +55,16 @@ validarCredenciais();
 const CPF = process.env.PJE_CPF;
 const SENHA = process.env.PJE_SENHA;
 
-const PJE_LOGIN_URL = 'https://pje.trt3.jus.br/primeirograu/login.seam';
-const DATA_DIR = 'data/pje/trt3/1g/pauta';
-const ICS_DIR = 'data/pje/trt3/1g/pauta/ics';
+// URLs do PJE (genéricas para qualquer tribunal)
+const PJE_LOGIN_URL = process.env.PJE_LOGIN_URL || 'https://pje.trt3.jus.br/primeirograu/login.seam';
+const PJE_BASE_URL = process.env.PJE_BASE_URL || 'https://pje.trt3.jus.br';
+
+// Diretórios de dados (local, apenas para debug)
+const DATA_DIR = 'data/pje/pauta';
+const ICS_DIR = 'data/pje/pauta/ics';
 
 // Configurações do raspador
 const CONFIG = {
-  trt: 'trt3',
-  grau: '1g',
   agrupador: 'pauta',
 };
 

@@ -32,7 +32,6 @@ import type {
   ScrapeJobStatus,
 } from '@/lib/types';
 import { z } from 'zod';
-import { scrapeQueue } from '@/lib/services/scrape-queue';
 import { decompressJSON } from '@/lib/utils/compression';
 
 // Lazy load Prisma to avoid edge runtime issues
@@ -1205,13 +1204,13 @@ export async function createScrapeJobAction(input: CreateScrapeJobInput) {
     // Create job using real UUIDs from database
     const job = await prisma.scrapeJob.create({
       data: {
-        status: 'pending',
+        status: ScrapeJobStatus.PENDING,
         scrapeType: scrapeType as string,
         scrapeSubType: scrapeSubType as string | undefined,
         tribunals: {
           create: tribunalsWithCredentials.map(tc => ({
             tribunalConfigId: tc.id, // Use real UUID from database
-            status: 'pending',
+            status: ScrapeJobStatus.PENDING,
           })),
         },
       },
@@ -1228,10 +1227,7 @@ export async function createScrapeJobAction(input: CreateScrapeJobInput) {
       },
     });
 
-    // Enqueue job
-    scrapeQueue.enqueue(job.id);
-
-    console.log(`[createScrapeJobAction] Job ${job.id} created and enqueued`);
+    console.log(`[createScrapeJobAction] Job ${job.id} created with status 'pending' - will be picked up by orchestrator`);
 
     return {
       success: true,
@@ -1532,13 +1528,12 @@ export async function retryScrapeExecutionAction(executionId: string) {
       await prisma.scrapeJob.update({
         where: { id: originalExecution.scrapeJobId },
         data: {
-          status: 'pending',
+          status: ScrapeJobStatus.PENDING,
           completedAt: null,
         },
       });
 
-      // Re-enqueue the job
-      scrapeQueue.enqueue(originalExecution.scrapeJobId);
+      console.log(`[retryScrapeExecutionAction] Job ${originalExecution.scrapeJobId} marked as pending - will be picked up by orchestrator`);
     }
 
     console.log(`[retryScrapeExecutionAction] Created new execution ${newExecution.id} to retry ${executionId}`);
@@ -1585,9 +1580,6 @@ export async function cancelScrapeJobAction(jobId: string) {
         error: 'Job já foi finalizado e não pode ser cancelado',
       };
     }
-
-    // Remove from queue if pending
-    scrapeQueue.dequeue(jobId);
 
     // Update job status
     await prisma.scrapeJob.update({

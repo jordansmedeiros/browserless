@@ -31,7 +31,7 @@ export async function persistProcessos(
         return await persistPendentesManifestacao(executionId, result.processos);
 
       case ScrapeType.ACERVO_GERAL:
-        return await persistProcessos(executionId, result.processos);
+        return await persistAcervoGeral(executionId, result.processos);
 
       case ScrapeType.ARQUIVADOS:
         return await persistProcessosArquivados(executionId, result.processos);
@@ -56,6 +56,8 @@ async function persistPendentesManifestacao(
   executionId: string,
   processos: any[]
 ): Promise<number> {
+  console.log(`[DataPersister] Processando ${processos.length} processos pendentes...`);
+
   const data = processos.map(p => ({
     scrapeExecutionId: executionId,
     idPje: p.id,
@@ -97,10 +99,12 @@ async function persistPendentesManifestacao(
 /**
  * Salva processos do acervo geral
  */
-async function persistProcessos(
+async function persistAcervoGeral(
   executionId: string,
   processos: any[]
 ): Promise<number> {
+  console.log(`[DataPersister] Processando ${processos.length} processos do acervo geral...`);
+
   const data = processos.map(p => ({
     scrapeExecutionId: executionId,
     idPje: p.id,
@@ -138,6 +142,8 @@ async function persistProcessosArquivados(
   executionId: string,
   processos: any[]
 ): Promise<number> {
+  console.log(`[DataPersister] Processando ${processos.length} processos arquivados...`);
+
   const data = processos.map(p => ({
     scrapeExecutionId: executionId,
     idPje: p.id,
@@ -175,6 +181,8 @@ async function persistMinhaPauta(
   executionId: string,
   processos: any[]
 ): Promise<number> {
+  console.log(`[DataPersister] Processando ${processos.length} audiências/sessões da minha pauta...`);
+
   const data = processos.map(p => ({
     scrapeExecutionId: executionId,
     idPje: p.id,

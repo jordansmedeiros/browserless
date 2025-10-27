@@ -6,6 +6,8 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '10mb',
     },
+    // Note: instrumentationHook is no longer needed in Next.js 16+
+    // The instrumentation.ts file is executed automatically by default
   },
   // Environment variables prefix for client-side
   env: {

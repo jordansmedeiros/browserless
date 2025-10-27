@@ -55,7 +55,7 @@ const PJE_LOGIN_URL = process.env.PJE_LOGIN_URL || 'https://pje.trt3.jus.br/prim
 const PJE_BASE_URL = process.env.PJE_BASE_URL || 'https://pje.trt3.jus.br';
 const PJE_API_URL = process.env.PJE_API_URL || 'https://pje.trt3.jus.br/pje-comum-api/api';
 
-const DATA_DIR = 'data/pje/processos';
+const DATA_DIR = 'data/pje/acervo';
 const SKIP_FILE_OUTPUT = process.env.PJE_OUTPUT_FILE === '';
 
 // ID do agrupamento Acervo Geral

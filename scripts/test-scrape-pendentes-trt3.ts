@@ -127,25 +127,31 @@ async function testScrape() {
     console.log('   - Dados comprimidos:', compressedData.length, 'bytes');
     console.log('   ✅ Compressão OK (não salvando no banco neste teste)');
 
-    // DEBUG: Ver dados do advogado no resultado
-    console.log('\n🔍 Dados do advogado no resultado:');
-    console.log(JSON.stringify(result.result.advogado, null, 2));
-
     // 6. Atualiza ID do advogado no banco se foi capturado
     if (result.result.advogado?.idAdvogado && result.result.advogado?.cpf) {
       console.log('\n🔄 Atualizando ID do advogado no banco...');
       try {
-        const advogadoAtualizado = await prisma.advogado.update({
-          where: { cpf: result.result.advogado.cpf },
-          data: {
-            idAdvogado: result.result.advogado.idAdvogado,
-            ...(result.result.advogado.nome ? { nome: result.result.advogado.nome } : {})
-          }
+        // Busca advogado pelo CPF primeiro
+        const advogado = await prisma.advogado.findFirst({
+          where: { cpf: result.result.advogado.cpf }
         });
-        console.log('   ✅ ID do advogado atualizado no banco!');
-        console.log('   - CPF:', advogadoAtualizado.cpf);
-        console.log('   - ID Advogado:', advogadoAtualizado.idAdvogado);
-        console.log('   - Nome:', advogadoAtualizado.nome);
+
+        if (!advogado) {
+          console.error(`   ❌ Advogado com CPF ${result.result.advogado.cpf} não encontrado`);
+        } else {
+          // Atualiza pelo ID
+          const advogadoAtualizado = await prisma.advogado.update({
+            where: { id: advogado.id },
+            data: {
+              idAdvogado: result.result.advogado.idAdvogado,
+              ...(result.result.advogado.nome ? { nome: result.result.advogado.nome } : {})
+            }
+          });
+          console.log('   ✅ ID do advogado atualizado no banco!');
+          console.log('   - CPF:', advogadoAtualizado.cpf);
+          console.log('   - ID Advogado:', advogadoAtualizado.idAdvogado);
+          console.log('   - Nome:', advogadoAtualizado.nome);
+        }
       } catch (error: any) {
         console.error('   ❌ Erro ao atualizar advogado:', error.message);
       }

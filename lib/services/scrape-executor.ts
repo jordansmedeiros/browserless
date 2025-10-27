@@ -90,6 +90,10 @@ export async function executeScript(
     addLogLine(logs, `[Executor] Script path: ${scriptPath}`);
     addLogLine(logs, `[Executor] Tribunal: ${options.tribunalConfig.codigo || options.tribunalConfig.urlBase}`);
 
+    // Log para terminal do servidor
+    console.log(`[Executor] Script path: ${scriptPath}`);
+    console.log(`[Executor] Tribunal: ${options.tribunalConfig.codigo || options.tribunalConfig.urlBase}`);
+
     // Prepara as variáveis de ambiente
     const env = {
       ...process.env,
@@ -108,6 +112,9 @@ export async function executeScript(
     // Envia log inicial ao logger se presente
     options.logger?.info(`[Executor] Starting script execution...`);
 
+    // Log para terminal do servidor
+    console.log(`[Executor] Starting script execution...`);
+
     // Executa o script com spawn para streaming em tempo real
     const timeout = options.timeout || SCRAPING_RETRY.scriptTimeout;
     const { stdout, stderr, exitCode } = await executeScriptWithSpawn(
@@ -121,6 +128,8 @@ export async function executeScript(
     // Parse do resultado JSON do stdout
     addLogLine(logs, `[Executor] Parsing script output...`);
     options.logger?.info(`[Executor] Parsing script output...`);
+    console.log(`[Executor] Parsing script output...`);
+
     const result = parseScriptOutput(stdout);
 
     const duration = Date.now() - startTime;
@@ -130,6 +139,10 @@ export async function executeScript(
     // Envia logs finais ao logger
     options.logger?.info(`[Executor] Execution completed in ${duration}ms`);
     options.logger?.info(`[Executor] Processes scraped: ${result.processosCount}`);
+
+    // Log para terminal do servidor
+    console.log(`[Executor] Execution completed in ${duration}ms`);
+    console.log(`[Executor] Processes scraped: ${result.processosCount}`);
 
     return {
       result,
@@ -152,6 +165,11 @@ export async function executeScript(
       { type: scrapingError.type, retryable: scrapingError.retryable }
     );
     options.logger?.error(scrapingError.message);
+
+    // Log para terminal do servidor
+    console.error(`[Executor] Execution failed after ${duration}ms`);
+    console.error(`[Executor] Error classified as: ${scrapingError.type} (retryable: ${scrapingError.retryable})`);
+    console.error(`[Executor] Error: ${scrapingError.message}`);
 
     // Adiciona stderr ao log se disponível
     if (error.stderr) {
@@ -187,6 +205,9 @@ export async function executeScriptWithRetry(
         options.logger?.info(`Tentativa ${attempt + 1}/${maxAttempts}...`);
       }
 
+      // Log para terminal do servidor
+      console.log(attemptMsg);
+
       const result = await executeScript(options);
 
       // Adiciona logs respeitando MAX_LOG_LINES
@@ -207,10 +228,14 @@ export async function executeScriptWithRetry(
       // Envia erro ao logger
       options.logger?.error(`Tentativa ${attempt + 1} falhou: ${lastError.message}`);
 
+      // Log para terminal do servidor
+      console.error(failMsg);
+
       // Se não é retryable, falha imediatamente
       if (!lastError.retryable) {
         addLogLine(allLogs, `[Retry] Error is not retryable, aborting`);
         options.logger?.error(`Erro não recuperável, abortando`);
+        console.error(`[Retry] Error is not retryable, aborting`);
         throw Object.assign(lastError, {
           message: `${lastError.message} (after ${attempt + 1} attempt${attempt > 0 ? 's' : ''})`
         });
@@ -220,6 +245,7 @@ export async function executeScriptWithRetry(
       if (attempt === maxAttempts - 1) {
         addLogLine(allLogs, `[Retry] Max attempts reached, aborting`);
         options.logger?.error(`Máximo de tentativas atingido, abortando`);
+        console.error(`[Retry] Max attempts reached, aborting`);
         throw Object.assign(lastError, {
           message: `${lastError.message} (after ${maxAttempts} attempts)`
         });
@@ -229,6 +255,7 @@ export async function executeScriptWithRetry(
       const delay = SCRAPING_RETRY.retryDelays[attempt] || SCRAPING_RETRY.retryDelays[SCRAPING_RETRY.retryDelays.length - 1];
       addLogLine(allLogs, `[Retry] Waiting ${delay}ms before retry...`);
       options.logger?.info(`Aguardando ${Math.round(delay / 1000)}s antes de tentar novamente...`);
+      console.log(`[Retry] Waiting ${delay}ms before retry...`);
       await sleep(delay);
     }
   }
@@ -263,6 +290,8 @@ function executeScriptWithSpawn(
     if (timeout) {
       timeoutId = setTimeout(() => {
         killed = true;
+        const timeoutMsg = `Script execution timed out after ${timeout}ms`;
+        console.error(`[Executor] ${timeoutMsg}`);
         childProcess.kill('SIGTERM');
 
         // Escalona para SIGKILL após 5s se o processo não morrer
@@ -270,7 +299,7 @@ function executeScriptWithSpawn(
           childProcess.kill('SIGKILL');
         }, 5000);
 
-        reject(new Error(`Script execution timed out after ${timeout}ms`));
+        reject(new Error(timeoutMsg));
       }, timeout);
     }
 
@@ -290,6 +319,9 @@ function executeScriptWithSpawn(
             addLogLine(logs, logEntry);
           }
 
+          // Log para terminal do servidor (CRÍTICO - feedback visual em tempo real)
+          console.log(logEntry);
+
           // Envia ao logger em tempo real com heurística de severidade
           if (logger) {
             const upperLine = trimmedLine.toUpperCase();
@@ -297,9 +329,11 @@ function executeScriptWithSpawn(
               logger.error(trimmedLine);
             } else if (upperLine.startsWith('WARN') || upperLine.startsWith('WARNING') || upperLine.includes('WARN:')) {
               logger.warn(trimmedLine);
+            } else if (upperLine.startsWith('✅') || upperLine.includes('SUCCESS') || upperLine.includes('CONCLUÍ')) {
+              logger.info(trimmedLine); // Logs de sucesso
             } else {
-              // stderr por padrão é tratado como erro
-              logger.error(trimmedLine);
+              // Por padrão, logs do script são informativos (não erros)
+              logger.info(trimmedLine);
             }
           }
         }
@@ -337,6 +371,9 @@ function executeScriptWithSpawn(
           addLogLine(logs, logEntry);
         }
 
+        // Log para terminal do servidor
+        console.log(logEntry);
+
         // Envia ao logger com heurística de severidade
         if (logger) {
           const upperLine = trimmedLine.toUpperCase();
@@ -344,9 +381,11 @@ function executeScriptWithSpawn(
             logger.error(trimmedLine);
           } else if (upperLine.startsWith('WARN') || upperLine.startsWith('WARNING') || upperLine.includes('WARN:')) {
             logger.warn(trimmedLine);
+          } else if (upperLine.startsWith('✅') || upperLine.includes('SUCCESS') || upperLine.includes('CONCLUÍ')) {
+            logger.info(trimmedLine); // Logs de sucesso
           } else {
-            // stderr por padrão é tratado como erro
-            logger.error(trimmedLine);
+            // Por padrão, logs do script são informativos (não erros)
+            logger.info(trimmedLine);
           }
         }
       }
@@ -358,6 +397,7 @@ function executeScriptWithSpawn(
           exitCode: code,
         });
       } else {
+        console.error(`[Executor] Script exited with code ${code}`);
         const error = new Error(`Script exited with code ${code}`);
         Object.assign(error, {
           code,
@@ -429,6 +469,7 @@ function parseScriptOutput(stdout: string): ScrapingResult {
       processosCount: parsed.processosCount || parsed.processos?.length || 0,
       processos: parsed.processos || [],
       timestamp: parsed.timestamp || new Date().toISOString(),
+      advogado: parsed.advogado,
       error: parsed.error,
     };
   } catch (error: any) {

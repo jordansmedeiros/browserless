@@ -18,6 +18,8 @@ export type TribunalConfigWithTribunal = TribunalConfig & {
 
 /**
  * Status de um job de raspagem
+ * Fluxo: pending -> running -> (completed | failed)
+ * Jobs em 'pending' são descobertos via polling do orchestrator
  */
 export enum ScrapeJobStatus {
   PENDING = 'pending',
@@ -74,6 +76,11 @@ export interface ScrapingResult {
   processosCount: number;
   processos: ProcessoPJE[];
   timestamp: string;
+  advogado?: {
+    idAdvogado: string;
+    cpf: string;
+    nome: string;
+  };
   error?: {
     type: string;
     category: string;
@@ -150,7 +157,7 @@ export const SCRAPE_TYPE_TO_SCRIPT: Record<ScrapeType, string> = {
  * Mapeamento de sub-tipo para nome do script
  */
 export const SCRAPE_SUBTYPE_TO_SCRIPT: Record<ScrapeSubType, string> = {
-  [ScrapeSubType.COM_DADO_CIENCIA]: 'raspar-pendentes-no-prazo-dada-ciencia.js',
+  [ScrapeSubType.COM_DADO_CIENCIA]: 'raspar-pendentes-dada-ciencia.js',
   [ScrapeSubType.SEM_PRAZO]: 'raspar-pendentes-sem-prazo.js',
 };
 
@@ -168,7 +175,7 @@ export const SCRAPE_TYPE_LABELS: Record<ScrapeType, string> = {
  * Nomes amigáveis para sub-tipos de raspagem
  */
 export const SCRAPE_SUBTYPE_LABELS: Record<ScrapeSubType, string> = {
-  [ScrapeSubType.COM_DADO_CIENCIA]: 'Com Dado Ciência (no prazo)',
+  [ScrapeSubType.COM_DADO_CIENCIA]: 'Com Dado Ciência',
   [ScrapeSubType.SEM_PRAZO]: 'Sem Prazo',
 };
 

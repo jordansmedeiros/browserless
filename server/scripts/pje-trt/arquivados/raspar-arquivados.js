@@ -50,8 +50,11 @@ const CPF = process.env.PJE_CPF;
 const SENHA = process.env.PJE_SENHA;
 const ID_ADVOGADO = parseInt(process.env.PJE_ID_ADVOGADO, 10);
 
-const PJE_LOGIN_URL = 'https://pje.trt3.jus.br/primeirograu/login.seam';
-const DATA_DIR = 'data/pje/processos';
+// URLs do PJE (genéricas para qualquer tribunal)
+const PJE_LOGIN_URL = process.env.PJE_LOGIN_URL || 'https://pje.trt3.jus.br/primeirograu/login.seam';
+const PJE_BASE_URL = process.env.PJE_BASE_URL || 'https://pje.trt3.jus.br';
+
+const DATA_DIR = 'data/pje/arquivados';
 
 // ID do agrupamento Arquivados
 const ID_ARQUIVADOS = 5;

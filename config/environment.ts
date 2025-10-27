@@ -3,6 +3,11 @@
  * Determina comportamento baseado no ambiente (development vs production)
  */
 
+// Declaração global para TypeScript
+declare global {
+  var __envConfigLogged: boolean | undefined;
+}
+
 /**
  * Verifica se está rodando em ambiente de produção
  */

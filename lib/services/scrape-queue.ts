@@ -1,6 +1,7 @@
 /**
  * Scrape Queue
- * Gerencia a fila de jobs de raspagem em memória
+ * Gerencia controle de concorrência de jobs em execução
+ * NOTA: Jobs não são mais enfileirados aqui - o orchestrator usa polling no banco
  */
 
 import { SCRAPING_CONCURRENCY } from '@/config/scraping';
@@ -72,11 +73,13 @@ class ScrapeQueue {
 
   /**
    * Adiciona um job à fila
-   *
+   * @deprecated Jobs são descobertos via polling - não use este método
    * @param jobId - ID do job a ser enfileirado
    * @throws Error se o job já estiver na fila ou em execução
    */
   public enqueue(jobId: string): void {
+    console.warn('[Queue] DEPRECATED: enqueue() should not be called - orchestrator uses polling');
+
     // Verifica se já está na fila ou em execução
     if (this.isInQueue(jobId) || this.running.has(jobId)) {
       throw new Error(`Job ${jobId} is already queued or running`);
@@ -116,7 +119,7 @@ class ScrapeQueue {
 
   /**
    * Marca um job como iniciado (move da fila para running)
-   *
+   * Called by orchestrator when starting a job from polling
    * @param jobId - ID do job
    */
   public markAsRunning(jobId: string): void {
@@ -131,7 +134,7 @@ class ScrapeQueue {
 
   /**
    * Marca um job como completado ou falho
-   *
+   * Called by orchestrator when job finishes
    * @param jobId - ID do job
    * @param status - Status final (completed ou failed)
    */
@@ -146,14 +149,11 @@ class ScrapeQueue {
     });
 
     console.log(`[Queue] Job ${jobId} marked as ${status}. Running: ${this.running.size}`);
-
-    // Continua processando a fila
-    this.processNextIfAvailable();
   }
 
   /**
    * Verifica se há capacidade para executar mais jobs
-   *
+   * Used by orchestrator polling to check available slots
    * @returns true se há slots disponíveis
    */
   public hasCapacity(): boolean {
@@ -226,9 +226,16 @@ class ScrapeQueue {
 
   /**
    * Inicia o processamento da fila
+   * @deprecated Processing is now handled by orchestrator polling
    */
   private startProcessing(): void {
     if (this.processing) return;
+
+    // Early return if queue is empty (no jobs to process)
+    if (this.queue.length === 0) {
+      console.log('[Queue] DEPRECATED: startProcessing called but queue is empty');
+      return;
+    }
 
     this.processing = true;
     console.log('[Queue] Started processing');
@@ -276,12 +283,11 @@ class ScrapeQueue {
 
   /**
    * Define o callback para execução de jobs
-   *
+   * @deprecated Callback não é mais usado - orchestrator usa polling
    * @param callback - Função que será chamada para executar um job
    */
   public setExecutionCallback(callback: (jobId: string) => Promise<void>): void {
-    console.log('[Queue] Execution callback set');
-    this.triggerJobExecution = callback;
+    console.warn('[Queue] DEPRECATED: setExecutionCallback() is no longer used');
   }
 
   /**

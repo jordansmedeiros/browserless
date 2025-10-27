@@ -1,24 +1,23 @@
 /**
  * Raspagem PJE - Pendentes de Manifestação
- * Filtros: No Prazo + Dada Ciência
+ * Filtros: Sem Prazo
  *
  * Este script:
  * 1. Faz login no PJE
  * 2. Obtém processos pendentes filtrados por:
- *    - Prazo: No prazo (N)
- *    - Ciência: Dada ciência (C)
+ *    - Prazo: Sem prazo (I)
  * 3. Salva em JSON com nomenclatura padronizada
+ * 4. Baixa PDFs dos documentos
  *
  * COMO USAR:
  * 1. Configure as credenciais no arquivo .env (PJE_CPF, PJE_SENHA, PJE_ID_ADVOGADO)
- * 2. Execute: node scripts/pje-trt/trt3/1g/pendentes/raspar-pendentes-no-prazo-dada-ciencia.js
+ * 2. Execute: node scripts/pje-trt/trt3/1g/pendentes/raspar-pendentes-sem-prazo.js
  * 3. Veja resultados em: data/pje/trt3/1g/pendentes/
  *
  * PADRÃO DE NOMENCLATURA:
- * pend-N-C-{timestamp}.json
+ * pend-I-{timestamp}.json
  * - pend = Pendentes de Manifestação
- * - N = No prazo
- * - C = Com ciência (dada)
+ * - I = Sem prazo (Intimação)
  * - timestamp = YYYYMMDD-HHMMSS
  */
 
@@ -61,19 +60,18 @@ const CPF = process.env.PJE_CPF;
 const SENHA = process.env.PJE_SENHA;
 const ID_ADVOGADO = parseInt(process.env.PJE_ID_ADVOGADO, 10);
 
-const PJE_LOGIN_URL = 'https://pje.trt3.jus.br/primeirograu/login.seam';
-const DATA_DIR = 'data/pje/trt3/1g/pendentes';
-const PDF_DIR = 'data/pje/trt3/1g/pendentes/pdfs';
+// URLs do PJE (genéricas para qualquer tribunal)
+const PJE_LOGIN_URL = process.env.PJE_LOGIN_URL || 'https://pje.trt3.jus.br/primeirograu/login.seam';
+const PJE_BASE_URL = process.env.PJE_BASE_URL || 'https://pje.trt3.jus.br';
+
+// Diretórios de dados (local, apenas para debug)
+const DATA_DIR = 'data/pje/pendentes';
+const PDF_DIR = 'data/pje/pendentes/pdfs';
 
 // Configurações do raspador
 const CONFIG = {
-  trt: 'trt3',
-  grau: '1g',
   agrupador: 'pend', // Pendentes de Manifestação
-  filtros: {
-    prazo: 'N',      // N = No prazo
-    ciencia: 'C',    // C = Dada ciência
-  },
+  filtros: ['I'],    // I = Sem prazo (Intimação)
   api: {
     tipoPainelAdvogado: 2,
     idPainelAdvogadoEnum: 2,
@@ -93,13 +91,13 @@ function gerarNomeArquivo() {
     .replace('T', '-')
     .split('.')[0]; // YYYYMMDD-HHMMSS
 
-  const filtros = `${CONFIG.filtros.prazo}-${CONFIG.filtros.ciencia}`;
+  const filtros = CONFIG.filtros.join('-');
   return `${CONFIG.agrupador}-${filtros}-${timestamp}.json`;
 }
 
 async function rasparPendentesManifestation() {
   console.error('╔═══════════════════════════════════════════════════════════════════╗');
-  console.error('║   RASPAGEM: PENDENTES - NO PRAZO + DADA CIÊNCIA                   ║');
+  console.error('║   RASPAGEM: PENDENTES - SEM PRAZO                                 ║');
   console.error('╚═══════════════════════════════════════════════════════════════════╝\n');
 
   // Criar diretórios
@@ -163,81 +161,20 @@ async function rasparPendentesManifestation() {
     await delay(5000);
 
     // ====================================================================
-    // PASSO 2: BUSCAR ID DO ADVOGADO
+    // PASSO 2: DEFINIR ID DO ADVOGADO
     // ====================================================================
 
-    console.error('👤 Buscando ID do advogado via API...\n');
+    console.error('👤 Configurando ID do advogado...\n');
 
-    // Busca perfis do usuário logado
-    const advogadoInfo = await page.evaluate(async () => {
-      try {
-        const response = await fetch('/pje-seguranca/api/token/perfis');
-        if (!response.ok) {
-          return { error: `HTTP ${response.status}` };
-        }
-        const perfis = await response.json();
-
-        // Busca perfil de advogado
-        const perfilAdvogado = perfis.find(p =>
-          p.identificadorPapel === 'ADVOGADO' ||
-          p.papel?.toLowerCase().includes('advogado')
-        );
-
-        // Extrai CPF e nome da localizacao se disponível
-        // Formato: "NOME COMPLETO (CPF)"
-        let cpf = null;
-        let nome = null;
-        if (perfilAdvogado?.localizacao) {
-          const match = perfilAdvogado.localizacao.match(/^(.+?)\s*\(([0-9.-]+)\)$/);
-          if (match) {
-            nome = match[1].trim();
-            cpf = match[2].replace(/[.-]/g, ''); // Remove formatação do CPF
-          }
-        }
-
-        // CORREÇÃO FINAL: O campo correto é "idPerfil"
-        return {
-          idAdvogado: perfilAdvogado?.idPerfil,  // ← CORRETO!
-          cpf: cpf,
-          nome: nome || perfilAdvogado?.papel,
-          perfilCompleto: perfilAdvogado, // Para debug
-          todosPerfis: perfis, // Retorna todos para debug
-        };
-      } catch (error) {
-        return { error: error.message };
-      }
-    });
-
-    // DEBUG removido - já validado que funciona
-
-    let idAdvogado;
-    if (advogadoInfo.error) {
-      console.error(`⚠️  Erro ao buscar ID do advogado: ${advogadoInfo.error}`);
-      console.error('   Usando ID_ADVOGADO do .env como fallback...\n');
-      idAdvogado = ID_ADVOGADO;
-    } else if (advogadoInfo.idAdvogado) {
-      idAdvogado = advogadoInfo.idAdvogado;
-      console.error(`✅ ID do advogado obtido da API: ${idAdvogado}`);
-      console.error(`   Nome: ${advogadoInfo.nome}`);
-      console.error(`   CPF: ${advogadoInfo.cpf}\n`);
-
-      // Retorna info do advogado no resultado para salvar no banco
-      global.advogadoInfo = advogadoInfo;
-    } else {
-      console.error('⚠️  ID do advogado não encontrado na resposta da API');
-      console.error('   Usando ID_ADVOGADO do .env como fallback...\n');
-      idAdvogado = ID_ADVOGADO;
-    }
-
-    console.error(`✅ ID do advogado configurado: ${idAdvogado}\n`);
+    const idAdvogado = ID_ADVOGADO;
+    console.error(`✅ ID do advogado: ${idAdvogado}\n`);
 
     // ====================================================================
     // PASSO 3: RASPAR PROCESSOS COM FILTROS
     // ====================================================================
 
     console.error('📋 Filtros aplicados:');
-    console.error(`   - Prazo: No prazo (${CONFIG.filtros.prazo})`);
-    console.error(`   - Ciência: Dada ciência (${CONFIG.filtros.ciencia})\n`);
+    console.error(`   - Prazo: Sem prazo (${CONFIG.filtros.join(', ')})\n`);
     console.error('🔄 Iniciando raspagem...\n');
 
     const processos = await rasparComFiltros(page, idAdvogado);
@@ -249,7 +186,8 @@ async function rasparPendentesManifestation() {
     console.error('\n🗑️  Limpando arquivos antigos...\n');
 
     const arquivos = await fs.readdir(DATA_DIR);
-    const padrao = new RegExp(`^${CONFIG.agrupador}-${CONFIG.filtros.prazo}-${CONFIG.filtros.ciencia}-`);
+    const filtrosStr = CONFIG.filtros.join('-');
+    const padrao = new RegExp(`^${CONFIG.agrupador}-${filtrosStr}-`);
 
     for (const arquivo of arquivos) {
       if (padrao.test(arquivo)) {
@@ -260,7 +198,7 @@ async function rasparPendentesManifestation() {
     }
 
     // ====================================================================
-    // PASSO 5: SALVAR RESULTADOS
+    // PASSO 4: SALVAR RESULTADOS
     // ====================================================================
 
     const nomeArquivo = gerarNomeArquivo();
@@ -274,7 +212,7 @@ async function rasparPendentesManifestation() {
     console.error(`TRT: ${CONFIG.trt.toUpperCase()}`);
     console.error(`Grau: ${CONFIG.grau.toUpperCase()}`);
     console.error(`Agrupador: Pendentes de Manifestação`);
-    console.error(`Filtros: No prazo + Dada ciência (${CONFIG.filtros.prazo}-${CONFIG.filtros.ciencia})`);
+    console.error(`Filtros: Sem prazo (${CONFIG.filtros.join(', ')})`);
     console.error(`Data da raspagem: ${new Date().toISOString()}`);
     console.error(`Total de processos: ${processos.length}`);
     console.error(`Arquivo: ${nomeArquivo}\n`);
@@ -292,22 +230,12 @@ async function rasparPendentesManifestation() {
     console.error('='.repeat(70) + '\n');
 
     // Saída JSON para stdout (para integração com sistema de fila)
-    console.error(`\n🔍 [DEBUG] global.advogadoInfo antes de montar resultado:`, global.advogadoInfo);
-
     const resultado = {
       success: true,
       processosCount: processos.length,
       processos: processos,
-      timestamp: new Date().toISOString(),
-      // Inclui info do advogado para salvar no banco
-      advogado: global.advogadoInfo ? {
-        idAdvogado: global.advogadoInfo.idAdvogado,
-        cpf: global.advogadoInfo.cpf,
-        nome: global.advogadoInfo.nome,
-      } : null,
+      timestamp: new Date().toISOString()
     };
-
-    console.error(`🔍 [DEBUG] resultado.advogado:`, resultado.advogado);
     console.log(JSON.stringify(resultado));
 
   } catch (error) {
@@ -403,7 +331,7 @@ async function enriquecerProcesso(page, processo) {
 
     // 1. Adiciona URL para visualizar documento
     if (proc.idDocumento) {
-      enriquecido.urlDocumento = `https://pje.trt3.jus.br/pjekz/processo/${proc.id}/documento/${proc.idDocumento}`;
+      enriquecido.urlDocumento = `${window.location.origin}/pjekz/processo/${proc.id}/documento/${proc.idDocumento}`;
 
       // 2. Busca metadados do documento
       try {
@@ -478,9 +406,8 @@ async function rasparComFiltros(page, idAdvogado) {
         // Monta URL com filtros
         const params = new URLSearchParams();
 
-        // Adiciona filtros de prazo e ciência
-        params.append('agrupadorExpediente', cfg.filtros.prazo);
-        params.append('agrupadorExpediente', cfg.filtros.ciencia);
+        // Adiciona filtros (pode ser um ou mais)
+        cfg.filtros.forEach(filtro => params.append('agrupadorExpediente', filtro));
 
         // Adiciona parâmetros da API
         params.append('pagina', pagina);

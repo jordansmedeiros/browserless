@@ -14,6 +14,13 @@ import { createJobLogger, type LogEntry } from './scrape-logger';
 import { persistProcessos } from './scrape-data-persister';
 
 /**
+ * Controle de polling
+ */
+let pollingInterval: NodeJS.Timeout | null = null;
+let isPolling: boolean = false;
+let pollingIterationCount: number = 0;
+
+/**
  * Limita execuções concorrentes dentro de um job
  */
 class ConcurrencyLimiter {
@@ -83,6 +90,9 @@ export async function executeJob(jobId: string): Promise<void> {
     logger.info(`Iniciando raspagem de ${job.scrapeType}`, {
       tribunalCount: job.tribunals.length
     });
+
+    // Log para terminal do servidor
+    console.log(`[Orchestrator] Iniciando raspagem de ${job.scrapeType} para ${job.tribunals.length} tribunais`);
 
     // Atualiza status para running
     await prisma.scrapeJob.update({
@@ -193,6 +203,7 @@ async function executeTribunalScraping(
   console.log(`[Orchestrator] Starting scraping for ${tribunalCodigo} in job ${job.id}`);
 
   logger.info(`Iniciando raspagem: ${tribunalCodigo}`);
+  console.log(`[Orchestrator] Iniciando raspagem: ${tribunalCodigo}`);
 
   try {
     // Atualiza status do tribunal para running
@@ -203,13 +214,17 @@ async function executeTribunalScraping(
 
     // Busca credenciais válidas para este tribunal
     logger.info(`Buscando credenciais para ${tribunalCodigo}...`);
+    console.log(`[Orchestrator] Buscando credenciais para ${tribunalCodigo}...`);
+
     const credentials = await getCredentialsForTribunal(tribunalConfig.id);
     if (!credentials) {
       logger.error(`Credenciais não encontradas para ${tribunalCodigo}`);
+      console.error(`[Orchestrator] Credenciais não encontradas para ${tribunalCodigo}`);
       throw new Error(`No valid credentials found for tribunal ${tribunalCodigo}`);
     }
 
     logger.info(`Credenciais encontradas, iniciando autenticação...`);
+    console.log(`[Orchestrator] Credenciais encontradas para ${tribunalCodigo}, iniciando autenticação...`);
 
     // Cria registro de execução
     const execution = await prisma.scrapeExecution.create({
@@ -234,6 +249,8 @@ async function executeTribunalScraping(
     // Executa o script com retry
     logger.info(`Executando script de raspagem para ${tribunalCodigo}...`);
     logger.info('Conectando ao logger de tempo real...');
+    console.log(`[Orchestrator] Executando script de raspagem para ${tribunalCodigo}...`);
+
     const result = await executeScriptWithRetry({
       credentials,
       tribunalConfig: tribunalConfigForScraping,
@@ -251,6 +268,7 @@ async function executeTribunalScraping(
     logger.success(`Raspagem concluída para ${tribunalCodigo}`, {
       processosCount: result.result.processosCount
     });
+    console.log(`[Orchestrator] Raspagem concluída para ${tribunalCodigo}: ${result.result.processosCount} processos`);
 
     // Comprime os dados de resultado
     const compressedData = compressJSON({
@@ -271,7 +289,7 @@ async function executeTribunalScraping(
         status: ScrapeJobStatus.COMPLETED,
         processosCount: result.result.processosCount,
         resultData: compressedData,
-        logs: structuredLogs,
+        logs: structuredLogs as any, // TypeScript cast - array é válido para Json
         completedAt: new Date(),
       },
     });
@@ -279,8 +297,12 @@ async function executeTribunalScraping(
     // Salva processos nas tabelas específicas por tipo
     try {
       logger.info(`Salvando ${result.result.processosCount} processos no banco...`);
+      console.log(`[Orchestrator] Salvando ${result.result.processosCount} processos no banco...`);
+
       const savedCount = await persistProcessos(execution.id, job.scrapeType, result.result);
+
       logger.success(`${savedCount} processos salvos no banco com sucesso`);
+      console.log(`[Orchestrator] ${savedCount} processos salvos no banco com sucesso`);
     } catch (error: any) {
       logger.error(`Erro ao salvar processos no banco: ${error.message}`);
       console.error(`[Orchestrator] Erro ao persistir processos:`, error);
@@ -291,12 +313,16 @@ async function executeTribunalScraping(
     if (result.result.advogado?.idAdvogado && result.result.advogado?.cpf) {
       try {
         logger.info(`Atualizando ID do advogado no banco...`);
+        console.log(`[Orchestrator] Atualizando ID do advogado ${result.result.advogado.cpf} no banco...`);
+
         await updateAdvogadoIdFromScraping(
           result.result.advogado.cpf,
           result.result.advogado.idAdvogado,
           result.result.advogado.nome
         );
+
         logger.success(`ID do advogado atualizado: ${result.result.advogado.idAdvogado}`);
+        console.log(`[Orchestrator] ID do advogado atualizado: ${result.result.advogado.idAdvogado}`);
       } catch (error: any) {
         logger.error(`Erro ao atualizar ID do advogado: ${error.message}`);
         console.error(`[Orchestrator] Erro ao atualizar advogado:`, error);
@@ -321,8 +347,6 @@ async function executeTribunalScraping(
           level: 'error' as const,
           message: error.message,
           context: {
-            type: error.type,
-            retryable: error.retryable,
             ...formatErrorForLog(error),
           },
         }
@@ -347,14 +371,14 @@ async function executeTribunalScraping(
 
     if (execution) {
       const existingLogs = execution.logs
-        ? (Array.isArray(execution.logs) ? execution.logs as LogEntry[] : [execution.logs as LogEntry])
+        ? (Array.isArray(execution.logs) ? execution.logs as unknown as LogEntry[] : [execution.logs as unknown as LogEntry])
         : [];
       await prisma.scrapeExecution.update({
         where: { id: execution.id },
         data: {
           status: ScrapeJobStatus.FAILED,
           errorMessage: errorLogEntry.message,
-          logs: [...existingLogs, errorLogEntry],
+          logs: [...existingLogs, errorLogEntry] as any, // Array is valid for Json
           completedAt: new Date(),
         },
       });
@@ -462,24 +486,156 @@ async function persistJobLogs(jobId: string, logs: LogEntry[]): Promise<void> {
 }
 
 /**
+ * Verifica e processa jobs pendentes no banco de dados
+ */
+async function pollPendingJobs(): Promise<void> {
+  // Evita execuções concorrentes do polling
+  if (isPolling) {
+    console.log('[Orchestrator] Polling already in progress, skipping...');
+    return;
+  }
+
+  isPolling = true;
+  pollingIterationCount++;
+
+  try {
+    // Verifica jobs travados a cada 10 iterações
+    if (pollingIterationCount % 10 === 0) {
+      await checkForStuckJobs();
+    }
+
+    // Verifica capacidade disponível
+    if (!scrapeQueue.hasCapacity()) {
+      console.log('[Orchestrator] No capacity available for new jobs');
+      return;
+    }
+
+    const availableSlots = SCRAPING_CONCURRENCY.maxConcurrentJobs - scrapeQueue.getStats().running;
+
+    // Busca jobs pendentes do banco
+    const pendingJobs = await prisma.scrapeJob.findMany({
+      where: {
+        status: ScrapeJobStatus.PENDING,
+        startedAt: null,
+      },
+      orderBy: {
+        createdAt: 'asc', // FIFO
+      },
+      take: availableSlots,
+    });
+
+    if (pendingJobs.length > 0) {
+      const stats = scrapeQueue.getStats();
+      console.log(`[Orchestrator] Polling found ${pendingJobs.length} pending jobs, capacity: ${stats.running}/${stats.capacity}`);
+
+      // Processa cada job encontrado
+      for (const job of pendingJobs) {
+        if (!scrapeQueue.hasCapacity()) {
+          console.log('[Orchestrator] Capacity reached during polling, stopping');
+          break;
+        }
+
+        try {
+          // Marca como running
+          scrapeQueue.markAsRunning(job.id);
+
+          // Executa job de forma assíncrona (sem await)
+          executeJob(job.id).catch((error) => {
+            console.error(`[Orchestrator] Error executing job ${job.id}:`, error);
+          });
+        } catch (error: any) {
+          console.error(`[Orchestrator] Failed to start job ${job.id}:`, error);
+          // Continua para próximo job sem interromper o polling
+        }
+      }
+    }
+  } catch (error: any) {
+    console.error('[Orchestrator] Error during polling:', error);
+  } finally {
+    isPolling = false;
+  }
+}
+
+/**
+ * Verifica e marca jobs que ficaram travados em 'running' por muito tempo
+ */
+async function checkForStuckJobs(): Promise<void> {
+  try {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+    const stuckJobs = await prisma.scrapeJob.findMany({
+      where: {
+        status: ScrapeJobStatus.RUNNING,
+        startedAt: {
+          lt: twoHoursAgo,
+        },
+      },
+    });
+
+    if (stuckJobs.length > 0) {
+      console.log(`[Orchestrator] Found ${stuckJobs.length} stuck jobs, marking as failed`);
+
+      await Promise.all(
+        stuckJobs.map(job =>
+          prisma.scrapeJob.update({
+            where: { id: job.id },
+            data: {
+              status: ScrapeJobStatus.FAILED,
+              completedAt: new Date(),
+            },
+          })
+        )
+      );
+    }
+  } catch (error: any) {
+    console.error('[Orchestrator] Error checking for stuck jobs:', error);
+  }
+}
+
+/**
+ * Inicia o polling de jobs pendentes
+ */
+function startPolling(): void {
+  if (pollingInterval !== null) {
+    console.log('[Orchestrator] Polling already started');
+    return;
+  }
+
+  console.log('[Orchestrator] Started polling for pending jobs (interval: 5s)');
+
+  // Executa primeira verificação imediatamente
+  pollPendingJobs();
+
+  // Agenda verificações periódicas a cada 5 segundos
+  pollingInterval = setInterval(() => {
+    pollPendingJobs();
+  }, 5000);
+}
+
+/**
+ * Para o polling de jobs pendentes
+ */
+function stopPolling(): void {
+  if (pollingInterval !== null) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+    console.log('[Orchestrator] Stopped polling');
+  }
+}
+
+/**
  * Inicializa o orchestrator e conecta com a fila
  */
 export function initializeOrchestrator(): void {
   console.log('[Orchestrator] Initializing...');
 
-  // Define o callback de execução na fila
-  scrapeQueue.setExecutionCallback(async (jobId: string) => {
-    try {
-      await executeJob(jobId);
-    } catch (error: any) {
-      console.error(`[Orchestrator] Error executing job ${jobId}:`, error);
-    }
-  });
-
-  console.log('[Orchestrator] Initialized and connected to queue');
+  console.log('[Orchestrator] Initialized with polling-based job discovery');
 
   // Verifica se há jobs interrompidos e marca como failed
   checkForInterruptedJobs();
+
+  // Inicia polling de jobs pendentes
+  startPolling();
 }
 
 /**
@@ -520,6 +676,7 @@ async function checkForInterruptedJobs(): Promise<void> {
  */
 export function stopOrchestrator(): void {
   console.log('[Orchestrator] Stopping...');
+  stopPolling();
   scrapeQueue.stop();
   console.log('[Orchestrator] Stopped');
 }
