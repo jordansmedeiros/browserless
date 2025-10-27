@@ -74,14 +74,10 @@ export function resolveScriptPath(
     scriptName = SCRAPE_TYPE_TO_SCRIPT[scrapeType];
   }
 
-  // DEBUG: Log inicial
-  console.log('[resolveScriptPath] Input:', { scrapeType, scrapeSubType, tribunalCodigo });
-
   // Se temos código de tribunal, tenta usar script específico
   if (tribunalCodigo) {
     // Parse "TRT3-1g" -> tribunal="TRT3", grau="1g"
     const match = tribunalCodigo.match(/^([A-Z]+\d+)-(\dg)$/i);
-    console.log('[resolveScriptPath] Match result:', match);
     if (match) {
       const tribunal = match[1].toLowerCase(); // "trt3"
       const grau = match[2]; // "1g"
@@ -114,20 +110,14 @@ export function resolveScriptPath(
       );
 
       // Verifica se existe (sync é ok aqui, é rápido)
-      console.log('[resolveScriptPath] Tentando path específico:', specificPath);
       if (existsSync(specificPath)) {
-        console.log('[resolveScriptPath] ✅ Encontrado! Usando path específico');
         return specificPath;
-      } else {
-        console.log('[resolveScriptPath] ❌ Não existe, tentando fallback');
       }
     }
   }
 
   // Fallback: usa script genérico em pje-common
-  const fallbackPath = path.join(SCRIPTS_BASE_DIR, 'pje-common', scriptName);
-  console.log('[resolveScriptPath] Usando fallback:', fallbackPath);
-  return fallbackPath;
+  return path.join(SCRIPTS_BASE_DIR, 'pje-common', scriptName);
 }
 
 /**

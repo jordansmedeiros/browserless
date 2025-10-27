@@ -187,24 +187,156 @@ model ScrapeJobTribunal {
 }
 
 model ScrapeExecution {
-  id               String         @id @default(uuid())
-  status           String
-  processosCount   Int            @default(0)
-  resultData       String?
-  errorMessage     String?
-  retryAttempt     Int            @default(0)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  startedAt        DateTime?
-  completedAt      DateTime?
-  scrapeJobId      String
-  tribunalConfigId String
-  logs             Json?
-  scrapeJob        ScrapeJob      @relation(fields: [scrapeJobId], references: [id], onDelete: Cascade)
-  tribunalConfig   TribunalConfig @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
+  id                     String                   @id @default(uuid())
+  status                 String
+  processosCount         Int                      @default(0)
+  resultData             String?
+  errorMessage           String?
+  retryAttempt           Int                      @default(0)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  startedAt              DateTime?
+  completedAt            DateTime?
+  scrapeJobId            String
+  tribunalConfigId       String
+  logs                   Json?
+  scrapeJob              ScrapeJob                @relation(fields: [scrapeJobId], references: [id], onDelete: Cascade)
+  tribunalConfig         TribunalConfig           @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
+  processosPendentes     PendentesManifestacao[]
+  processosAcervoGeral   Processos[]
+  processosArquivados    ProcessosArquivados[]
+  processosMinhaPauta    MinhaPauta[]
 
   @@index([status])
   @@index([scrapeJobId])
   @@index([tribunalConfigId])
   @@index([createdAt])
+}
+
+model PendentesManifestacao {
+  id                      String          @id @default(uuid())
+  scrapeExecutionId       String
+  idPje                   Int
+  numeroProcesso          String
+  numero                  Int?
+  classeJudicial          String?
+  descricaoOrgaoJulgador  String?
+  siglaOrgaoJulgador      String?
+  segredoDeJustica        Boolean         @default(false)
+  codigoStatusProcesso    String?
+  prioridadeProcessual    Int             @default(0)
+  juizoDigital            Boolean         @default(false)
+  prazoVencido            Boolean         @default(false)
+  nomeParteAutora         String?
+  qtdeParteAutora         Int?
+  nomeParteRe             String?
+  qtdeParteRe             Int?
+  dataCienciaParte        DateTime?
+  dataPrazoLegalParte     DateTime?
+  dataAutuacao            DateTime?
+  dataArquivamento        DateTime?
+  dataCriacaoExpediente   DateTime?
+  idDocumento             BigInt?
+  urlDocumento            String?
+  documentoMetadados      Json?
+  pdfLocal                String?
+  processosAssociados     Json?
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+  scrapeExecution         ScrapeExecution @relation(fields: [scrapeExecutionId], references: [id], onDelete: Cascade)
+
+  @@unique([scrapeExecutionId, idPje])
+  @@index([scrapeExecutionId])
+  @@index([numeroProcesso])
+  @@index([idPje])
+  @@index([dataCienciaParte])
+  @@index([dataPrazoLegalParte])
+  @@index([prazoVencido])
+}
+
+model Processos {
+  id                      String          @id @default(uuid())
+  scrapeExecutionId       String
+  idPje                   Int
+  numeroProcesso          String
+  numero                  Int?
+  classeJudicial          String?
+  descricaoOrgaoJulgador  String?
+  siglaOrgaoJulgador      String?
+  segredoDeJustica        Boolean         @default(false)
+  codigoStatusProcesso    String?
+  prioridadeProcessual    Int             @default(0)
+  juizoDigital            Boolean         @default(false)
+  nomeParteAutora         String?
+  qtdeParteAutora         Int?
+  nomeParteRe             String?
+  qtdeParteRe             Int?
+  dataAutuacao            DateTime?
+  dataArquivamento        DateTime?
+  metadados               Json?
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+  scrapeExecution         ScrapeExecution @relation(fields: [scrapeExecutionId], references: [id], onDelete: Cascade)
+
+  @@unique([scrapeExecutionId, idPje])
+  @@index([scrapeExecutionId])
+  @@index([numeroProcesso])
+  @@index([idPje])
+}
+
+model ProcessosArquivados {
+  id                      String          @id @default(uuid())
+  scrapeExecutionId       String
+  idPje                   Int
+  numeroProcesso          String
+  numero                  Int?
+  classeJudicial          String?
+  descricaoOrgaoJulgador  String?
+  siglaOrgaoJulgador      String?
+  segredoDeJustica        Boolean         @default(false)
+  codigoStatusProcesso    String?
+  prioridadeProcessual    Int             @default(0)
+  juizoDigital            Boolean         @default(false)
+  nomeParteAutora         String?
+  qtdeParteAutora         Int?
+  nomeParteRe             String?
+  qtdeParteRe             Int?
+  dataAutuacao            DateTime?
+  dataArquivamento        DateTime?
+  metadados               Json?
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+  scrapeExecution         ScrapeExecution @relation(fields: [scrapeExecutionId], references: [id], onDelete: Cascade)
+
+  @@unique([scrapeExecutionId, idPje])
+  @@index([scrapeExecutionId])
+  @@index([numeroProcesso])
+  @@index([idPje])
+  @@index([dataArquivamento])
+}
+
+model MinhaPauta {
+  id                   String          @id @default(uuid())
+  scrapeExecutionId    String
+  idPje                Int
+  nrProcesso           String
+  dataInicio           DateTime?
+  dataFim              DateTime?
+  urlAudienciaVirtual  String?
+  arquivoICS           String?
+  tipoDescricao        String?
+  tipoCodigo           String?
+  processoMetadados    Json?
+  poloAtivo            Json?
+  poloPassivo          Json?
+  metadados            Json?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  scrapeExecution      ScrapeExecution @relation(fields: [scrapeExecutionId], references: [id], onDelete: Cascade)
+
+  @@unique([scrapeExecutionId, idPje])
+  @@index([scrapeExecutionId])
+  @@index([nrProcesso])
+  @@index([idPje])
+  @@index([dataInicio])
 }
