@@ -15,7 +15,7 @@ export const SCRAPING_CONCURRENCY = {
   maxConcurrentJobs: parseInt(process.env.MAX_CONCURRENT_JOBS || '2', 10),
 
   /** Máximo de tribunais sendo raspados simultaneamente dentro de um job */
-  maxConcurrentTribunals: parseInt(process.env.MAX_CONCURRENT_TRIBUNALS || '3', 10),
+  maxConcurrentTribunals: parseInt(process.env.MAX_CONCURRENT_TRIBUNALS || '2', 10),
 
   /** Máximo de instâncias de browser abertas simultaneamente (limite de memória) */
   maxBrowserInstances: parseInt(process.env.MAX_BROWSER_INSTANCES || '10', 10),
