@@ -227,7 +227,7 @@ const credencialSchema = z.object({
   descricao: z.string().optional(),
   tribunalConfigIds: z.array(
     z.string().regex(
-      /^[A-Z]{3,6}-(PJE|EPROC|ESAJ|PROJUDI|THEMIS)-(1g|2g|unico)$/,
+      /^[A-Z0-9]{3,6}-(PJE|EPROC|ESAJ|PROJUDI|THEMIS)-(1g|2g|unico)$/,
       'Formato de tribunal inválido. Use: CODIGO-SISTEMA-GRAU (ex: TRT3-PJE-1g)'
     )
   ).min(1, 'Selecione ao menos um tribunal'),
@@ -599,6 +599,7 @@ export async function deleteAdvogadoAction(id: string) {
 export async function createCredencialAction(input: CreateCredencialInput) {
   try {
     const prisma = await getPrisma();
+
     const validacao = credencialSchema.safeParse(input);
     if (!validacao.success) {
       return {

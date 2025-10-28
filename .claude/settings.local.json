@@ -46,7 +46,9 @@
       "SlashCommand(/openspec:apply add-tj-trf-superior-tribunals)",
       "SlashCommand(/openspec:apply:*)",
       "Bash(timeout 15 bash:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(openspec spec list:*)",
+      "Bash(openspec show:*)"
     ],
     "deny": [],
     "ask": []

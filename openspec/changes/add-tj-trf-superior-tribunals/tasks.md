@@ -294,8 +294,7 @@
 
 **Overall Progress**: Phases 1-5 Complete, Phases 6-8 Optional/Manual Testing Only
 
-## Dependencies
-
+## Dependencies 
 - **Task 1.2** depends on **Task 1.1** (schema before migration)
 - **Tasks 3.1-3.5** depend on **Task 1.2** (migration must run first)
 - **Task 3.6** depends on **Tasks 3.1-3.5** (all seed files must exist)

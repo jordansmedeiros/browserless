@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Trash2, Edit, CheckCircle, XCircle, Building2, User, Key } from 'lucide-react';
+import { Loader2, Plus, Trash2, Edit, CheckCircle, XCircle, Building2, User, Key, Eye, EyeOff } from 'lucide-react';
 import {
   listEscritoriosAction,
   createEscritorioAction,
@@ -77,6 +77,9 @@ export default function CredentialsPage() {
   // Available tribunal configs (from constants)
   const [tribunalConfigs, setTribunalConfigs] = useState<TribunalConfigConstant[]>([]);
 
+  // Visibilidade de senhas (IDs das credenciais com senha visível)
+  const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     loadData();
     loadTribunalConfigs();
@@ -118,6 +121,18 @@ export default function CredentialsPage() {
       console.error('Erro ao carregar tribunais:', result.error);
       setMessage({ type: 'error', text: `Erro ao carregar tribunais: ${result.error}` });
     }
+  }
+
+  function togglePasswordVisibility(credencialId: string) {
+    setVisiblePasswords((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(credencialId)) {
+        newSet.delete(credencialId);
+      } else {
+        newSet.add(credencialId);
+      }
+      return newSet;
+    });
   }
 
   async function handleCreateEscritorio() {
@@ -455,9 +470,23 @@ export default function CredentialsPage() {
                         {cred.ativa ? 'Ativa' : 'Inativa'}
                       </Badge>
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Senha: ******** (oculta)
-                    </p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">
+                        Senha: {visiblePasswords.has(cred.id) ? cred.senha : '••••••••'}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => togglePasswordVisibility(cred.id)}
+                      >
+                        {visiblePasswords.has(cred.id) ? (
+                          <EyeOff className="h-3.5 w-3.5" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </div>
                     <p className="mt-1 text-sm text-muted-foreground">
                       Tribunais: {cred.tribunais.length} configurado(s)
                     </p>
