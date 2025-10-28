@@ -87,7 +87,7 @@ async function persistPendentesManifestacao(
     processosAssociados: p.processosAssociados,
   }));
 
-  const result = await prisma.processoPendente.createMany({
+  const result = await prisma.pendentesManifestacao.createMany({
     data,
     skipDuplicates: true,
   });
@@ -126,7 +126,7 @@ async function persistAcervoGeral(
     metadados: p,  // Guarda o objeto completo em metadados
   }));
 
-  const result = await prisma.processoAcervoGeral.createMany({
+  const result = await prisma.processos.createMany({
     data,
     skipDuplicates: true,
   });
@@ -165,7 +165,7 @@ async function persistProcessosArquivados(
     metadados: p,
   }));
 
-  const result = await prisma.processoArquivado.createMany({
+  const result = await prisma.processosArquivados.createMany({
     data,
     skipDuplicates: true,
   });
@@ -199,7 +199,7 @@ async function persistMinhaPauta(
     metadados: p,
   }));
 
-  const result = await prisma.processoMinhaPauta.createMany({
+  const result = await prisma.minhaPauta.createMany({
     data,
     skipDuplicates: true,
   });

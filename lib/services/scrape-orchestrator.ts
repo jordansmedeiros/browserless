@@ -166,16 +166,30 @@ export async function executeJob(jobId: string): Promise<void> {
       });
     }
 
-    await prisma.scrapeJob.update({
+    // Reload job to check if it was canceled during execution
+    const currentJob = await prisma.scrapeJob.findUnique({
       where: { id: jobId },
-      data: {
-        status: finalStatus,
-        completedAt: new Date(),
-      },
+      select: { status: true },
     });
 
-    // Persiste logs no banco
-    await persistJobLogs(jobId, logger.getLogs());
+    // If job was canceled, skip status update but still persist logs
+    if (currentJob?.status === ScrapeJobStatus.CANCELED) {
+      console.log(`[Orchestrator] Job ${jobId} was canceled during execution, skipping final status update`);
+      logger.warn('Job foi cancelado durante execução');
+      await persistJobLogs(jobId, logger.getLogs());
+    } else {
+      // Update final status only if not canceled
+      await prisma.scrapeJob.update({
+        where: { id: jobId },
+        data: {
+          status: finalStatus,
+          completedAt: new Date(),
+        },
+      });
+
+      // Persiste logs no banco
+      await persistJobLogs(jobId, logger.getLogs());
+    }
 
     // Notifica a fila que o job terminou
     scrapeQueue.markAsCompleted(jobId, finalStatus);
@@ -190,14 +204,24 @@ export async function executeJob(jobId: string): Promise<void> {
     // Persiste logs no banco mesmo em caso de erro
     await persistJobLogs(jobId, logger.getLogs());
 
-    // Atualiza job como failed
-    await prisma.scrapeJob.update({
+    // Reload job to check if it was canceled
+    const currentJob = await prisma.scrapeJob.findUnique({
       where: { id: jobId },
-      data: {
-        status: ScrapeJobStatus.FAILED,
-        completedAt: new Date(),
-      },
+      select: { status: true },
     });
+
+    // Update job as failed only if not canceled
+    if (currentJob?.status !== ScrapeJobStatus.CANCELED) {
+      await prisma.scrapeJob.update({
+        where: { id: jobId },
+        data: {
+          status: ScrapeJobStatus.FAILED,
+          completedAt: new Date(),
+        },
+      });
+    } else {
+      console.log(`[Orchestrator] Job ${jobId} was canceled, preserving CANCELED status`);
+    }
 
     // Notifica a fila
     scrapeQueue.markAsCompleted(jobId, ScrapeJobStatus.FAILED);
@@ -226,6 +250,28 @@ async function executeTribunalScraping(
   console.log(`[Orchestrator] Iniciando raspagem: ${tribunalCodigo}`);
 
   try {
+    // Check if job was canceled before processing
+    const currentJob = await prisma.scrapeJob.findUnique({
+      where: { id: job.id },
+      select: { status: true },
+    });
+
+    if (currentJob?.status === ScrapeJobStatus.CANCELED) {
+      console.log(`[Orchestrator] Job ${job.id} is canceled, skipping tribunal ${tribunalCodigo}`);
+      logger.warn(`Job cancelado, pulando raspagem de ${tribunalCodigo}`);
+
+      // Mark tribunal as canceled
+      await prisma.scrapeJobTribunal.update({
+        where: { id: jobTribunal.id },
+        data: { status: ScrapeJobStatus.CANCELED },
+      });
+
+      // Throw controlled cancellation error
+      const cancelError = new Error('Job was canceled');
+      cancelError.name = 'JobCanceledError';
+      throw cancelError;
+    }
+
     // Atualiza status do tribunal para running
     await prisma.scrapeJobTribunal.update({
       where: { id: jobTribunal.id },
@@ -358,7 +404,12 @@ async function executeTribunalScraping(
   } catch (error: any) {
     console.error(`[Orchestrator] Failed to scrape ${tribunalCodigo}:`, error);
 
-    logger.error(`Falha na raspagem de ${tribunalCodigo}: ${error.message}`);
+    // Check if this is a controlled cancellation error
+    const isCanceled = error.name === 'JobCanceledError';
+
+    if (!isCanceled) {
+      logger.error(`Falha na raspagem de ${tribunalCodigo}: ${error.message}`);
+    }
 
     // Formata o erro como LogEntry estruturado
     const errorLogEntry: LogEntry = error instanceof ScrapingError
@@ -372,15 +423,15 @@ async function executeTribunalScraping(
         }
       : {
           timestamp: new Date().toISOString(),
-          level: 'error' as const,
+          level: isCanceled ? 'warn' as const : 'error' as const,
           message: error.message,
           context: {
-            type: 'unknown',
+            type: isCanceled ? 'canceled' : 'unknown',
             retryable: false,
           },
         };
 
-    // Atualiza execução como failed
+    // Atualiza execução como failed or canceled
     const execution = await prisma.scrapeExecution.findFirst({
       where: {
         scrapeJobId: job.id,
@@ -396,7 +447,7 @@ async function executeTribunalScraping(
       await prisma.scrapeExecution.update({
         where: { id: execution.id },
         data: {
-          status: ScrapeJobStatus.FAILED,
+          status: isCanceled ? ScrapeJobStatus.CANCELED : ScrapeJobStatus.FAILED,
           errorMessage: errorLogEntry.message,
           logs: [...existingLogs, errorLogEntry] as any, // Array is valid for Json
           completedAt: new Date(),
@@ -404,11 +455,18 @@ async function executeTribunalScraping(
       });
     }
 
-    // Atualiza status do tribunal para failed
-    await prisma.scrapeJobTribunal.update({
+    // Atualiza status do tribunal para failed or canceled (if not already updated)
+    const currentTribunal = await prisma.scrapeJobTribunal.findUnique({
       where: { id: jobTribunal.id },
-      data: { status: ScrapeJobStatus.FAILED },
+      select: { status: true },
     });
+
+    if (currentTribunal?.status !== ScrapeJobStatus.CANCELED) {
+      await prisma.scrapeJobTribunal.update({
+        where: { id: jobTribunal.id },
+        data: { status: isCanceled ? ScrapeJobStatus.CANCELED : ScrapeJobStatus.FAILED },
+      });
+    }
 
     throw error;
   }
@@ -525,13 +583,21 @@ async function pollPendingJobs(): Promise<void> {
       await checkForStuckJobs();
     }
 
-    // Verifica capacidade disponível
-    if (!scrapeQueue.hasCapacity()) {
-      console.log('[Orchestrator] No capacity available for new jobs');
+    // Verifica capacidade disponível no DB (global para todas as instâncias)
+    const runningDbCount = await prisma.scrapeJob.count({
+      where: { status: ScrapeJobStatus.RUNNING },
+    });
+
+    const availableSlots = SCRAPING_CONCURRENCY.maxConcurrentJobs - runningDbCount;
+
+    if (availableSlots <= 0) {
+      console.log(`[Orchestrator] No capacity available: ${runningDbCount}/${SCRAPING_CONCURRENCY.maxConcurrentJobs} jobs running globally`);
       return;
     }
 
-    const availableSlots = SCRAPING_CONCURRENCY.maxConcurrentJobs - scrapeQueue.getStats().running;
+    // Log in-memory queue stats for per-instance observability
+    const queueStats = scrapeQueue.getStats();
+    console.log(`[Orchestrator] Capacity check: ${runningDbCount} running globally, ${availableSlots} slots available, ${queueStats.running} running in this instance`);
 
     // Claim atômico de jobs dentro de uma transação
     const claimedJobs = await prisma.$transaction(async (tx) => {
@@ -567,23 +633,22 @@ async function pollPendingJobs(): Promise<void> {
         },
       });
 
-      // 3. Valida que o número de linhas atualizadas corresponde ao esperado
+      // 3. Log race condition if detected
       if (updateResult.count !== pendingJobs.length) {
         console.warn(`[Orchestrator] Claimed ${updateResult.count} jobs but found ${pendingJobs.length} - race condition detected`);
-
-        // Re-busca apenas os jobs que foram efetivamente atualizados
-        const actuallyClaimedJobs = await tx.scrapeJob.findMany({
-          where: {
-            id: { in: jobIds },
-            status: ScrapeJobStatus.RUNNING,
-            startedAt: now,
-          },
-        });
-
-        return actuallyClaimedJobs;
       }
 
-      return pendingJobs;
+      // 4. Always return the actually claimed jobs (post-update state)
+      // This ensures consistency with DB state and accurate logging
+      const actuallyClaimedJobs = await tx.scrapeJob.findMany({
+        where: {
+          id: { in: jobIds },
+          status: ScrapeJobStatus.RUNNING,
+          startedAt: now,
+        },
+      });
+
+      return actuallyClaimedJobs;
     });
 
     if (claimedJobs.length > 0) {

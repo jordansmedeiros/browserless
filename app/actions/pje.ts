@@ -6,6 +6,13 @@
  */
 
 import { executarLoginPJE, rasparProcessosPJE } from '@/lib/api/pje-adapter';
+// Enums precisam ser importados como valores (não type-only) para serem usados em runtime
+import {
+  ScrapeJobStatus,
+  ScrapeType,
+  ScrapeSubType,
+} from '@/lib/types';
+// Types puros podem ser importados como type-only
 import type {
   LoginResult,
   ScrapeResult,
@@ -27,9 +34,6 @@ import type {
   PaginatedScrapeJobs,
   ScrapeExecutionDetails,
   ScrapeJobProgress,
-  ScrapeType,
-  ScrapeSubType,
-  ScrapeJobStatus,
 } from '@/lib/types';
 import { z } from 'zod';
 import { decompressJSON } from '@/lib/utils/compression';

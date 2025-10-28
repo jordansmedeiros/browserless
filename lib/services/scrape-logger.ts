@@ -1,9 +1,11 @@
 /**
  * Scrape Logger Service
  * Provides structured logging for scrape jobs with event emission
+ * Supports Redis pub/sub for multi-instance deployments
  */
 
 import { EventEmitter } from 'events';
+import { publishJobLog, isRedisEnabled } from '@/lib/redis';
 
 export type LogLevel = 'info' | 'success' | 'warn' | 'error';
 
@@ -79,7 +81,7 @@ class ScrapeLoggerService extends EventEmitter {
       context,
     };
 
-    // Add to buffer
+    // Add to buffer (always keep as fallback)
     const buffer = this.logBuffers.get(jobId);
     if (buffer) {
       buffer.push(logEntry);
@@ -90,8 +92,17 @@ class ScrapeLoggerService extends EventEmitter {
       }
     }
 
-    // Emit event for real-time streaming
-    this.emit(`job-${jobId}-log`, logEntry);
+    // Publish to Redis if enabled (for multi-instance support)
+    if (isRedisEnabled()) {
+      publishJobLog(jobId, logEntry).catch((error) => {
+        console.error(`[ScrapeLogger] Failed to publish to Redis for job ${jobId}:`, error);
+        // Fall back to in-memory event emitter
+        this.emit(`job-${jobId}-log`, logEntry);
+      });
+    } else {
+      // Use in-memory event emitter for single-instance deployments
+      this.emit(`job-${jobId}-log`, logEntry);
+    }
   }
 
   /**
