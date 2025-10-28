@@ -19,7 +19,8 @@ import {
 } from '@/components/ui/accordion';
 import { Search, CheckSquare, Square } from 'lucide-react';
 import type { TribunalConfigConstant } from '@/lib/constants/tribunais';
-import type { Regiao } from '@/lib/types/tribunal';
+import type { Regiao, Sistema } from '@/lib/types/tribunal';
+import { getGrauLabel, getSistemaBadgeColor } from '@/lib/types/tribunal';
 
 /**
  * IndeterminateCheckbox - Checkbox com suporte ao estado indeterminado
@@ -62,30 +63,46 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
     return 'Superior';
   };
 
-  // Agrupa tribunais primeiro por tipo, depois por código
+  // Agrupa tribunais: tipo → código → sistema → configs[]
   const tribunaisAgrupadosPorTipo = useMemo(() => {
-    // Primeiro agrupa por código
-    const gruposPorCodigo = new Map<string, TribunalConfigConstant[]>();
+    // Estrutura: Map<codigo, Map<sistema, TribunalConfigConstant[]>>
+    const gruposPorCodigo = new Map<string, Map<Sistema, TribunalConfigConstant[]>>();
 
     tribunais.forEach((t) => {
-      const existing = gruposPorCodigo.get(t.codigo) || [];
-      gruposPorCodigo.set(t.codigo, [...existing, t]);
+      if (!gruposPorCodigo.has(t.codigo)) {
+        gruposPorCodigo.set(t.codigo, new Map());
+      }
+      const sistemasMap = gruposPorCodigo.get(t.codigo)!;
+      const existing = sistemasMap.get(t.sistema) || [];
+      sistemasMap.set(t.sistema, [...existing, t]);
     });
 
-    // Depois agrupa por tipo
-    const tipos: Record<string, Array<{ codigo: string; configs: TribunalConfigConstant[]; info: TribunalConfigConstant }>> = {
+    // Agrupa por tipo
+    const tipos: Record<string, Array<{
+      codigo: string;
+      sistemas: Map<Sistema, TribunalConfigConstant[]>;
+      info: TribunalConfigConstant;
+    }>> = {
       TRT: [],
       TJ: [],
       TRF: [],
       Superior: [],
     };
 
-    Array.from(gruposPorCodigo.entries()).forEach(([codigo, configs]) => {
+    Array.from(gruposPorCodigo.entries()).forEach(([codigo, sistemasMap]) => {
       const tipo = getTipoTribunal(codigo);
+      // Ordena configs dentro de cada sistema por grau
+      sistemasMap.forEach((configs, sistema) => {
+        sistemasMap.set(sistema, configs.sort((a, b) => {
+          const order = { '1g': 0, '2g': 1, 'unico': 2 };
+          return (order[a.grau] || 99) - (order[b.grau] || 99);
+        }));
+      });
+
       tipos[tipo].push({
         codigo,
-        configs: configs.sort((a, b) => a.grau.localeCompare(b.grau)),
-        info: configs[0],
+        sistemas: sistemasMap,
+        info: Array.from(sistemasMap.values())[0][0], // Primeiro config para info
       });
     });
 
@@ -141,15 +158,20 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
     onChange([]);
   };
 
-  const handleToggleTribunal = (configs: TribunalConfigConstant[]) => {
-    const tribunalIds = configs.map((c) => c.id);
+  const handleToggleTribunal = (sistemasMap: Map<Sistema, TribunalConfigConstant[]>) => {
+    // Coleta todos os IDs de todos os sistemas deste tribunal
+    const tribunalIds: string[] = [];
+    sistemasMap.forEach((configs) => {
+      tribunalIds.push(...configs.map((c) => c.id));
+    });
+
     const allSelected = tribunalIds.every((id) => selectedIds.includes(id));
 
     if (allSelected) {
-      // Desmarca todos os graus deste tribunal
+      // Desmarca todos os sistemas e graus deste tribunal
       onChange(selectedIds.filter((id) => !tribunalIds.includes(id)));
     } else {
-      // Marca todos os graus deste tribunal
+      // Marca todos os sistemas e graus deste tribunal
       const newIds = [...new Set([...selectedIds, ...tribunalIds])];
       onChange(newIds);
     }
@@ -163,14 +185,41 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
     }
   };
 
-  // Verifica estado de seleção de um tribunal
-  const getTribunalSelectionState = (configs: TribunalConfigConstant[]) => {
-    const tribunalIds = configs.map((c) => c.id);
+  // Verifica estado de seleção de um tribunal (todos os sistemas)
+  const getTribunalSelectionState = (sistemasMap: Map<Sistema, TribunalConfigConstant[]>) => {
+    const tribunalIds: string[] = [];
+    sistemasMap.forEach((configs) => {
+      tribunalIds.push(...configs.map((c) => c.id));
+    });
     const selectedCount = tribunalIds.filter((id) => selectedIds.includes(id)).length;
 
     if (selectedCount === 0) return 'none';
     if (selectedCount === tribunalIds.length) return 'all';
     return 'partial';
+  };
+
+  // Verifica estado de seleção de um sistema específico
+  const getSistemaSelectionState = (configs: TribunalConfigConstant[]) => {
+    const sistemaIds = configs.map((c) => c.id);
+    const selectedCount = sistemaIds.filter((id) => selectedIds.includes(id)).length;
+
+    if (selectedCount === 0) return 'none';
+    if (selectedCount === sistemaIds.length) return 'all';
+    return 'partial';
+  };
+
+  const handleToggleSistema = (configs: TribunalConfigConstant[]) => {
+    const sistemaIds = configs.map((c) => c.id);
+    const allSelected = sistemaIds.every((id) => selectedIds.includes(id));
+
+    if (allSelected) {
+      // Desmarca todos os graus deste sistema
+      onChange(selectedIds.filter((id) => !sistemaIds.includes(id)));
+    } else {
+      // Marca todos os graus deste sistema
+      const newIds = [...new Set([...selectedIds, ...sistemaIds])];
+      onChange(newIds);
+    }
   };
 
   const totalSelecionados = selectedIds.length;
@@ -259,32 +308,61 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
               <AccordionContent>
                 <div className="max-h-[250px] overflow-y-auto divide-y">
                   {tribunaisFiltrados.TRT.map((grupo) => {
-                    const selectionState = getTribunalSelectionState(grupo.configs);
+                    const selectionState = getTribunalSelectionState(grupo.sistemas);
                     return (
-                      <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
-                        <IndeterminateCheckbox
-                          checked={selectionState === 'all'}
-                          indeterminate={selectionState === 'partial'}
-                          onCheckedChange={() => handleToggleTribunal(grupo.configs)}
-                        />
-                        <div className="flex items-center gap-2 min-w-[180px]">
-                          <span className="font-semibold">{grupo.codigo}</span>
-                          <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
-                          <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
+                      <div key={grupo.codigo} className="px-4 py-3 hover:bg-accent">
+                        {/* Header do Tribunal */}
+                        <div className="flex items-center gap-4 mb-2">
+                          <IndeterminateCheckbox
+                            checked={selectionState === 'all'}
+                            indeterminate={selectionState === 'partial'}
+                            onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
+                          />
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{grupo.codigo}</span>
+                            <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
+                            <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4 ml-auto">
-                          {grupo.configs.map((config) => (
-                            <div key={config.id} className="flex items-center gap-2">
-                              <Checkbox
-                                id={`tc-${config.id}`}
-                                checked={selectedIds.includes(config.id)}
-                                onCheckedChange={() => handleToggleGrau(config.id)}
-                              />
-                              <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
-                                {config.grau === '1g' ? '1º Grau' : '2º Grau'}
-                              </label>
-                            </div>
-                          ))}
+
+                        {/* Sistemas e Graus */}
+                        <div className="ml-8 space-y-2">
+                          {Array.from(grupo.sistemas.entries()).map(([sistema, configs]) => {
+                            const sistemaState = getSistemaSelectionState(configs);
+                            return (
+                              <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-3">
+                                <IndeterminateCheckbox
+                                  checked={sistemaState === 'all'}
+                                  indeterminate={sistemaState === 'partial'}
+                                  onCheckedChange={() => handleToggleSistema(configs)}
+                                />
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs"
+                                  style={{
+                                    borderColor: `var(--${getSistemaBadgeColor(sistema)})`,
+                                    color: `var(--${getSistemaBadgeColor(sistema)})`,
+                                  }}
+                                >
+                                  {sistema}
+                                </Badge>
+                                <div className="flex items-center gap-3">
+                                  {configs.map((config) => (
+                                    <div key={config.id} className="flex items-center gap-2">
+                                      <Checkbox
+                                        id={`tc-${config.id}`}
+                                        checked={selectedIds.includes(config.id)}
+                                        onCheckedChange={() => handleToggleGrau(config.id)}
+                                      />
+                                      <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                                        {getGrauLabel(config.grau)}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -306,32 +384,61 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
               <AccordionContent>
                 <div className="max-h-[250px] overflow-y-auto divide-y">
                   {tribunaisFiltrados.TJ.map((grupo) => {
-                    const selectionState = getTribunalSelectionState(grupo.configs);
+                    const selectionState = getTribunalSelectionState(grupo.sistemas);
                     return (
-                      <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
-                        <IndeterminateCheckbox
-                          checked={selectionState === 'all'}
-                          indeterminate={selectionState === 'partial'}
-                          onCheckedChange={() => handleToggleTribunal(grupo.configs)}
-                        />
-                        <div className="flex items-center gap-2 min-w-[180px]">
-                          <span className="font-semibold">{grupo.codigo}</span>
-                          <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
-                          <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
+                      <div key={grupo.codigo} className="px-4 py-3 hover:bg-accent">
+                        {/* Header do Tribunal */}
+                        <div className="flex items-center gap-4 mb-2">
+                          <IndeterminateCheckbox
+                            checked={selectionState === 'all'}
+                            indeterminate={selectionState === 'partial'}
+                            onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
+                          />
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{grupo.codigo}</span>
+                            <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
+                            <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4 ml-auto">
-                          {grupo.configs.map((config) => (
-                            <div key={config.id} className="flex items-center gap-2">
-                              <Checkbox
-                                id={`tc-${config.id}`}
-                                checked={selectedIds.includes(config.id)}
-                                onCheckedChange={() => handleToggleGrau(config.id)}
-                              />
-                              <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
-                                {config.grau === '1g' ? '1º Grau' : '2º Grau'}
-                              </label>
-                            </div>
-                          ))}
+
+                        {/* Sistemas e Graus */}
+                        <div className="ml-8 space-y-2">
+                          {Array.from(grupo.sistemas.entries()).map(([sistema, configs]) => {
+                            const sistemaState = getSistemaSelectionState(configs);
+                            return (
+                              <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-3">
+                                <IndeterminateCheckbox
+                                  checked={sistemaState === 'all'}
+                                  indeterminate={sistemaState === 'partial'}
+                                  onCheckedChange={() => handleToggleSistema(configs)}
+                                />
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs"
+                                  style={{
+                                    borderColor: `var(--${getSistemaBadgeColor(sistema)})`,
+                                    color: `var(--${getSistemaBadgeColor(sistema)})`,
+                                  }}
+                                >
+                                  {sistema}
+                                </Badge>
+                                <div className="flex items-center gap-3">
+                                  {configs.map((config) => (
+                                    <div key={config.id} className="flex items-center gap-2">
+                                      <Checkbox
+                                        id={`tc-${config.id}`}
+                                        checked={selectedIds.includes(config.id)}
+                                        onCheckedChange={() => handleToggleGrau(config.id)}
+                                      />
+                                      <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                                        {getGrauLabel(config.grau)}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -353,32 +460,61 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
               <AccordionContent>
                 <div className="max-h-[250px] overflow-y-auto divide-y">
                   {tribunaisFiltrados.TRF.map((grupo) => {
-                    const selectionState = getTribunalSelectionState(grupo.configs);
+                    const selectionState = getTribunalSelectionState(grupo.sistemas);
                     return (
-                      <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
-                        <IndeterminateCheckbox
-                          checked={selectionState === 'all'}
-                          indeterminate={selectionState === 'partial'}
-                          onCheckedChange={() => handleToggleTribunal(grupo.configs)}
-                        />
-                        <div className="flex items-center gap-2 min-w-[180px]">
-                          <span className="font-semibold">{grupo.codigo}</span>
-                          <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
-                          <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
+                      <div key={grupo.codigo} className="px-4 py-3 hover:bg-accent">
+                        {/* Header do Tribunal */}
+                        <div className="flex items-center gap-4 mb-2">
+                          <IndeterminateCheckbox
+                            checked={selectionState === 'all'}
+                            indeterminate={selectionState === 'partial'}
+                            onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
+                          />
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{grupo.codigo}</span>
+                            <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
+                            <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4 ml-auto">
-                          {grupo.configs.map((config) => (
-                            <div key={config.id} className="flex items-center gap-2">
-                              <Checkbox
-                                id={`tc-${config.id}`}
-                                checked={selectedIds.includes(config.id)}
-                                onCheckedChange={() => handleToggleGrau(config.id)}
-                              />
-                              <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
-                                {config.grau === '1g' ? '1º Grau' : '2º Grau'}
-                              </label>
-                            </div>
-                          ))}
+
+                        {/* Sistemas e Graus */}
+                        <div className="ml-8 space-y-2">
+                          {Array.from(grupo.sistemas.entries()).map(([sistema, configs]) => {
+                            const sistemaState = getSistemaSelectionState(configs);
+                            return (
+                              <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-3">
+                                <IndeterminateCheckbox
+                                  checked={sistemaState === 'all'}
+                                  indeterminate={sistemaState === 'partial'}
+                                  onCheckedChange={() => handleToggleSistema(configs)}
+                                />
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs"
+                                  style={{
+                                    borderColor: `var(--${getSistemaBadgeColor(sistema)})`,
+                                    color: `var(--${getSistemaBadgeColor(sistema)})`,
+                                  }}
+                                >
+                                  {sistema}
+                                </Badge>
+                                <div className="flex items-center gap-3">
+                                  {configs.map((config) => (
+                                    <div key={config.id} className="flex items-center gap-2">
+                                      <Checkbox
+                                        id={`tc-${config.id}`}
+                                        checked={selectedIds.includes(config.id)}
+                                        onCheckedChange={() => handleToggleGrau(config.id)}
+                                      />
+                                      <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                                        {getGrauLabel(config.grau)}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -400,32 +536,61 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
               <AccordionContent>
                 <div className="max-h-[250px] overflow-y-auto divide-y">
                   {tribunaisFiltrados.Superior.map((grupo) => {
-                    const selectionState = getTribunalSelectionState(grupo.configs);
+                    const selectionState = getTribunalSelectionState(grupo.sistemas);
                     return (
-                      <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
-                        <IndeterminateCheckbox
-                          checked={selectionState === 'all'}
-                          indeterminate={selectionState === 'partial'}
-                          onCheckedChange={() => handleToggleTribunal(grupo.configs)}
-                        />
-                        <div className="flex items-center gap-2 min-w-[180px]">
-                          <span className="font-semibold">{grupo.codigo}</span>
-                          <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
-                          <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
+                      <div key={grupo.codigo} className="px-4 py-3 hover:bg-accent">
+                        {/* Header do Tribunal */}
+                        <div className="flex items-center gap-4 mb-2">
+                          <IndeterminateCheckbox
+                            checked={selectionState === 'all'}
+                            indeterminate={selectionState === 'partial'}
+                            onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
+                          />
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{grupo.codigo}</span>
+                            <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
+                            <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4 ml-auto">
-                          {grupo.configs.map((config) => (
-                            <div key={config.id} className="flex items-center gap-2">
-                              <Checkbox
-                                id={`tc-${config.id}`}
-                                checked={selectedIds.includes(config.id)}
-                                onCheckedChange={() => handleToggleGrau(config.id)}
-                              />
-                              <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
-                                {config.grau === '1g' ? '1º Grau' : '2º Grau'}
-                              </label>
-                            </div>
-                          ))}
+
+                        {/* Sistemas e Graus */}
+                        <div className="ml-8 space-y-2">
+                          {Array.from(grupo.sistemas.entries()).map(([sistema, configs]) => {
+                            const sistemaState = getSistemaSelectionState(configs);
+                            return (
+                              <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-3">
+                                <IndeterminateCheckbox
+                                  checked={sistemaState === 'all'}
+                                  indeterminate={sistemaState === 'partial'}
+                                  onCheckedChange={() => handleToggleSistema(configs)}
+                                />
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs"
+                                  style={{
+                                    borderColor: `var(--${getSistemaBadgeColor(sistema)})`,
+                                    color: `var(--${getSistemaBadgeColor(sistema)})`,
+                                  }}
+                                >
+                                  {sistema}
+                                </Badge>
+                                <div className="flex items-center gap-3">
+                                  {configs.map((config) => (
+                                    <div key={config.id} className="flex items-center gap-2">
+                                      <Checkbox
+                                        id={`tc-${config.id}`}
+                                        checked={selectedIds.includes(config.id)}
+                                        onCheckedChange={() => handleToggleGrau(config.id)}
+                                      />
+                                      <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                                        {getGrauLabel(config.grau)}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );

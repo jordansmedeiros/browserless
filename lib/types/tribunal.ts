@@ -181,3 +181,122 @@ export function getTipoTribunal(codigo: string): 'TRT' | 'TJ' | 'TRF' | 'Superio
   if (isValidSuperiorCode(codigo)) return 'Superior';
   return null;
 }
+
+/**
+ * Resultado do parsing de um ID de TribunalConfig
+ */
+export interface ParsedTribunalConfigId {
+  codigo: TribunalCode;
+  sistema: Sistema;
+  grau: Grau;
+}
+
+/**
+ * Parse tribunal config ID
+ * Suporta formato legado "TRT3-1g" (auto-upgrade para "TRT3-PJE-1g")
+ * e novo formato "TJCE-PJE-1g"
+ *
+ * @param id - ID no formato "CODIGO-SISTEMA-GRAU" ou "CODIGO-GRAU" (legado)
+ * @returns Objeto com codigo, sistema e grau
+ * @throws Error se o formato for inválido
+ */
+export function parseTribunalConfigId(id: string): ParsedTribunalConfigId {
+  const parts = id.split('-');
+
+  // Formato legado: "TRT3-1g" → upgrade para "TRT3-PJE-1g"
+  if (parts.length === 2) {
+    const [codigo, grau] = parts;
+
+    // Validar que é um TRT (todos os TRTs usam PJE)
+    if (!isValidTRTCode(codigo)) {
+      throw new Error(`Formato legado só suporta TRTs. Código inválido: ${codigo}`);
+    }
+
+    if (!isValidGrau(grau)) {
+      throw new Error(`Grau inválido: ${grau}. Use: 1g, 2g ou unico`);
+    }
+
+    return {
+      codigo: codigo as TRTCode,
+      sistema: 'PJE',
+      grau: grau as Grau,
+    };
+  }
+
+  // Novo formato: "TJCE-PJE-1g"
+  if (parts.length === 3) {
+    const [codigo, sistema, grau] = parts;
+
+    if (!isValidTribunalCode(codigo)) {
+      throw new Error(`Código de tribunal inválido: ${codigo}`);
+    }
+
+    if (!isValidSistema(sistema)) {
+      throw new Error(`Sistema inválido: ${sistema}. Use: PJE, EPROC, ESAJ, PROJUDI ou THEMIS`);
+    }
+
+    if (!isValidGrau(grau)) {
+      throw new Error(`Grau inválido: ${grau}. Use: 1g, 2g ou unico`);
+    }
+
+    return {
+      codigo: codigo as TribunalCode,
+      sistema: sistema as Sistema,
+      grau: grau as Grau,
+    };
+  }
+
+  throw new Error(`Formato de ID inválido: ${id}. Use: CODIGO-SISTEMA-GRAU (ex: TJCE-PJE-1g) ou CODIGO-GRAU para TRTs (ex: TRT3-1g)`);
+}
+
+/**
+ * Gera ID de TribunalConfig a partir de seus componentes
+ *
+ * @param codigo - Código do tribunal (ex: "TRT3", "TJCE")
+ * @param sistema - Sistema judicial (ex: "PJE", "ESAJ")
+ * @param grau - Grau/instância (ex: "1g", "2g", "unico")
+ * @returns ID no formato "CODIGO-SISTEMA-GRAU"
+ */
+export function getTribunalConfigId(codigo: TribunalCode, sistema: Sistema, grau: Grau): string {
+  return `${codigo}-${sistema}-${grau}`;
+}
+
+/**
+ * Valida se um valor é um Sistema válido
+ */
+export function isValidSistema(value: string): value is Sistema {
+  return ['PJE', 'EPROC', 'ESAJ', 'PROJUDI', 'THEMIS'].includes(value);
+}
+
+/**
+ * Valida se um valor é um Grau válido
+ */
+export function isValidGrau(value: string): value is Grau {
+  return ['1g', '2g', 'unico'].includes(value);
+}
+
+/**
+ * Converte grau para nome legível
+ */
+export function getGrauLabel(grau: Grau): string {
+  const labels: Record<Grau, string> = {
+    '1g': '1º Grau',
+    '2g': '2º Grau',
+    'unico': 'Acesso Único',
+  };
+  return labels[grau];
+}
+
+/**
+ * Retorna cor/badge para cada sistema
+ */
+export function getSistemaBadgeColor(sistema: Sistema): string {
+  const colors: Record<Sistema, string> = {
+    'PJE': 'blue',
+    'EPROC': 'green',
+    'ESAJ': 'purple',
+    'PROJUDI': 'orange',
+    'THEMIS': 'red',
+  };
+  return colors[sistema];
+}

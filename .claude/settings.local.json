@@ -44,7 +44,8 @@
       "SlashCommand(/openspec:proposal add-tj-trf-superior-tribunals)",
       "SlashCommand(/openspec:proposal:*)",
       "SlashCommand(/openspec:apply add-tj-trf-superior-tribunals)",
-      "SlashCommand(/openspec:apply:*)"
+      "SlashCommand(/openspec:apply:*)",
+      "Bash(timeout 15 bash:*)"
     ],
     "deny": [],
     "ask": []
