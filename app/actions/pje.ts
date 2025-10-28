@@ -37,6 +37,7 @@ import type {
 } from '@/lib/types';
 import { z } from 'zod';
 import { decompressJSON } from '@/lib/utils/compression';
+import { parseTribunalConfigId, getTipoTribunal } from '@/lib/types/tribunal';
 
 // Lazy load Prisma to avoid edge runtime issues
 async function getPrisma() {
@@ -224,7 +225,12 @@ const credencialSchema = z.object({
   advogadoId: z.string().uuid('ID de advogado inválido'),
   senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   descricao: z.string().optional(),
-  tribunalConfigIds: z.array(z.string().regex(/^TRT\d{1,2}-[12]g$/, 'Formato de tribunal inválido')).min(1, 'Selecione ao menos um tribunal'),
+  tribunalConfigIds: z.array(
+    z.string().regex(
+      /^[A-Z]{3,6}-(PJE|EPROC|ESAJ|PROJUDI|THEMIS)-(1g|2g|unico)$/,
+      'Formato de tribunal inválido. Use: CODIGO-SISTEMA-GRAU (ex: TRT3-PJE-1g)'
+    )
+  ).min(1, 'Selecione ao menos um tribunal'),
 });
 
 // ============================================================================
@@ -618,35 +624,43 @@ export async function createCredencialAction(input: CreateCredencialInput) {
       };
     }
 
-    // Converte identificadores "TRT{N}-{grau}" para UUIDs do banco
-    // Formato: "TRT3-1g" => busca TribunalConfig onde tribunal.codigo='TRT3' AND grau='1g'
+    // Converte identificadores "CODIGO-SISTEMA-GRAU" para UUIDs do banco
+    // Formato: "TRT3-PJE-1g" => busca TribunalConfig onde tribunal.codigo='TRT3' AND sistema='PJE' AND grau='1g'
     const tribunalConfigUUIDs: string[] = [];
 
     for (const tribunalId of validacao.data.tribunalConfigIds) {
-      // Parse do formato "TRT{N}-{grau}"
-      const [codigo, grau] = tribunalId.split('-');
+      // Parse do formato "CODIGO-SISTEMA-GRAU"
+      try {
+        const { codigo, sistema, grau } = parseTribunalConfigId(tribunalId);
 
-      // Busca/cria TribunalConfig no banco
-      const tribunalConfig = await prisma.tribunalConfig.findFirst({
-        where: {
-          tribunal: {
-            codigo,
+        // Busca TribunalConfig no banco
+        const tribunalConfig = await prisma.tribunalConfig.findFirst({
+          where: {
+            tribunal: {
+              codigo,
+            },
+            sistema,
+            grau,
           },
-          grau,
-        },
-        include: {
-          tribunal: true,
-        },
-      });
+          include: {
+            tribunal: true,
+          },
+        });
 
-      if (!tribunalConfig) {
+        if (!tribunalConfig) {
+          return {
+            success: false,
+            error: `Tribunal ${tribunalId} não encontrado. Execute o seed do banco: npx prisma db seed`,
+          };
+        }
+
+        tribunalConfigUUIDs.push(tribunalConfig.id);
+      } catch (error) {
         return {
           success: false,
-          error: `Tribunal ${tribunalId} não encontrado. Execute o seed do banco: npx prisma db seed`,
+          error: `ID de tribunal inválido: ${tribunalId}. ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
         };
       }
-
-      tribunalConfigUUIDs.push(tribunalConfig.id);
     }
 
     // Busca configs completas
@@ -672,9 +686,7 @@ export async function createCredencialAction(input: CreateCredencialInput) {
             const tribunal = tribunais.find((t) => t.id === tribunalConfigId);
             // Determina tipo baseado no código do tribunal
             const codigoTribunal = tribunal?.tribunal.codigo || '';
-            let tipoTribunal = 'TRT';
-            if (codigoTribunal.startsWith('TJ')) tipoTribunal = 'TJ';
-            else if (codigoTribunal.startsWith('TRF')) tipoTribunal = 'TRF';
+            const tipoTribunal = getTipoTribunal(codigoTribunal) || 'TRT';
 
             return {
               tribunalConfigId,
@@ -741,6 +753,50 @@ export async function listCredenciaisAction(advogadoId: string) {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro ao listar credenciais',
+      data: [],
+    };
+  }
+}
+
+/**
+ * Lista todos os TribunalConfigs disponíveis no banco
+ */
+export async function listTribunalConfigsAction() {
+  try {
+    const prisma = await getPrisma();
+    const configs = await prisma.tribunalConfig.findMany({
+      include: {
+        tribunal: true,
+      },
+      orderBy: [
+        { tribunal: { codigo: 'asc' } },
+        { sistema: 'asc' },
+        { grau: 'asc' },
+      ],
+    });
+
+    // Transforma para formato compatível com TribunalConfigConstant
+    const configsFormatted = configs.map((config) => ({
+      id: `${config.tribunal.codigo}-${config.sistema}-${config.grau}`,
+      codigo: config.tribunal.codigo,
+      sistema: config.sistema,
+      grau: config.grau,
+      nome: `${config.tribunal.codigo} - ${config.sistema} - ${config.grau === '1g' ? '1º Grau' : config.grau === '2g' ? '2º Grau' : 'Acesso Único'}`,
+      nomeCompleto: config.tribunal.nome,
+      regiao: config.tribunal.regiao,
+      uf: config.tribunal.uf,
+      cidadeSede: config.tribunal.cidadeSede,
+    }));
+
+    return {
+      success: true,
+      data: configsFormatted,
+    };
+  } catch (error) {
+    console.error('[listTribunalConfigsAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao listar tribunais',
       data: [],
     };
   }

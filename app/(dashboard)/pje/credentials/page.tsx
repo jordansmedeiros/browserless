@@ -36,6 +36,7 @@ import {
   deleteCredencialAction,
   toggleCredencialAction,
   testCredencialAction,
+  listTribunalConfigsAction,
 } from '@/app/actions/pje';
 import type {
   EscritorioWithAdvogados,
@@ -109,9 +110,14 @@ export default function CredentialsPage() {
   }
 
   async function loadTribunalConfigs() {
-    // Importa constantes de todos os TRTs (48 configs: TRT1-TRT24 × 2 graus)
-    const { TRIBUNAL_CONFIGS } = await import('@/lib/constants/tribunais');
-    setTribunalConfigs(TRIBUNAL_CONFIGS);
+    // Busca todos os TribunalConfigs do banco (TRTs, TJs, TRFs, Superiores)
+    const result = await listTribunalConfigsAction();
+    if (result.success) {
+      setTribunalConfigs(result.data as TribunalConfigConstant[]);
+    } else {
+      console.error('Erro ao carregar tribunais:', result.error);
+      setMessage({ type: 'error', text: `Erro ao carregar tribunais: ${result.error}` });
+    }
   }
 
   async function handleCreateEscritorio() {

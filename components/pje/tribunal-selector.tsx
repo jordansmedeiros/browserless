@@ -310,27 +310,22 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
                   {tribunaisFiltrados.TRT.map((grupo) => {
                     const selectionState = getTribunalSelectionState(grupo.sistemas);
                     return (
-                      <div key={grupo.codigo} className="px-4 py-3 hover:bg-accent">
-                        {/* Header do Tribunal */}
-                        <div className="flex items-center gap-4 mb-2">
-                          <IndeterminateCheckbox
-                            checked={selectionState === 'all'}
-                            indeterminate={selectionState === 'partial'}
-                            onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
-                          />
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{grupo.codigo}</span>
-                            <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
-                            <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
-                          </div>
+                      <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
+                        <IndeterminateCheckbox
+                          checked={selectionState === 'all'}
+                          indeterminate={selectionState === 'partial'}
+                          onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
+                        />
+                        <div className="flex items-center gap-2 min-w-[180px]">
+                          <span className="font-semibold">{grupo.codigo}</span>
+                          <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
+                          <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
                         </div>
-
-                        {/* Sistemas e Graus */}
-                        <div className="ml-8 space-y-2">
+                        <div className="flex items-center gap-4 ml-auto flex-wrap">
                           {Array.from(grupo.sistemas.entries()).map(([sistema, configs]) => {
                             const sistemaState = getSistemaSelectionState(configs);
                             return (
-                              <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-3">
+                              <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-2">
                                 <IndeterminateCheckbox
                                   checked={sistemaState === 'all'}
                                   indeterminate={sistemaState === 'partial'}
@@ -346,20 +341,18 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
                                 >
                                   {sistema}
                                 </Badge>
-                                <div className="flex items-center gap-3">
-                                  {configs.map((config) => (
-                                    <div key={config.id} className="flex items-center gap-2">
-                                      <Checkbox
-                                        id={`tc-${config.id}`}
-                                        checked={selectedIds.includes(config.id)}
-                                        onCheckedChange={() => handleToggleGrau(config.id)}
-                                      />
-                                      <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
-                                        {getGrauLabel(config.grau)}
-                                      </label>
-                                    </div>
-                                  ))}
-                                </div>
+                                {configs.map((config) => (
+                                  <div key={config.id} className="flex items-center gap-1">
+                                    <Checkbox
+                                      id={`tc-${config.id}`}
+                                      checked={selectedIds.includes(config.id)}
+                                      onCheckedChange={() => handleToggleGrau(config.id)}
+                                    />
+                                    <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                                      {getGrauLabel(config.grau)}
+                                    </label>
+                                  </div>
+                                ))}
                               </div>
                             );
                           })}
@@ -386,27 +379,22 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
                   {tribunaisFiltrados.TJ.map((grupo) => {
                     const selectionState = getTribunalSelectionState(grupo.sistemas);
                     return (
-                      <div key={grupo.codigo} className="px-4 py-3 hover:bg-accent">
-                        {/* Header do Tribunal */}
-                        <div className="flex items-center gap-4 mb-2">
-                          <IndeterminateCheckbox
-                            checked={selectionState === 'all'}
-                            indeterminate={selectionState === 'partial'}
-                            onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
-                          />
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{grupo.codigo}</span>
-                            <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
-                            <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
-                          </div>
+                      <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
+                        <IndeterminateCheckbox
+                          checked={selectionState === 'all'}
+                          indeterminate={selectionState === 'partial'}
+                          onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
+                        />
+                        <div className="flex items-center gap-2 min-w-[180px]">
+                          <span className="font-semibold">{grupo.codigo}</span>
+                          <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
+                          <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
                         </div>
-
-                        {/* Sistemas e Graus */}
-                        <div className="ml-8 space-y-2">
+                        <div className="flex items-center gap-4 ml-auto flex-wrap">
                           {Array.from(grupo.sistemas.entries()).map(([sistema, configs]) => {
                             const sistemaState = getSistemaSelectionState(configs);
                             return (
-                              <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-3">
+                              <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-2">
                                 <IndeterminateCheckbox
                                   checked={sistemaState === 'all'}
                                   indeterminate={sistemaState === 'partial'}
@@ -422,20 +410,18 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
                                 >
                                   {sistema}
                                 </Badge>
-                                <div className="flex items-center gap-3">
-                                  {configs.map((config) => (
-                                    <div key={config.id} className="flex items-center gap-2">
-                                      <Checkbox
-                                        id={`tc-${config.id}`}
-                                        checked={selectedIds.includes(config.id)}
-                                        onCheckedChange={() => handleToggleGrau(config.id)}
-                                      />
-                                      <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
-                                        {getGrauLabel(config.grau)}
-                                      </label>
-                                    </div>
-                                  ))}
-                                </div>
+                                {configs.map((config) => (
+                                  <div key={config.id} className="flex items-center gap-1">
+                                    <Checkbox
+                                      id={`tc-${config.id}`}
+                                      checked={selectedIds.includes(config.id)}
+                                      onCheckedChange={() => handleToggleGrau(config.id)}
+                                    />
+                                    <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                                      {getGrauLabel(config.grau)}
+                                    </label>
+                                  </div>
+                                ))}
                               </div>
                             );
                           })}
@@ -462,27 +448,22 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
                   {tribunaisFiltrados.TRF.map((grupo) => {
                     const selectionState = getTribunalSelectionState(grupo.sistemas);
                     return (
-                      <div key={grupo.codigo} className="px-4 py-3 hover:bg-accent">
-                        {/* Header do Tribunal */}
-                        <div className="flex items-center gap-4 mb-2">
-                          <IndeterminateCheckbox
-                            checked={selectionState === 'all'}
-                            indeterminate={selectionState === 'partial'}
-                            onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
-                          />
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{grupo.codigo}</span>
-                            <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
-                            <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
-                          </div>
+                      <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
+                        <IndeterminateCheckbox
+                          checked={selectionState === 'all'}
+                          indeterminate={selectionState === 'partial'}
+                          onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
+                        />
+                        <div className="flex items-center gap-2 min-w-[180px]">
+                          <span className="font-semibold">{grupo.codigo}</span>
+                          <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
+                          <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
                         </div>
-
-                        {/* Sistemas e Graus */}
-                        <div className="ml-8 space-y-2">
+                        <div className="flex items-center gap-4 ml-auto flex-wrap">
                           {Array.from(grupo.sistemas.entries()).map(([sistema, configs]) => {
                             const sistemaState = getSistemaSelectionState(configs);
                             return (
-                              <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-3">
+                              <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-2">
                                 <IndeterminateCheckbox
                                   checked={sistemaState === 'all'}
                                   indeterminate={sistemaState === 'partial'}
@@ -498,20 +479,18 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
                                 >
                                   {sistema}
                                 </Badge>
-                                <div className="flex items-center gap-3">
-                                  {configs.map((config) => (
-                                    <div key={config.id} className="flex items-center gap-2">
-                                      <Checkbox
-                                        id={`tc-${config.id}`}
-                                        checked={selectedIds.includes(config.id)}
-                                        onCheckedChange={() => handleToggleGrau(config.id)}
-                                      />
-                                      <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
-                                        {getGrauLabel(config.grau)}
-                                      </label>
-                                    </div>
-                                  ))}
-                                </div>
+                                {configs.map((config) => (
+                                  <div key={config.id} className="flex items-center gap-1">
+                                    <Checkbox
+                                      id={`tc-${config.id}`}
+                                      checked={selectedIds.includes(config.id)}
+                                      onCheckedChange={() => handleToggleGrau(config.id)}
+                                    />
+                                    <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                                      {getGrauLabel(config.grau)}
+                                    </label>
+                                  </div>
+                                ))}
                               </div>
                             );
                           })}
@@ -538,27 +517,22 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
                   {tribunaisFiltrados.Superior.map((grupo) => {
                     const selectionState = getTribunalSelectionState(grupo.sistemas);
                     return (
-                      <div key={grupo.codigo} className="px-4 py-3 hover:bg-accent">
-                        {/* Header do Tribunal */}
-                        <div className="flex items-center gap-4 mb-2">
-                          <IndeterminateCheckbox
-                            checked={selectionState === 'all'}
-                            indeterminate={selectionState === 'partial'}
-                            onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
-                          />
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{grupo.codigo}</span>
-                            <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
-                            <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
-                          </div>
+                      <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
+                        <IndeterminateCheckbox
+                          checked={selectionState === 'all'}
+                          indeterminate={selectionState === 'partial'}
+                          onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
+                        />
+                        <div className="flex items-center gap-2 min-w-[180px]">
+                          <span className="font-semibold">{grupo.codigo}</span>
+                          <Badge variant="outline" className="text-xs">{grupo.info.uf}</Badge>
+                          <Badge variant="secondary" className="text-xs">{grupo.info.regiao}</Badge>
                         </div>
-
-                        {/* Sistemas e Graus */}
-                        <div className="ml-8 space-y-2">
+                        <div className="flex items-center gap-4 ml-auto flex-wrap">
                           {Array.from(grupo.sistemas.entries()).map(([sistema, configs]) => {
                             const sistemaState = getSistemaSelectionState(configs);
                             return (
-                              <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-3">
+                              <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-2">
                                 <IndeterminateCheckbox
                                   checked={sistemaState === 'all'}
                                   indeterminate={sistemaState === 'partial'}
@@ -574,20 +548,18 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
                                 >
                                   {sistema}
                                 </Badge>
-                                <div className="flex items-center gap-3">
-                                  {configs.map((config) => (
-                                    <div key={config.id} className="flex items-center gap-2">
-                                      <Checkbox
-                                        id={`tc-${config.id}`}
-                                        checked={selectedIds.includes(config.id)}
-                                        onCheckedChange={() => handleToggleGrau(config.id)}
-                                      />
-                                      <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
-                                        {getGrauLabel(config.grau)}
-                                      </label>
-                                    </div>
-                                  ))}
-                                </div>
+                                {configs.map((config) => (
+                                  <div key={config.id} className="flex items-center gap-1">
+                                    <Checkbox
+                                      id={`tc-${config.id}`}
+                                      checked={selectedIds.includes(config.id)}
+                                      onCheckedChange={() => handleToggleGrau(config.id)}
+                                    />
+                                    <label htmlFor={`tc-${config.id}`} className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                                      {getGrauLabel(config.grau)}
+                                    </label>
+                                  </div>
+                                ))}
                               </div>
                             );
                           })}
