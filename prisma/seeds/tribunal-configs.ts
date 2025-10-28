@@ -7,10 +7,11 @@ import type { Grau } from '../../lib/types/tribunal';
 
 export interface TribunalConfigSeedData {
   tribunalCodigo: string;
+  sistema: string;
   grau: Grau;
   urlBase: string;
   urlLoginSeam: string;
-  urlApi: string;
+  urlApi: string | null;
 }
 
 /**
@@ -40,6 +41,7 @@ export function generateTribunalConfig(
   const urlApi = `${urlBase}/pje-comum-api/api`;
 
   return {
+    sistema: 'PJE',
     grau,
     urlBase,
     urlLoginSeam,

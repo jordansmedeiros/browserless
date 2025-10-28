@@ -42,7 +42,9 @@
       "Bash(node:*)",
       "Bash(npm run test:multi-trt-2g:*)",
       "SlashCommand(/openspec:proposal add-tj-trf-superior-tribunals)",
-      "SlashCommand(/openspec:proposal:*)"
+      "SlashCommand(/openspec:proposal:*)",
+      "SlashCommand(/openspec:apply add-tj-trf-superior-tribunals)",
+      "SlashCommand(/openspec:apply:*)"
     ],
     "deny": [],
     "ask": []

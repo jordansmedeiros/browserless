@@ -9,7 +9,7 @@ export type Credencial = Prisma.CredencialGetPayload<{}>;
 export type CredencialTribunal = Prisma.CredencialTribunalGetPayload<{}>;
 
 // Tipos de tribunal
-export type TipoTribunal = 'TRT' | 'TJ' | 'TRF';
+export type TipoTribunal = 'TRT' | 'TJ' | 'TRF' | 'Superior';
 
 // Tipos com relações aninhadas
 export type CredencialWithRelations = Prisma.CredencialGetPayload<{
