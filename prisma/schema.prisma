@@ -120,10 +120,10 @@ model Advogado {
   oabUf        String
   cpf          String
   idAdvogado   String?
-  escritorioId String?
+  escritorioId String       // Required - all lawyers must belong to a law firm
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
-  escritorio   Escritorio?  @relation(fields: [escritorioId], references: [id])
+  escritorio   Escritorio   @relation(fields: [escritorioId], references: [id])
   credenciais  Credencial[]
 
   @@unique([oabNumero, oabUf])

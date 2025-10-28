@@ -218,11 +218,38 @@ const advogadoSchema = z.object({
   oabNumero: z.string().regex(/^\d+$/, 'OAB deve conter apenas números'),
   oabUf: z.string().length(2, 'UF deve ter 2 caracteres').toUpperCase(),
   cpf: z.string().regex(/^\d{11}$/, 'CPF deve conter 11 dígitos'),
-  escritorioId: z.string().uuid().optional().nullable(),
+  escritorioId: z.string().uuid('ID de escritório inválido'), // Required - all lawyers must belong to a firm
 });
 
 const credencialSchema = z.object({
   advogadoId: z.string().uuid('ID de advogado inválido'),
+  senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  descricao: z.string().optional(),
+  tribunalConfigIds: z.array(
+    z.string().regex(
+      /^[A-Z0-9]{3,6}-(PJE|EPROC|ESAJ|PROJUDI|THEMIS)-(1g|2g|unico)$/,
+      'Formato de tribunal inválido. Use: CODIGO-SISTEMA-GRAU (ex: TRT3-PJE-1g)'
+    )
+  ).min(1, 'Selecione ao menos um tribunal'),
+});
+
+// Update schemas
+const updateEscritorioSchema = z.object({
+  id: z.string().uuid('ID de escritório inválido'),
+  nome: z.string().min(1, 'Nome do escritório é obrigatório'),
+});
+
+const updateAdvogadoSchema = z.object({
+  id: z.string().uuid('ID de advogado inválido'),
+  nome: z.string().min(1, 'Nome é obrigatório'),
+  oabNumero: z.string().regex(/^\d+$/, 'OAB deve conter apenas números'),
+  oabUf: z.string().length(2, 'UF deve ter 2 caracteres').toUpperCase(),
+  cpf: z.string().regex(/^\d{11}$/, 'CPF deve conter 11 dígitos'),
+  escritorioId: z.string().uuid('ID de escritório inválido'),
+});
+
+const updateCredencialSchema = z.object({
+  id: z.string().uuid('ID de credencial inválido'),
   senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   descricao: z.string().optional(),
   tribunalConfigIds: z.array(

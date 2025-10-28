@@ -48,7 +48,8 @@
       "Bash(timeout 15 bash:*)",
       "Bash(npx tsc:*)",
       "Bash(openspec spec list:*)",
-      "Bash(openspec show:*)"
+      "Bash(openspec show:*)",
+      "Bash(openspec diff:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,11 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -21,43 +27,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Trash2, Edit, CheckCircle, XCircle, Building2, User, Key, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Plus, Building2, User, Eye, Search } from 'lucide-react';
 import {
   listEscritoriosAction,
   createEscritorioAction,
-  deleteEscritorioAction,
-  listAdvogadosAction,
   createAdvogadoAction,
-  deleteAdvogadoAction,
-  listCredenciaisAction,
-  createCredencialAction,
-  deleteCredencialAction,
-  toggleCredencialAction,
-  testCredencialAction,
-  listTribunalConfigsAction,
 } from '@/app/actions/pje';
 import type {
   EscritorioWithAdvogados,
-  AdvogadoWithCredenciais,
-  CredencialWithRelations,
 } from '@/lib/types';
-import { TribunalSelector } from '@/components/pje/tribunal-selector';
-import type { TribunalConfigConstant } from '@/lib/constants/tribunais';
+import { LawyerDetailModal } from '@/components/pje/lawyer-detail-modal';
+
+const UFS = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
+  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
+  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+];
 
 export default function CredentialsPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{type: 'success' | 'error'; text: string} | null>(null);
   const [escritorios, setEscritorios] = useState<EscritorioWithAdvogados[]>([]);
-  const [advogados, setAdvogados] = useState<AdvogadoWithCredenciais[]>([]);
-  const [selectedEscritorio, setSelectedEscritorio] = useState<string | null>(null);
-  const [selectedAdvogado, setSelectedAdvogado] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedLawyerId, setSelectedLawyerId] = useState<string | null>(null);
 
   // Dialogs
   const [escritorioDialog, setEscritorioDialog] = useState(false);
   const [advogadoDialog, setAdvogadoDialog] = useState(false);
-  const [credencialDialog, setCredencialDialog] = useState(false);
 
   // Forms
   const [escritorioForm, setEscritorioForm] = useState({ nome: '' });
@@ -66,73 +62,30 @@ export default function CredentialsPage() {
     oabNumero: '',
     oabUf: '',
     cpf: '',
-    escritorioId: '' as string | null,
+    escritorioId: '',
+    createNewFirm: false,
+    newFirmName: '',
   });
-  const [credencialForm, setCredencialForm] = useState({
-    senha: '',
-    descricao: '',
-    tribunalConfigIds: [] as string[],
-  });
-
-  // Available tribunal configs (from constants)
-  const [tribunalConfigs, setTribunalConfigs] = useState<TribunalConfigConstant[]>([]);
-
-  // Visibilidade de senhas (IDs das credenciais com senha visível)
-  const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadData();
-    loadTribunalConfigs();
   }, []);
 
   async function loadData() {
     setLoading(true);
-    setMessage(null); // Limpa mensagens anteriores
+    setMessage(null);
     try {
       const result = await listEscritoriosAction();
       if (result.success) {
         setEscritorios(result.data);
       } else if (result.error) {
-        console.error('Erro ao listar escritórios:', result.error);
         setMessage({ type: 'error', text: `Erro ao carregar escritórios: ${result.error}` });
       }
-
-      const advResult = await listAdvogadosAction();
-      if (advResult.success) {
-        setAdvogados(advResult.data);
-      } else if (advResult.error) {
-        console.error('Erro ao listar advogados:', advResult.error);
-        setMessage({ type: 'error', text: `Erro ao carregar advogados: ${advResult.error}` });
-      }
     } catch (error) {
-      console.error('Exceção ao carregar dados:', error);
-      setMessage({ type: 'error', text: `Erro inesperado: ${error instanceof Error ? error.message : 'Erro desconhecido'}` });
+      setMessage({ type: 'error', text: 'Erro ao carregar dados' });
     } finally {
       setLoading(false);
     }
-  }
-
-  async function loadTribunalConfigs() {
-    // Busca todos os TribunalConfigs do banco (TRTs, TJs, TRFs, Superiores)
-    const result = await listTribunalConfigsAction();
-    if (result.success) {
-      setTribunalConfigs(result.data as TribunalConfigConstant[]);
-    } else {
-      console.error('Erro ao carregar tribunais:', result.error);
-      setMessage({ type: 'error', text: `Erro ao carregar tribunais: ${result.error}` });
-    }
-  }
-
-  function togglePasswordVisibility(credencialId: string) {
-    setVisiblePasswords((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(credencialId)) {
-        newSet.delete(credencialId);
-      } else {
-        newSet.add(credencialId);
-      }
-      return newSet;
-    });
   }
 
   async function handleCreateEscritorio() {
@@ -153,378 +106,242 @@ export default function CredentialsPage() {
     }
   }
 
-  async function handleDeleteEscritorio(id: string) {
-    if (!confirm('Deseja realmente deletar este escritório?')) return;
-
-    const result = await deleteEscritorioAction(id);
-
-    if (result.success) {
-      setMessage({ type: 'success', text: 'Escritório deletado com sucesso' });
-      if (selectedEscritorio === id) setSelectedEscritorio(null);
-      loadData();
-    } else {
-      setMessage({ type: 'error', text: result.error || 'Erro ao deletar escritório' });
-    }
-  }
-
   async function handleCreateAdvogado() {
+    // Validações
+    if (!advogadoForm.nome.trim()) {
+      setMessage({ type: 'error', text: 'Nome é obrigatório' });
+      return;
+    }
+    if (!advogadoForm.oabNumero.trim()) {
+      setMessage({ type: 'error', text: 'OAB é obrigatório' });
+      return;
+    }
+    if (!advogadoForm.oabUf.trim()) {
+      setMessage({ type: 'error', text: 'UF da OAB é obrigatório' });
+      return;
+    }
+    if (!advogadoForm.cpf.trim() || advogadoForm.cpf.length !== 11) {
+      setMessage({ type: 'error', text: 'CPF inválido (deve ter 11 dígitos)' });
+      return;
+    }
+
+    let escritorioId = advogadoForm.escritorioId;
+
+    // Se marcou para criar novo escritório
+    if (advogadoForm.createNewFirm) {
+      if (!advogadoForm.newFirmName.trim()) {
+        setMessage({ type: 'error', text: 'Nome do escritório é obrigatório' });
+        return;
+      }
+
+      const firmResult = await createEscritorioAction({ nome: advogadoForm.newFirmName });
+      if (!firmResult.success) {
+        setMessage({ type: 'error', text: firmResult.error || 'Erro ao criar escritório' });
+        return;
+      }
+      escritorioId = firmResult.data.id;
+    } else if (!escritorioId) {
+      // Se não marcou para criar novo, mas não selecionou escritório existente,
+      // criar escritório com nome do advogado (solo practice)
+      const firmResult = await createEscritorioAction({ nome: advogadoForm.nome });
+      if (!firmResult.success) {
+        setMessage({ type: 'error', text: firmResult.error || 'Erro ao criar escritório' });
+        return;
+      }
+      escritorioId = firmResult.data.id;
+    }
+
     const result = await createAdvogadoAction({
       nome: advogadoForm.nome,
       oabNumero: advogadoForm.oabNumero,
-      oabUf: advogadoForm.oabUf.toUpperCase(),
-      cpf: advogadoForm.cpf.replace(/\D/g, ''),
-      escritorioId: advogadoForm.escritorioId || null,
+      oabUf: advogadoForm.oabUf,
+      cpf: advogadoForm.cpf,
+      escritorioId,
     });
 
     if (result.success) {
       setMessage({ type: 'success', text: 'Advogado criado com sucesso' });
       setAdvogadoDialog(false);
-      setAdvogadoForm({ nome: '', oabNumero: '', oabUf: '', cpf: '', escritorioId: null });
+      setAdvogadoForm({
+        nome: '',
+        oabNumero: '',
+        oabUf: '',
+        cpf: '',
+        escritorioId: '',
+        createNewFirm: false,
+        newFirmName: '',
+      });
       loadData();
     } else {
       setMessage({ type: 'error', text: result.error || 'Erro ao criar advogado' });
     }
   }
 
-  async function handleDeleteAdvogado(id: string) {
-    if (!confirm('Deseja realmente deletar este advogado? Todas as credenciais serão removidas.')) return;
-
-    const result = await deleteAdvogadoAction(id);
-
-    if (result.success) {
-      setMessage({ type: 'success', text: 'Advogado deletado com sucesso' });
-      if (selectedAdvogado === id) setSelectedAdvogado(null);
-      loadData();
-    } else {
-      setMessage({ type: 'error', text: result.error || 'Erro ao deletar advogado' });
-    }
-  }
-
-  async function handleCreateCredencial() {
-    if (!selectedAdvogado) return;
-
-    const result = await createCredencialAction({
-      advogadoId: selectedAdvogado,
-      senha: credencialForm.senha,
-      descricao: credencialForm.descricao,
-      tribunalConfigIds: credencialForm.tribunalConfigIds,
-    });
-
-    if (result.success) {
-      setMessage({ type: 'success', text: 'Credencial criada com sucesso' });
-      setCredencialDialog(false);
-      setCredencialForm({ senha: '', descricao: '', tribunalConfigIds: [] });
-      loadData();
-    } else {
-      setMessage({ type: 'error', text: result.error || 'Erro ao criar credencial' });
-    }
-  }
-
-  async function handleDeleteCredencial(id: string) {
-    if (!confirm('Deseja realmente deletar esta credencial?')) return;
-
-    const result = await deleteCredencialAction(id);
-
-    if (result.success) {
-      setMessage({ type: 'success', text: 'Credencial deletada com sucesso' });
-      loadData();
-    } else {
-      setMessage({ type: 'error', text: result.error || 'Erro ao deletar credencial' });
-    }
-  }
-
-  async function handleToggleCredencial(id: string) {
-    const result = await toggleCredencialAction(id);
-
-    if (result.success) {
-      setMessage({ type: 'success', text: 'Status da credencial alterado' });
-      loadData();
-    } else {
-      setMessage({ type: 'error', text: result.error || 'Erro ao alterar status' });
-    }
-  }
-
-  const selectedAdvogadoData = advogados.find(a => a.id === selectedAdvogado);
-  const soloAdvogados = advogados.filter(a => a.escritorioId === null);
-
-  if (loading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
+  // Filter escritórios by search term
+  const filteredEscritorios = escritorios.filter((escritorio) => {
+    const searchLower = searchTerm.toLowerCase();
+    const matchFirm = escritorio.nome.toLowerCase().includes(searchLower);
+    const matchLawyer = escritorio.advogados.some(
+      (adv) =>
+        adv.nome.toLowerCase().includes(searchLower) ||
+        adv.oabNumero.includes(searchTerm) ||
+        adv.cpf.includes(searchTerm)
     );
-  }
+    return matchFirm || matchLawyer;
+  });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Gerenciamento de Credenciais PJE</h1>
+    <div className="container mx-auto py-8 px-4 max-w-6xl">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight mb-2">
+          Gerenciamento de Credenciais PJE
+        </h1>
         <p className="text-muted-foreground">
-          Configure escritórios, advogados e credenciais para acesso ao PJE
+          Gerencie escritórios, advogados e credenciais do PJE
         </p>
       </div>
 
+      {/* Action Bar */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 flex-1">
+          <Button onClick={() => setEscritorioDialog(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Escritório
+          </Button>
+          <Button variant="outline" onClick={() => setAdvogadoDialog(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Advogado
+          </Button>
+        </div>
+
+        {/* Search */}
+        <div className="relative sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar escritório ou advogado..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </div>
+
+      {/* Messages */}
       {message && (
-        <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
-          {message.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-          <AlertDescription>{message.text}</AlertDescription>
-        </Alert>
+        <div
+          className={`mb-4 p-3 rounded-lg text-sm ${
+            message.type === 'success'
+              ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300'
+              : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300'
+          }`}
+        >
+          {message.text}
+        </div>
       )}
 
-      {/* Escritórios e Advogados Solo */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Escritórios
-              </CardTitle>
-              <CardDescription>Escritórios cadastrados e advogados autônomos</CardDescription>
-            </div>
-            <Button onClick={() => setEscritorioDialog(true)} size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Escritório
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {escritorios.map((escritorio) => (
-            <div
-              key={escritorio.id}
-              className={`rounded-lg border p-4 cursor-pointer transition-colors ${
-                selectedEscritorio === escritorio.id ? 'border-primary bg-primary/5' : 'hover:border-primary/50'
-              }`}
-              onClick={() => setSelectedEscritorio(escritorio.id)}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold">{escritorio.nome}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {escritorio.advogados.length} advogado(s)
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteEscritorio(escritorio.id);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
-
-          {escritorios.length === 0 && soloAdvogados.length === 0 && (
-            <div className="py-12 text-center">
-              <Building2 className="mx-auto h-12 w-12 text-muted-foreground/50" />
-              <h3 className="mt-4 text-lg font-semibold">Nenhum escritório ou advogado cadastrado</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Comece criando um escritório ou cadastre-se como advogado autônomo
-              </p>
-              <div className="mt-6 flex justify-center gap-4">
-                <Button onClick={() => setEscritorioDialog(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Criar Escritório
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setAdvogadoForm({ ...advogadoForm, escritorioId: null });
-                    setAdvogadoDialog(true);
-                  }}
-                >
-                  <User className="mr-2 h-4 w-4" />
-                  Cadastrar como Autônomo
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {soloAdvogados.length > 0 && (
-            <div>
-              <h3 className="mb-2 text-sm font-semibold">Advogados Autônomos</h3>
-              {soloAdvogados.map((adv) => (
-                <div
-                  key={adv.id}
-                  className={`rounded-lg border p-3 cursor-pointer transition-colors mb-2 ${
-                    selectedAdvogado === adv.id ? 'border-primary bg-primary/5' : 'hover:border-primary/50'
-                  }`}
-                  onClick={() => setSelectedAdvogado(adv.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-sm">{adv.nome}</p>
-                      <p className="text-xs text-muted-foreground">
-                        OAB {adv.oabNumero}/{adv.oabUf} • {adv.credenciais.length} credencial(is)
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteAdvogado(adv.id);
-                      }}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Advogados do Escritório Selecionado */}
-      {selectedEscritorio && (
+      {/* Loading */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : filteredEscritorios.length === 0 ? (
+        /* Empty State */
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Advogados
-                </CardTitle>
-                <CardDescription>
-                  {escritorios.find(e => e.id === selectedEscritorio)?.nome}
-                </CardDescription>
-              </div>
-              <Button
-                onClick={() => {
-                  setAdvogadoForm({ ...advogadoForm, escritorioId: selectedEscritorio });
-                  setAdvogadoDialog(true);
-                }}
-                size="sm"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Novo Advogado
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <Building2 className="w-16 h-16 text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-semibold mb-1">Nenhum escritório encontrado</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              {searchTerm
+                ? 'Nenhum resultado encontrado para sua busca'
+                : 'Comece adicionando um novo escritório'}
+            </p>
+            {!searchTerm && (
+              <Button onClick={() => setEscritorioDialog(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Adicionar Escritório
               </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {advogados
-              .filter(a => a.escritorioId === selectedEscritorio)
-              .map((advogado) => (
-                <div
-                  key={advogado.id}
-                  className={`rounded-lg border p-3 cursor-pointer transition-colors ${
-                    selectedAdvogado === advogado.id ? 'border-primary bg-primary/5' : 'hover:border-primary/50'
-                  }`}
-                  onClick={() => setSelectedAdvogado(advogado.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">{advogado.nome}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        OAB {advogado.oabNumero}/{advogado.oabUf} • CPF ***.***.{advogado.cpf.slice(-3)} • {advogado.credenciais.length} credencial(is)
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteAdvogado(advogado.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Credenciais do Advogado Selecionado */}
-      {selectedAdvogado && selectedAdvogadoData && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Key className="h-5 w-5" />
-                  Credenciais
-                </CardTitle>
-                <CardDescription>{selectedAdvogadoData.nome}</CardDescription>
-              </div>
-              <Button onClick={() => setCredencialDialog(true)} size="sm">
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Credencial
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {selectedAdvogadoData.credenciais.map((cred) => (
-              <div key={cred.id} className="rounded-lg border p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{cred.descricao || 'Sem descrição'}</p>
-                      <Badge variant={cred.ativa ? 'default' : 'secondary'}>
-                        {cred.ativa ? 'Ativa' : 'Inativa'}
-                      </Badge>
-                    </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <p className="text-sm text-muted-foreground">
-                        Senha: {visiblePasswords.has(cred.id) ? cred.senha : '••••••••'}
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={() => togglePasswordVisibility(cred.id)}
-                      >
-                        {visiblePasswords.has(cred.id) ? (
-                          <EyeOff className="h-3.5 w-3.5" />
-                        ) : (
-                          <Eye className="h-3.5 w-3.5" />
-                        )}
-                      </Button>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Tribunais: {cred.tribunais.length} configurado(s)
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleToggleCredencial(cred.id)}
-                    >
-                      {cred.ativa ? 'Desativar' : 'Ativar'}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteCredencial(cred.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {selectedAdvogadoData.credenciais.length === 0 && (
-              <p className="text-center text-sm text-muted-foreground py-8">
-                Nenhuma credencial cadastrada
-              </p>
             )}
           </CardContent>
         </Card>
+      ) : (
+        /* Accordion List */
+        <Accordion type="multiple" className="space-y-3">
+          {filteredEscritorios.map((escritorio) => {
+            const isSolo = escritorio.advogados.length === 1;
+            return (
+              <AccordionItem
+                key={escritorio.id}
+                value={escritorio.id}
+                className="border rounded-lg bg-card"
+              >
+                <AccordionTrigger className="px-4 hover:bg-accent/50 rounded-t-lg">
+                  <div className="flex items-center gap-3 flex-1">
+                    <Building2 className="w-5 h-5 text-muted-foreground" />
+                    <span className="font-semibold">{escritorio.nome}</span>
+                    {isSolo && (
+                      <Badge variant="outline" className="text-xs">
+                        Solo
+                      </Badge>
+                    )}
+                    <Badge variant="secondary" className="text-xs ml-auto mr-2">
+                      {escritorio.advogados.length} advogado{escritorio.advogados.length !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-4 pb-4">
+                  {escritorio.advogados.length === 0 ? (
+                    <div className="text-center py-8 border-2 border-dashed rounded-lg">
+                      <User className="w-10 h-10 mx-auto text-muted-foreground/50 mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        Nenhum advogado cadastrado neste escritório
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {escritorio.advogados.map((advogado) => (
+                        <button
+                          key={advogado.id}
+                          onClick={() => setSelectedLawyerId(advogado.id)}
+                          className="p-4 rounded-lg border bg-background hover:bg-accent hover:border-primary transition-all text-left group"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <User className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-semibold text-sm group-hover:text-primary">
+                                {advogado.nome}
+                              </span>
+                            </div>
+                            <Eye className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
+                          </div>
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <p>OAB/{advogado.oabUf} {advogado.oabNumero}</p>
+                            <p>CPF: {advogado.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '***.$2.$3-**')}</p>
+                          </div>
+                          <div className="mt-2">
+                            <Badge variant="outline" className="text-xs">
+                              {advogado.credenciais?.length || 0} credenciais
+                            </Badge>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
       )}
 
-      {/* Dialog: Criar Escritório */}
+      {/* Dialog: Create Escritório */}
       <Dialog open={escritorioDialog} onOpenChange={setEscritorioDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Novo Escritório</DialogTitle>
-            <DialogDescription>Cadastre um novo escritório de advocacia</DialogDescription>
+            <DialogDescription>
+              Adicione um novo escritório de advocacia
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -533,7 +350,7 @@ export default function CredentialsPage() {
                 id="escritorio-nome"
                 value={escritorioForm.nome}
                 onChange={(e) => setEscritorioForm({ nome: e.target.value })}
-                placeholder="Ex: Silva & Matos Advogados"
+                placeholder="Ex: Silva & Associados"
               />
             </div>
           </div>
@@ -541,131 +358,113 @@ export default function CredentialsPage() {
             <Button variant="outline" onClick={() => setEscritorioDialog(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreateEscritorio}>Criar</Button>
+            <Button onClick={handleCreateEscritorio}>Criar Escritório</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Criar Advogado */}
+      {/* Dialog: Create Advogado */}
       <Dialog open={advogadoDialog} onOpenChange={setAdvogadoDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Novo Advogado</DialogTitle>
-            <DialogDescription>Cadastre um novo advogado</DialogDescription>
+            <DialogDescription>
+              Adicione um novo advogado ao sistema
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="adv-nome">Nome Completo</Label>
-              <Input
-                id="adv-nome"
-                value={advogadoForm.nome}
-                onChange={(e) => setAdvogadoForm({ ...advogadoForm, nome: e.target.value })}
-                placeholder="Dr. João Silva"
-              />
-            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="adv-oab">Número OAB</Label>
+                <Label htmlFor="adv-nome">Nome Completo</Label>
+                <Input
+                  id="adv-nome"
+                  value={advogadoForm.nome}
+                  onChange={(e) => setAdvogadoForm({ ...advogadoForm, nome: e.target.value })}
+                  placeholder="Nome completo"
+                />
+              </div>
+              <div>
+                <Label htmlFor="adv-cpf">CPF</Label>
+                <Input
+                  id="adv-cpf"
+                  value={advogadoForm.cpf}
+                  onChange={(e) =>
+                    setAdvogadoForm({ ...advogadoForm, cpf: e.target.value.replace(/\D/g, '') })
+                  }
+                  placeholder="00000000000"
+                  maxLength={11}
+                />
+              </div>
+              <div>
+                <Label htmlFor="adv-oab">OAB Número</Label>
                 <Input
                   id="adv-oab"
                   value={advogadoForm.oabNumero}
-                  onChange={(e) => setAdvogadoForm({ ...advogadoForm, oabNumero: e.target.value })}
+                  onChange={(e) =>
+                    setAdvogadoForm({ ...advogadoForm, oabNumero: e.target.value.replace(/\D/g, '') })
+                  }
                   placeholder="123456"
                 />
               </div>
               <div>
-                <Label htmlFor="adv-uf">UF</Label>
-                <Input
-                  id="adv-uf"
+                <Label htmlFor="adv-uf">OAB Estado</Label>
+                <Select
                   value={advogadoForm.oabUf}
-                  onChange={(e) => setAdvogadoForm({ ...advogadoForm, oabUf: e.target.value.toUpperCase() })}
-                  placeholder="MG"
-                  maxLength={2}
-                />
+                  onValueChange={(value) => setAdvogadoForm({ ...advogadoForm, oabUf: value })}
+                >
+                  <SelectTrigger id="adv-uf">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {UFS.map((uf) => (
+                      <SelectItem key={uf} value={uf}>
+                        {uf}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+
             <div>
-              <Label htmlFor="adv-cpf">CPF</Label>
-              <Input
-                id="adv-cpf"
-                value={advogadoForm.cpf}
-                onChange={(e) => setAdvogadoForm({ ...advogadoForm, cpf: e.target.value })}
-                placeholder="00000000000"
-                maxLength={11}
-              />
-            </div>
-            <div>
-              <Label htmlFor="adv-escritorio">Escritório (opcional)</Label>
+              <Label htmlFor="adv-escritorio">Escritório</Label>
               <Select
-                value={advogadoForm.escritorioId || 'solo'}
-                onValueChange={(val: string) =>
-                  setAdvogadoForm({ ...advogadoForm, escritorioId: val === 'solo' ? null : val })
+                value={advogadoForm.escritorioId}
+                onValueChange={(value) =>
+                  setAdvogadoForm({ ...advogadoForm, escritorioId: value, createNewFirm: false })
                 }
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger id="adv-escritorio">
+                  <SelectValue placeholder="Selecione um escritório ou deixe em branco para criar solo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="solo">Advogado Autônomo</SelectItem>
-                  {escritorios.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.nome}
+                  {escritorios.map((esc) => (
+                    <SelectItem key={esc.id} value={esc.id}>
+                      {esc.nome}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Se nenhum escritório for selecionado, será criado um escritório com o nome do advogado
+              </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAdvogadoDialog(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreateAdvogado}>Criar</Button>
+            <Button onClick={handleCreateAdvogado}>Criar Advogado</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Criar Credencial */}
-      <Dialog open={credencialDialog} onOpenChange={setCredencialDialog}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Nova Credencial</DialogTitle>
-            <DialogDescription>Cadastre uma nova senha para acesso ao PJE</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 overflow-y-auto flex-1 px-1">
-            <div>
-              <Label htmlFor="cred-senha">Senha</Label>
-              <Input
-                id="cred-senha"
-                type="password"
-                value={credencialForm.senha}
-                onChange={(e) => setCredencialForm({ ...credencialForm, senha: e.target.value })}
-                placeholder="••••••••"
-              />
-            </div>
-            <div>
-              <Label htmlFor="cred-desc">Descrição (opcional)</Label>
-              <Input
-                id="cred-desc"
-                value={credencialForm.descricao}
-                onChange={(e) => setCredencialForm({ ...credencialForm, descricao: e.target.value })}
-                placeholder="Ex: Senha TRT3 1º grau"
-              />
-            </div>
-            <TribunalSelector
-              tribunais={tribunalConfigs}
-              selectedIds={credencialForm.tribunalConfigIds}
-              onChange={(ids) => setCredencialForm({ ...credencialForm, tribunalConfigIds: ids })}
-            />
-          </div>
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setCredencialDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleCreateCredencial}>Criar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Lawyer Detail Modal */}
+      <LawyerDetailModal
+        lawyerId={selectedLawyerId}
+        onClose={() => setSelectedLawyerId(null)}
+        onUpdate={loadData}
+      />
     </div>
   );
 }
