@@ -119,7 +119,9 @@ class ScrapeQueue {
     this.running.delete(jobId);
 
     // Normaliza para string interna
-    const internalStatus = (status === ScrapeJobStatus.COMPLETED || status === 'completed') ? 'completed' : 'failed';
+    const statusStr = String(status) as string;
+    const isCompleted = statusStr === 'COMPLETED' || statusStr === 'completed';
+    const internalStatus: 'completed' | 'failed' = isCompleted ? 'completed' : 'failed';
 
     // Adiciona ao map de completed
     this.completed.set(jobId, {

@@ -7,6 +7,7 @@ import { prisma } from '@/lib/db';
 import type {
   TRTCode,
   Grau,
+  Sistema,
   TribunalInfo,
   TribunalConfig,
   TribunalWithConfigs,
@@ -57,6 +58,7 @@ async function loadTribunais(): Promise<TribunalWithConfigs[]> {
     configs: t.configs.map((c) => ({
       id: c.id,
       tribunalId: c.tribunalId,
+      sistema: c.sistema as Sistema,
       grau: c.grau as Grau,
       urlBase: c.urlBase,
       urlLoginSeam: c.urlLoginSeam,
@@ -249,6 +251,7 @@ export async function updateTribunalUrl(
   return {
     id: updated.id,
     tribunalId: updated.tribunalId,
+    sistema: updated.sistema as Sistema,
     grau: updated.grau as Grau,
     urlBase: updated.urlBase,
     urlLoginSeam: updated.urlLoginSeam,

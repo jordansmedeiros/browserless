@@ -472,7 +472,7 @@ export async function createAdvogadoAction(input: CreateAdvogadoInput) {
         oabNumero: validacao.data.oabNumero,
         oabUf: validacao.data.oabUf,
         cpf: validacao.data.cpf,
-        escritorioId: validacao.data.escritorioId || null,
+        escritorioId: validacao.data.escritorioId,
       },
     });
 
@@ -582,7 +582,7 @@ export async function updateAdvogadoAction(id: string, input: UpdateAdvogadoInpu
         oabNumero: input.oabNumero,
         oabUf: input.oabUf,
         cpf: input.cpf,
-        escritorioId: input.escritorioId,
+        escritorioId: input.escritorioId ?? undefined,
       },
     });
 

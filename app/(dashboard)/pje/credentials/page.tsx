@@ -135,7 +135,7 @@ export default function CredentialsPage() {
       }
 
       const firmResult = await createEscritorioAction({ nome: advogadoForm.newFirmName });
-      if (!firmResult.success) {
+      if (!firmResult.success || !firmResult.data) {
         setMessage({ type: 'error', text: firmResult.error || 'Erro ao criar escritório' });
         return;
       }
@@ -144,7 +144,7 @@ export default function CredentialsPage() {
       // Se não marcou para criar novo, mas não selecionou escritório existente,
       // criar escritório com nome do advogado (solo practice)
       const firmResult = await createEscritorioAction({ nome: advogadoForm.nome });
-      if (!firmResult.success) {
+      if (!firmResult.success || !firmResult.data) {
         setMessage({ type: 'error', text: firmResult.error || 'Erro ao criar escritório' });
         return;
       }
@@ -191,10 +191,10 @@ export default function CredentialsPage() {
   });
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-2">
+      <div>
+        <h1 className="text-3xl font-bold">
           Gerenciamento de Credenciais PJE
         </h1>
         <p className="text-muted-foreground">
@@ -203,7 +203,7 @@ export default function CredentialsPage() {
       </div>
 
       {/* Action Bar */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex flex-col sm:flex-row gap-3 flex-1">
           <Button onClick={() => setEscritorioDialog(true)}>
             <Plus className="w-4 h-4 mr-2" />
@@ -266,7 +266,7 @@ export default function CredentialsPage() {
         </Card>
       ) : (
         /* Accordion List */
-        <Accordion type="multiple" className="space-y-3">
+        <Accordion type="multiple" className="space-y-4">
           {filteredEscritorios.map((escritorio) => {
             const isSolo = escritorio.advogados.length === 1;
             return (
@@ -298,7 +298,7 @@ export default function CredentialsPage() {
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                       {escritorio.advogados.map((advogado) => (
                         <button
                           key={advogado.id}

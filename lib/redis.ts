@@ -161,14 +161,14 @@ export async function closeRedis(): Promise<void> {
   const promises: Promise<void>[] = [];
 
   if (redisClient) {
-    promises.push(redisClient.quit().catch(err => {
+    promises.push(redisClient.quit().then(() => {}).catch(err => {
       console.error('[Redis] Error closing publisher:', err);
     }));
     redisClient = null;
   }
 
   if (redisSubscriber) {
-    promises.push(redisSubscriber.quit().catch(err => {
+    promises.push(redisSubscriber.quit().then(() => {}).catch(err => {
       console.error('[Redis] Error closing subscriber:', err);
     }));
     redisSubscriber = null;
