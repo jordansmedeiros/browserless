@@ -61,6 +61,8 @@ export default function ScrapesPage() {
   const handleJobCreated = (jobId: string) => {
     setFormHasChanges(false);
     setShowConfigDialog(false);
+    // Watch the newly created job for monitoring
+    jobsStore.watchJob(jobId);
     // Open terminal monitor for the new job
     setTerminalJobId(jobId);
   };

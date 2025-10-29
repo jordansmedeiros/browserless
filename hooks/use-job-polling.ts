@@ -54,7 +54,10 @@ export function useJobPolling(options: UseJobPollingOptions = {}): UseJobPolling
 
     const poll = async () => {
       // Get job IDs to monitor
-      const ids = jobIdsRef.current || jobsStore.activeJobs.map((j) => j.id);
+      // Priority: explicit jobIds prop > watchedJobIds > all active jobs
+      const ids = jobIdsRef.current || jobsStore.watchedJobIds.length > 0
+        ? jobsStore.watchedJobIds
+        : jobsStore.activeJobs.map((j) => j.id);
 
       // Skip if no jobs to monitor
       if (ids.length === 0 && !jobIdsRef.current) {

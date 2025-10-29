@@ -12,6 +12,7 @@ import { getActiveJobsStatusAction, cancelScrapeJobAction } from '@/app/actions/
 interface JobsState {
   // State
   activeJobs: ScrapeJobWithRelations[];
+  watchedJobIds: string[];
   isPolling: boolean;
   lastFetch: number;
   error: string | null;
@@ -23,6 +24,8 @@ interface JobsState {
   updateJobStatus: (jobId: string, status: string) => void;
   fetchActiveJobs: (jobIds?: string[]) => Promise<void>;
   cancelJob: (jobId: string) => Promise<void>;
+  watchJob: (jobId: string) => void;
+  unwatchJob: (jobId: string) => void;
   setPolling: (isPolling: boolean) => void;
   setError: (error: string | null) => void;
   reset: () => void;
@@ -38,6 +41,7 @@ export const useJobsStore = create<JobsState>()(
     immer((set, get) => ({
       // Initial state
       activeJobs: [],
+      watchedJobIds: [],
       isPolling: false,
       lastFetch: 0,
       error: null,
@@ -105,7 +109,8 @@ export const useJobsStore = create<JobsState>()(
       },
 
       cancelJob: async (jobId) => {
-        const previousJobs = get().activeJobs;
+        // Deep clone the state for proper revert on failure
+        const previousJobs = structuredClone(get().activeJobs);
 
         // Optimistic update: update UI immediately
         set((state) => {
@@ -119,7 +124,7 @@ export const useJobsStore = create<JobsState>()(
           const result = await cancelScrapeJobAction(jobId);
 
           if (!result.success) {
-            // Revert on failure
+            // Revert on failure using the deep clone
             set((state) => {
               state.activeJobs = previousJobs;
               state.error = result.error || 'Failed to cancel job';
@@ -131,12 +136,26 @@ export const useJobsStore = create<JobsState>()(
             });
           }
         } catch (error) {
-          // Revert on error
+          // Revert on error using the deep clone
           set((state) => {
             state.activeJobs = previousJobs;
             state.error = error instanceof Error ? error.message : 'Unknown error';
           });
         }
+      },
+
+      watchJob: (jobId) => {
+        set((state) => {
+          if (!state.watchedJobIds.includes(jobId)) {
+            state.watchedJobIds.push(jobId);
+          }
+        });
+      },
+
+      unwatchJob: (jobId) => {
+        set((state) => {
+          state.watchedJobIds = state.watchedJobIds.filter((id) => id !== jobId);
+        });
       },
 
       setPolling: (isPolling) => {
@@ -154,6 +173,7 @@ export const useJobsStore = create<JobsState>()(
       reset: () => {
         set((state) => {
           state.activeJobs = [];
+          state.watchedJobIds = [];
           state.isPolling = false;
           state.lastFetch = 0;
           state.error = null;
