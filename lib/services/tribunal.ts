@@ -22,10 +22,35 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
 /**
  * Invalida o cache de tribunais
+ * Deve ser chamado após qualquer mutação de dados de tribunal:
+ * - updateTribunalUrl
+ * - Prisma seeds
+ * - Scripts de atualização
+ * - Qualquer operação que modifique TribunalConfig
  */
 export function invalidateTribunalCache(): void {
   tribunaisCache = null;
   cacheTimestamp = 0;
+  console.log('[TribunalService] Cache invalidated');
+}
+
+/**
+ * Invalida cache e notifica listeners (para uso em hooks)
+ */
+const cacheInvalidationListeners = new Set<() => void>();
+
+export function onCacheInvalidation(callback: () => void): () => void {
+  cacheInvalidationListeners.add(callback);
+  return () => cacheInvalidationListeners.delete(callback);
+}
+
+function notifyCacheInvalidation(): void {
+  cacheInvalidationListeners.forEach(cb => cb());
+}
+
+export function invalidateTribunalCacheWithNotification(): void {
+  invalidateTribunalCache();
+  notifyCacheInvalidation();
 }
 
 /**
@@ -245,8 +270,8 @@ export async function updateTribunalUrl(
     },
   });
 
-  // Invalida cache
-  invalidateTribunalCache();
+  // Invalida cache e notifica listeners
+  invalidateTribunalCacheWithNotification();
 
   return {
     id: updated.id,
@@ -274,4 +299,27 @@ export function validateGrau(grau: string): Grau {
  */
 export function grauToString(grau: Grau): string {
   return grau === '1g' ? 'Primeiro Grau' : 'Segundo Grau';
+}
+
+/**
+ * Middleware helper para auto-invalidação de cache
+ * Uso: prisma.$use(createTribunalCacheMiddleware())
+ *
+ * Nota: Este middleware não está sendo usado atualmente devido à simplicidade
+ * das mutações de tribunal. Invalidação manual é suficiente.
+ */
+export function createTribunalCacheMiddleware() {
+  return async (params: any, next: any) => {
+    const result = await next(params);
+
+    // Invalidar cache em operações de escrita em TribunalConfig
+    if (
+      params.model === 'TribunalConfig' &&
+      ['create', 'update', 'delete', 'createMany', 'updateMany', 'deleteMany'].includes(params.action)
+    ) {
+      invalidateTribunalCacheWithNotification();
+    }
+
+    return result;
+  };
 }

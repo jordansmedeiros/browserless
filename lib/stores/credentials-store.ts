@@ -73,12 +73,12 @@ export const useCredentialsStore = create<CredentialsState>()(
             result.data.forEach((advogado: AdvogadoWithCredenciais) => {
               advogado.credenciais.forEach((credencial) => {
                 if (credencial.ativa) {
+                  // Extract advogado data without circular reference
+                  const { credenciais, ...advogadoData } = advogado;
+
                   allCredentials.push({
                     ...credencial,
-                    advogado: {
-                      ...advogado,
-                      credenciais: [], // Avoid circular reference
-                    },
+                    advogado: advogadoData,
                   });
                 }
               });

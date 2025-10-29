@@ -34,11 +34,11 @@ interface ScrapeJobMonitorProps {
 export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = true, onViewTerminal }: ScrapeJobMonitorProps) {
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
 
-  // Use custom hook for polling
+  // Hook usa backoff exponencial: 3s → 5s → 10s quando sem atividade
   const { jobs, isLoading } = useJobPolling({
     jobIds: initialJobIds,
     enabled: autoRefresh,
-    interval: 3000,
+    interval: 3000, // Intervalo inicial, aumenta automaticamente
   });
 
   const jobsStore = useJobsStore();

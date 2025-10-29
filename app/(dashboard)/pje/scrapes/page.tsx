@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,15 +36,16 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Plus, Activity, History, X, RefreshCw, Terminal as TerminalIcon } from 'lucide-react';
+import { Plus, Activity, History, X, RefreshCw, Terminal as TerminalIcon, Loader2 } from 'lucide-react';
 import { ScrapeConfigForm } from '@/components/pje/scrape-config-form';
 import { ScrapeJobMonitor } from '@/components/pje/scrape-job-monitor';
 import { ScrapeHistory } from '@/components/pje/scrape-history';
 import { ScrapeExecutionDetail } from '@/components/pje/scrape-execution-detail';
 import { TerminalMonitor } from '@/components/pje/terminal-monitor';
-import { TRIBUNAL_CONFIGS } from '@/lib/constants/tribunais';
+import { listTribunalConfigsAction } from '@/app/actions/pje';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useJobsStore } from '@/lib/stores';
+import type { TribunalConfigConstant } from '@/lib/constants/tribunais';
 
 export default function ScrapesPage() {
   const router = useRouter();
@@ -54,9 +55,41 @@ export default function ScrapesPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [formHasChanges, setFormHasChanges] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [tribunais, setTribunais] = useState<TribunalConfigConstant[]>([]);
+  const [loadingTribunais, setLoadingTribunais] = useState(true);
+  const [tribunaisError, setTribunaisError] = useState<string | null>(null);
 
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const jobsStore = useJobsStore();
+
+  // Load tribunais from database on mount
+  useEffect(() => {
+    const loadTribunais = async () => {
+      setLoadingTribunais(true);
+      setTribunaisError(null);
+
+      try {
+        const result = await listTribunalConfigsAction();
+
+        if (result.success && result.data) {
+          setTribunais(result.data as TribunalConfigConstant[]);
+        } else {
+          setTribunaisError(result.error || 'Erro ao carregar tribunais');
+        }
+      } catch (error) {
+        console.error('[ScrapesPage] Erro ao carregar tribunais:', error);
+        setTribunaisError('Erro ao carregar tribunais');
+      } finally {
+        setLoadingTribunais(false);
+      }
+    };
+
+    loadTribunais();
+  }, []);
+
+  // Compute isRunning dynamically from the jobs store
+  // A job is running if it exists in activeJobs (which only contains pending/running jobs)
+  const isJobRunning = terminalJobId ? !!jobsStore.getJobById(terminalJobId) : false;
 
   const handleJobCreated = (jobId: string) => {
     setFormHasChanges(false);
@@ -159,15 +192,29 @@ export default function ScrapesPage() {
                 <DialogTitle className="text-2xl font-bold">Nova Raspagem</DialogTitle>
               </DialogHeader>
               <div className="flex-1 overflow-y-auto py-4">
-                <ScrapeConfigForm
-                  tribunais={TRIBUNAL_CONFIGS}
-                  onJobCreated={handleJobCreated}
-                  onReset={() => {
-                    setFormHasChanges(false);
-                    setShowConfigDialog(false);
-                  }}
-                  onFormChange={() => setFormHasChanges(true)}
-                />
+                {loadingTribunais ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <span className="ml-3 text-muted-foreground">Carregando tribunais...</span>
+                  </div>
+                ) : tribunaisError ? (
+                  <div className="text-center py-12">
+                    <p className="text-destructive mb-2">{tribunaisError}</p>
+                    <Button variant="outline" onClick={() => window.location.reload()}>
+                      Tentar novamente
+                    </Button>
+                  </div>
+                ) : (
+                  <ScrapeConfigForm
+                    tribunais={tribunais}
+                    onJobCreated={handleJobCreated}
+                    onReset={() => {
+                      setFormHasChanges(false);
+                      setShowConfigDialog(false);
+                    }}
+                    onFormChange={() => setFormHasChanges(true)}
+                  />
+                )}
               </div>
             </>
           ) : (
@@ -176,15 +223,29 @@ export default function ScrapesPage() {
                 <DrawerTitle className="text-2xl font-bold">Nova Raspagem</DrawerTitle>
               </DrawerHeader>
               <div className="px-4 overflow-y-auto max-h-[calc(90vh-200px)]">
-                <ScrapeConfigForm
-                  tribunais={TRIBUNAL_CONFIGS}
-                  onJobCreated={handleJobCreated}
-                  onReset={() => {
-                    setFormHasChanges(false);
-                    setShowConfigDialog(false);
-                  }}
-                  onFormChange={() => setFormHasChanges(true)}
-                />
+                {loadingTribunais ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <span className="ml-3 text-muted-foreground">Carregando tribunais...</span>
+                  </div>
+                ) : tribunaisError ? (
+                  <div className="text-center py-12">
+                    <p className="text-destructive mb-2">{tribunaisError}</p>
+                    <Button variant="outline" onClick={() => window.location.reload()}>
+                      Tentar novamente
+                    </Button>
+                  </div>
+                ) : (
+                  <ScrapeConfigForm
+                    tribunais={tribunais}
+                    onJobCreated={handleJobCreated}
+                    onReset={() => {
+                      setFormHasChanges(false);
+                      setShowConfigDialog(false);
+                    }}
+                    onFormChange={() => setFormHasChanges(true)}
+                  />
+                )}
               </div>
               <DrawerFooter>
                 <DrawerClose asChild>
@@ -239,7 +300,7 @@ export default function ScrapesPage() {
                 Acompanhe o progresso da raspagem em tempo real
               </DialogDescription>
             </DialogHeader>
-            <TerminalMonitor jobId={terminalJobId} isRunning={true} />
+            <TerminalMonitor jobId={terminalJobId} isRunning={isJobRunning} />
           </DialogContent>
         </Dialog>
       )}

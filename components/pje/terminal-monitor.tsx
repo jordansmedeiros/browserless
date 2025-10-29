@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowDown, AlertCircle, CheckCircle2, Loader2, Clock, FileText, TrendingUp, XCircle, Download } from 'lucide-react';
 import { type LogEntry } from '@/lib/services/scrape-logger';
 import { useJobLogs } from '@/hooks';
+import { ScrapeJobStatus } from '@/lib/types/scraping';
 
 interface TerminalMonitorProps {
   /** Scrape job ID */
@@ -29,7 +30,7 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
   const terminalRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Use custom hook for logs management
+  // Hook usa endpoint consolidado para stats + SSE para logs em tempo real
   const { logs, connectionStatus, stats, scrollToBottom: hookScrollToBottom, downloadLogs: hookDownloadLogs } = useJobLogs(jobId, {
     enabled: isRunning,
     autoScroll,
@@ -38,10 +39,10 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
   // Use initialLogs if logs are empty (for historical viewing)
   const displayLogs = logs.length > 0 ? logs : initialLogs;
   const jobSummary = stats;
-  const jobStatus = stats?.status || 'running';
+  const jobStatus = stats?.status || ScrapeJobStatus.RUNNING;
 
   // Derive actual running state from job status
-  const isJobRunning = jobStatus === 'pending' || jobStatus === 'running';
+  const isJobRunning = jobStatus === ScrapeJobStatus.PENDING || jobStatus === ScrapeJobStatus.RUNNING;
 
   // Detect manual scroll to disable auto-scroll
   const handleScroll = () => {
@@ -105,11 +106,11 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
   return (
     <div className="space-y-4" ref={terminalRef}>
       {/* Job Completion Summary */}
-      {jobSummary && (jobStatus === 'completed' || jobStatus === 'failed') && (
-        <Card className={jobStatus === 'completed' ? 'border-green-500' : 'border-red-500'}>
+      {jobSummary && (jobStatus === ScrapeJobStatus.COMPLETED || jobStatus === ScrapeJobStatus.FAILED) && (
+        <Card className={jobStatus === ScrapeJobStatus.COMPLETED ? 'border-green-500' : 'border-red-500'}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {jobStatus === 'completed' ? (
+              {jobStatus === ScrapeJobStatus.COMPLETED ? (
                 <>
                   <CheckCircle2 className="h-5 w-5 text-green-500" />
                   Raspagem Concluída
@@ -240,13 +241,13 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
               <span>Streaming ao vivo</span>
             </>
           )}
-          {connectionStatus === 'disconnected' && jobStatus === 'completed' && (
+          {connectionStatus === 'disconnected' && jobStatus === ScrapeJobStatus.COMPLETED && (
             <>
               <CheckCircle2 className="h-3 w-3 text-green-500" />
               <span>Concluído com sucesso</span>
             </>
           )}
-          {connectionStatus === 'disconnected' && jobStatus === 'failed' && (
+          {connectionStatus === 'disconnected' && jobStatus === ScrapeJobStatus.FAILED && (
             <>
               <XCircle className="h-3 w-3 text-red-500" />
               <span>Falhou</span>

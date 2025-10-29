@@ -9,9 +9,10 @@ import { ScrapeType, type ScrapingResult } from '@/lib/types/scraping';
 /**
  * Tamanho do chunk para inserções em lote
  * SQLite suporta ~999 parâmetros por query (SQLITE_MAX_VARIABLE_NUMBER)
- * Com ~20 campos por registro, 500 registros = ~10000 parâmetros (seguro)
+ * Com ~20 campos por registro, 50 registros = ~1000 parâmetros (seguro)
+ * Valor conservador para evitar SQLITE_ERROR: too many SQL variables
  */
-const BATCH_SIZE = 500;
+const BATCH_SIZE = 50;
 
 /**
  * Salva os processos raspados nas tabelas específicas por tipo
@@ -101,6 +102,10 @@ async function persistPendentesManifestacao(
 ): Promise<number> {
   console.log(`[DataPersister] Processando ${processos.length} processos pendentes...`);
 
+  if (processos.length > BATCH_SIZE) {
+    console.log(`[DataPersister] Volume grande detectado (${processos.length} processos), usando batching...`);
+  }
+
   const data = processos.map(p => ({
     scrapeExecutionId: executionId,
     idPje: p.id,
@@ -130,13 +135,13 @@ async function persistPendentesManifestacao(
     processosAssociados: p.processosAssociados,
   }));
 
-  const result = await prisma.pendentesManifestacao.createMany({
-    data,
-    skipDuplicates: true,
-  });
+  const count = await createManyInBatches(
+    prisma.pendentesManifestacao,
+    data
+  );
 
-  console.log(`[DataPersister] ${result.count} processos pendentes salvos`);
-  return result.count;
+  console.log(`[DataPersister] ${count} processos pendentes salvos`);
+  return count;
 }
 
 /**
@@ -147,6 +152,10 @@ async function persistAcervoGeral(
   processos: any[]
 ): Promise<number> {
   console.log(`[DataPersister] Processando ${processos.length} processos do acervo geral...`);
+
+  if (processos.length > BATCH_SIZE) {
+    console.log(`[DataPersister] Volume grande detectado (${processos.length} processos), usando batching...`);
+  }
 
   const data = processos.map(p => ({
     scrapeExecutionId: executionId,
@@ -169,13 +178,13 @@ async function persistAcervoGeral(
     metadados: p,  // Guarda o objeto completo em metadados
   }));
 
-  const result = await prisma.processos.createMany({
-    data,
-    skipDuplicates: true,
-  });
+  const count = await createManyInBatches(
+    prisma.processos,
+    data
+  );
 
-  console.log(`[DataPersister] ${result.count} processos do acervo geral salvos`);
-  return result.count;
+  console.log(`[DataPersister] ${count} processos do acervo geral salvos`);
+  return count;
 }
 
 /**
@@ -186,6 +195,10 @@ async function persistProcessosArquivados(
   processos: any[]
 ): Promise<number> {
   console.log(`[DataPersister] Processando ${processos.length} processos arquivados...`);
+
+  if (processos.length > BATCH_SIZE) {
+    console.log(`[DataPersister] Volume grande detectado (${processos.length} processos), usando batching...`);
+  }
 
   const data = processos.map(p => ({
     scrapeExecutionId: executionId,
@@ -208,13 +221,13 @@ async function persistProcessosArquivados(
     metadados: p,
   }));
 
-  const result = await prisma.processosArquivados.createMany({
-    data,
-    skipDuplicates: true,
-  });
+  const count = await createManyInBatches(
+    prisma.processosArquivados,
+    data
+  );
 
-  console.log(`[DataPersister] ${result.count} processos arquivados salvos`);
-  return result.count;
+  console.log(`[DataPersister] ${count} processos arquivados salvos`);
+  return count;
 }
 
 /**
@@ -225,6 +238,10 @@ async function persistMinhaPauta(
   processos: any[]
 ): Promise<number> {
   console.log(`[DataPersister] Processando ${processos.length} audiências/sessões da minha pauta...`);
+
+  if (processos.length > BATCH_SIZE) {
+    console.log(`[DataPersister] Volume grande detectado (${processos.length} processos), usando batching...`);
+  }
 
   const data = processos.map(p => ({
     scrapeExecutionId: executionId,
@@ -242,11 +259,11 @@ async function persistMinhaPauta(
     metadados: p,
   }));
 
-  const result = await prisma.minhaPauta.createMany({
-    data,
-    skipDuplicates: true,
-  });
+  const count = await createManyInBatches(
+    prisma.minhaPauta,
+    data
+  );
 
-  console.log(`[DataPersister] ${result.count} audiências/sessões salvas`);
-  return result.count;
+  console.log(`[DataPersister] ${count} audiências/sessões salvas`);
+  return count;
 }

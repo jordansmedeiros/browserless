@@ -3,7 +3,7 @@
  * Rastreia e analisa métricas de performance de raspagens
  */
 
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { SCRAPING_PERFORMANCE } from '@/config/scraping';
 
 /**

@@ -24,6 +24,12 @@ import {
 const MAX_LOG_LINES = 1000;
 
 /**
+ * Set de processos filhos ativos para cleanup em shutdown
+ * Usa Set para rastreamento eficiente sem vazamento de memória
+ */
+const activeChildProcesses = new Set<any>();
+
+/**
  * Credenciais para login no PJE
  */
 export interface CredenciaisParaLogin {
@@ -265,6 +271,47 @@ export async function executeScriptWithRetry(
 }
 
 /**
+ * Limpa recursos de um processo filho de forma segura
+ * Garante que timeouts são cancelados e processo é morto
+ * @param childProcess - Processo filho a limpar
+ * @param timeoutId - ID do timeout principal (opcional)
+ */
+function cleanupChildProcess(
+  childProcess: any,
+  timeoutId: NodeJS.Timeout | null
+): void {
+  // Cancela timeout se existir
+  if (timeoutId) {
+    clearTimeout(timeoutId);
+  }
+
+  // Remove do tracking global
+  activeChildProcesses.delete(childProcess);
+
+  // Mata processo se ainda estiver vivo
+  try {
+    // Verifica se o processo realmente ainda está ativo usando exitCode
+    if (childProcess && childProcess.exitCode === null) {
+      childProcess.kill('SIGTERM');
+
+      // Escalona SIGKILL após 2s se não morrer
+      setTimeout(() => {
+        // Verifica novamente se o processo ainda está ativo
+        if (childProcess.exitCode === null) {
+          try {
+            childProcess.kill('SIGKILL');
+          } catch (killError) {
+            // Processo já morreu - ignora erro
+          }
+        }
+      }, 2000);
+    }
+  } catch (error) {
+    // Processo já morreu - ignora erro
+  }
+}
+
+/**
  * Executa script usando spawn para streaming em tempo real
  */
 function executeScriptWithSpawn(
@@ -280,10 +327,12 @@ function executeScriptWithSpawn(
       cwd: dirname(scriptPath),
     });
 
+    // Adiciona ao tracking global
+    activeChildProcesses.add(childProcess);
+
     let stdoutBuffer = '';
     let stderrBuffer = '';
     let timeoutId: NodeJS.Timeout | null = null;
-    let killTimeoutId: NodeJS.Timeout | null = null;
     let killed = false;
 
     // Configura timeout manual
@@ -292,13 +341,11 @@ function executeScriptWithSpawn(
         killed = true;
         const timeoutMsg = `Script execution timed out after ${timeout}ms`;
         console.error(`[Executor] ${timeoutMsg}`);
-        childProcess.kill('SIGTERM');
 
-        // Escalona para SIGKILL após 5s se o processo não morrer
-        killTimeoutId = setTimeout(() => {
-          childProcess.kill('SIGKILL');
-        }, 5000);
+        // Cleanup robusto
+        cleanupChildProcess(childProcess, null);
 
+        // Rejeita promise
         reject(new Error(timeoutMsg));
       }, timeout);
     }
@@ -347,20 +394,20 @@ function executeScriptWithSpawn(
 
     // Processa erro do processo
     childProcess.on('error', (error) => {
-      if (timeoutId) clearTimeout(timeoutId);
-      if (killTimeoutId) clearTimeout(killTimeoutId);
+      cleanupChildProcess(childProcess, timeoutId);
+
       if (!killed) {
         reject(error);
       }
+      // Se killed=true, promise já foi rejeitada pelo timeout
     });
 
     // Processa finalização
     childProcess.on('close', (code) => {
-      if (timeoutId) clearTimeout(timeoutId);
-      if (killTimeoutId) clearTimeout(killTimeoutId);
+      cleanupChildProcess(childProcess, timeoutId);
 
       if (killed) {
-        return; // Já rejeitado pelo timeout
+        return; // Promise já foi rejeitada pelo timeout
       }
 
       // Processa linha final de stderr se houver
@@ -583,24 +630,35 @@ export async function validateScriptExists(
  * @param signal - Sinal recebido (SIGTERM, SIGINT, etc)
  */
 export function cleanupChildProcesses(signal: string) {
-  console.log(`[Executor] Received ${signal}, cleaning up child processes...`);
+  console.log(`[Executor] Received ${signal}, cleaning up ${activeChildProcesses.size} child processes...`);
 
-  // O Node.js automaticamente limpa processos filhos ao terminar,
-  // mas podemos adicionar lógica adicional aqui se necessário
+  // Mata todos os processos ativos
+  for (const childProcess of activeChildProcesses) {
+    try {
+      if (childProcess && !childProcess.killed) {
+        console.log(`[Executor] Killing child process PID ${childProcess.pid}`);
+        childProcess.kill('SIGTERM');
 
-  // Por exemplo, matar processos que possam estar travados:
-  if (process.platform === 'win32') {
-    // Windows: taskkill /F /IM node.exe /FI "PID ne [parent_pid]"
-    // (não implementado por ser arriscado - pode matar outros processos Node)
-  } else {
-    // Unix: pkill -P [parent_pid]
-    // (não implementado - deixamos o OS cuidar disso)
+        // Escalona SIGKILL após 2s
+        setTimeout(() => {
+          if (!childProcess.killed) {
+            childProcess.kill('SIGKILL');
+          }
+        }, 2000);
+      }
+    } catch (error) {
+      console.error(`[Executor] Error killing child process:`, error);
+    }
   }
+
+  // Limpa o set
+  activeChildProcesses.clear();
 
   console.log(`[Executor] Cleanup complete`);
 }
 
 // Registra handlers de cleanup
+// NOTA: SIGKILL não pode ser capturado, apenas SIGTERM e SIGINT
 if (typeof process !== 'undefined') {
   process.on('SIGTERM', () => cleanupChildProcesses('SIGTERM'));
   process.on('SIGINT', () => cleanupChildProcesses('SIGINT'));

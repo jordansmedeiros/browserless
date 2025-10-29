@@ -1534,7 +1534,7 @@ export async function getScrapeExecutionAction(executionId: string) {
     let resultDataDecoded;
     if (execution.resultData) {
       try {
-        resultDataDecoded = decompressJSON(execution.resultData);
+        resultDataDecoded = await decompressJSON(execution.resultData);
       } catch (err) {
         console.error('[getScrapeExecutionAction] Failed to decompress result data:', err);
       }

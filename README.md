@@ -112,6 +112,26 @@ Frontend (Next.js)    ←→    Backend (Puppeteer)
 
 **Status**: ✅ Funcionando em desenvolvimento (http://localhost:3000)
 
+#### ⚡ Otimizações de Performance
+
+O sistema utiliza estratégias inteligentes de polling e caching para reduzir carga no servidor:
+
+**Polling Adaptativo**
+- **Job Status Polling**: Backoff exponencial (3s → 5s → 10s) quando sem mudanças detectadas
+- **Endpoint Consolidado**: Requisição única para job status + estatísticas (reduz requests em 50%)
+- **SSE para Logs**: Server-Sent Events para streaming instantâneo de logs
+
+**Estratégia de Cache**
+- **GitHub Stats**: ISR com revalidação de 1 hora (geração estática)
+- **Dados de Tribunais**: Cache em memória com TTL de 5 minutos e invalidação reativa
+- **Credenciais**: Cache de 5 minutos com capacidade de refresh manual
+
+**Impacto**
+- **70% de redução** em requests de polling durante períodos ociosos
+- **50% de redução** em requests do monitor de terminal
+- **Updates instantâneos** para logs via SSE
+- **Carregamento rápido** da página inicial via ISR
+
 ---
 
 ### 🌐 Plataforma Browserless

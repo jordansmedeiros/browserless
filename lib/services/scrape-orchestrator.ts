@@ -3,7 +3,7 @@
  * Orquestra a execução de jobs de raspagem
  */
 
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { scrapeQueue } from './scrape-queue';
 import { executeScriptWithRetry, type CredenciaisParaLogin, type TribunalConfigParaRaspagem } from './scrape-executor';
 import { compressJSON } from '@/lib/utils/compression';
@@ -325,9 +325,16 @@ async function executeTribunalScraping(
     console.log(`[Orchestrator] Raspagem concluída para ${tribunalCodigo}: ${result.result.processosCount} processos`);
 
     // Comprime os dados de resultado
-    const compressedData = compressJSON({
-      processos: result.result.processos,
-    });
+    let compressedData: string;
+    try {
+      compressedData = await compressJSON({
+        processos: result.result.processos,
+      });
+    } catch (compressionError: any) {
+      logger.error(`Erro ao comprimir dados de resultado: ${compressionError.message}`);
+      console.error(`[Orchestrator] Erro ao comprimir dados de resultado:`, compressionError);
+      throw new Error(`Falha na compressão de dados: ${compressionError.message}`);
+    }
 
     // Converte logs de string para estrutura LogEntry
     const structuredLogs: LogEntry[] = result.logs.map(logLine => ({

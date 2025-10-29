@@ -33,6 +33,11 @@ export function useJobPolling(options: UseJobPollingOptions = {}): UseJobPolling
   const enabledRef = useRef(enabled);
   const intervalRef = useRef(interval);
 
+  // Backoff control refs
+  const currentIntervalRef = useRef(interval);
+  const unchangedPollsRef = useRef(0);
+  const lastJobsHashRef = useRef<string>('');
+
   // Update refs when props change
   useEffect(() => {
     jobIdsRef.current = jobIds;
@@ -44,7 +49,13 @@ export function useJobPolling(options: UseJobPollingOptions = {}): UseJobPolling
 
   useEffect(() => {
     intervalRef.current = interval;
+    currentIntervalRef.current = interval; // Reset current interval when prop changes
   }, [interval]);
+
+  // Hash function for detecting job changes
+  const getJobsHash = (jobs: ScrapeJobWithRelations[]): string => {
+    return jobs.map(j => `${j.id}:${j.status}`).sort().join(',');
+  };
 
   // Polling effect
   useEffect(() => {
@@ -75,6 +86,49 @@ export function useJobPolling(options: UseJobPollingOptions = {}): UseJobPolling
 
       // Fetch jobs from server
       await jobsStore.fetchActiveJobs(ids);
+
+      // Calculate hash of current jobs to detect changes
+      const currentHash = getJobsHash(jobsStore.activeJobs);
+
+      // Detect change
+      if (currentHash !== lastJobsHashRef.current) {
+        // Change detected - reset to fast interval
+        unchangedPollsRef.current = 0;
+
+        // Only recreate interval if we've backed off
+        if (currentIntervalRef.current !== intervalRef.current) {
+          currentIntervalRef.current = intervalRef.current;
+
+          if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = setInterval(poll, currentIntervalRef.current);
+          }
+        }
+      } else {
+        // No change - apply backoff
+        unchangedPollsRef.current++;
+
+        if (unchangedPollsRef.current >= 2) {
+          const newInterval = Math.min(
+            Math.floor(currentIntervalRef.current * 1.67),
+            10000
+          );
+
+          // Only recreate interval if it actually changed
+          if (newInterval !== currentIntervalRef.current) {
+            currentIntervalRef.current = newInterval;
+
+            if (intervalId) {
+              clearInterval(intervalId);
+              intervalId = setInterval(poll, currentIntervalRef.current);
+            }
+
+            console.log(`[useJobPolling] No changes detected, backing off to ${currentIntervalRef.current}ms`);
+          }
+        }
+      }
+
+      lastJobsHashRef.current = currentHash;
 
       // Stop polling if no active jobs remain
       const hasActiveJobs = jobsStore.activeJobs.some(

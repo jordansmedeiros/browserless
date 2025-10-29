@@ -2,6 +2,11 @@
  * Landing Page - Root Route
  * Main entry point for visitors
  * Composed of multiple landing page sections
+ *
+ * ISR Configuration:
+ * - Static generation at build time
+ * - Revalidates every 1 hour (3600s)
+ * - GitHub stats are cached to avoid rate limiting
  */
 
 import { getGitHubStats } from '@/lib/github';
@@ -12,6 +17,9 @@ import { TechStack } from '@/components/landing/tech-stack';
 import { QuickStart } from '@/components/landing/quick-start';
 import { OpenSource } from '@/components/landing/open-source';
 import { Footer } from '@/components/landing/footer';
+
+// ISR: Revalidate every 1 hour
+export const revalidate = 3600;
 
 export default async function Home() {
   // Fetch GitHub stats at build time (SSG with ISR)

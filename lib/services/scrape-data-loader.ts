@@ -230,6 +230,36 @@ async function loadMinhaPauta(executionId: string): Promise<any[]> {
 }
 
 /**
+ * Processa array em chunks com concorrência limitada
+ * @param items - Array de itens a processar
+ * @param processItem - Função para processar cada item
+ * @param concurrency - Número máximo de processos concorrentes
+ * @returns Array de resultados na mesma ordem
+ */
+async function processConcurrently<T, R>(
+  items: T[],
+  processItem: (item: T) => Promise<R>,
+  concurrency: number
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let currentIndex = 0;
+
+  async function processNext(): Promise<void> {
+    while (currentIndex < items.length) {
+      const index = currentIndex++;
+      const item = items[index];
+      results[index] = await processItem(item);
+    }
+  }
+
+  // Cria pool de workers limitado
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => processNext());
+  await Promise.all(workers);
+
+  return results;
+}
+
+/**
  * Carrega todos os processos de todas as execuções de um job
  *
  * @param executions - Array de execuções do job
@@ -240,21 +270,26 @@ export async function loadAllProcessosFromJob(
   executions: Array<{ id: string; resultData?: string | null }>,
   scrapeType: ScrapeType
 ): Promise<any[]> {
-  // Carrega todas as execuções em paralelo
-  const processArrays = await Promise.all(
-    executions.map(execution =>
-      loadProcessosFromExecution(
-        execution.id,
-        scrapeType,
-        execution.resultData
-      )
-    )
+  // Define concorrência máxima (5-10 execuções em paralelo para evitar saturar Prisma)
+  const MAX_CONCURRENCY = 10;
+
+  console.log(`[DataLoader] Carregando ${executions.length} execuções com concorrência limitada (max: ${MAX_CONCURRENCY})...`);
+
+  // Carrega execuções com concorrência limitada mantendo ordem
+  const processArrays = await processConcurrently(
+    executions,
+    (execution) => loadProcessosFromExecution(
+      execution.id,
+      scrapeType,
+      execution.resultData
+    ),
+    MAX_CONCURRENCY
   );
 
   // Consolida resultados mantendo ordem
   const allProcesses = processArrays.flat();
 
   console.log(`[DataLoader] Total de ${allProcesses.length} processos carregados de ${executions.length} execuções`);
-  console.log(`[DataLoader] Carregamento paralelo concluído`);
+  console.log(`[DataLoader] Carregamento com concorrência limitada concluído`);
   return allProcesses;
 }

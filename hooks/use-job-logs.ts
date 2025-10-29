@@ -3,11 +3,11 @@
  * Custom hook for managing SSE + fallback polling for job logs
  */
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useLogsStore, type JobSummary, type ConnectionStatus } from '@/lib/stores';
 import type { LogEntry } from '@/lib/services/scrape-logger';
-import { getScrapeJobAction } from '@/app/actions/pje';
 import { sanitizeLogEntry } from '@/lib/utils/sanitization';
+import { ScrapeJobStatus } from '@/lib/types/scraping';
 
 interface UseJobLogsOptions {
   /** Enable/disable log streaming (default: true) */
@@ -32,6 +32,10 @@ export function useJobLogs(
 
   const logsStore = useLogsStore();
 
+  // Internal state to control SSE/polling based on job status
+  // This will be disabled when job reaches a terminal state
+  const [internalEnabled, setInternalEnabled] = useState(enabled);
+
   // Refs to avoid stale closures
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -45,12 +49,33 @@ export function useJobLogs(
     autoScrollRef.current = autoScroll;
   }, [autoScroll]);
 
+  // Sync internal enabled state with prop
+  useEffect(() => {
+    setInternalEnabled(enabled);
+  }, [enabled]);
+
   // Use a memoized selector for log count
   const logCount = useLogsStore((state) => state.logsByJob[jobId]?.length || 0);
 
   useEffect(() => {
     lastLogIndexRef.current = logCount;
   }, [jobId, logCount]);
+
+  // Monitor job status and disable SSE/polling when job reaches terminal state
+  useEffect(() => {
+    const stats = logsStore.getStats(jobId);
+    if (stats && stats.status) {
+      const isTerminalState =
+        stats.status === ScrapeJobStatus.COMPLETED ||
+        stats.status === ScrapeJobStatus.FAILED ||
+        stats.status === ScrapeJobStatus.CANCELED;
+
+      if (isTerminalState && internalEnabled) {
+        // Job has reached terminal state, disable SSE/polling
+        setInternalEnabled(false);
+      }
+    }
+  }, [jobId, logsStore, internalEnabled]);
 
   // Format timestamp helper
   const formatTime = (timestamp: string) => {
@@ -98,52 +123,53 @@ export function useJobLogs(
     URL.revokeObjectURL(url);
   }, [jobId, logsStore]);
 
-  // Fetch job statistics
+  // Fetch job statistics using consolidated endpoint
+  // This endpoint returns job status + stats + recent logs in a single request
   useEffect(() => {
-    const fetchJobStats = async () => {
+    const fetchJobStatus = async () => {
       try {
-        const result = await getScrapeJobAction(jobId);
-        if (result.success && result.data) {
-          const job = result.data;
-          const completedTribunals =
-            job.tribunals?.filter((t) => t.status === 'completed').length || 0;
-          const failedTribunals =
-            job.tribunals?.filter((t) => t.status === 'failed').length || 0;
-          const totalProcesses =
-            job.executions?.reduce((sum, exec) => sum + (exec.processosCount || 0), 0) || 0;
+        const response = await fetch(`/api/scrapes/${jobId}/status`);
+        const data = await response.json();
 
-          let duration: number | undefined;
-          if (job.startedAt && job.completedAt) {
-            duration = Math.floor(
-              (new Date(job.completedAt).getTime() - new Date(job.startedAt).getTime()) / 1000
-            );
-          }
-
+        if (data.stats) {
           logsStore.setStats(jobId, {
-            status: job.status,
-            totalTribunals: job.tribunals?.length || 0,
-            completedTribunals,
-            failedTribunals,
-            totalProcesses,
-            duration,
-            startedAt: job.startedAt ? new Date(job.startedAt) : undefined,
-            completedAt: job.completedAt ? new Date(job.completedAt) : undefined,
+            status: data.stats.status,
+            totalTribunals: data.stats.totalTribunals,
+            completedTribunals: data.stats.completedTribunals,
+            failedTribunals: data.stats.failedTribunals,
+            totalProcesses: data.stats.totalProcesses,
+            duration: data.stats.duration ? Math.floor(data.stats.duration / 1000) : undefined,
+            startedAt: data.stats.startedAt ? new Date(data.stats.startedAt) : undefined,
+            completedAt: data.stats.completedAt ? new Date(data.stats.completedAt) : undefined,
           });
         }
+
+        // Add recent logs to store if logs store is empty (avoid duplication with SSE)
+        if (data.recentLogs && data.recentLogs.length > 0) {
+          const currentLogs = logsStore.getLogsForJob(jobId);
+          if (currentLogs.length === 0) {
+            logsStore.addLogs(jobId, data.recentLogs);
+          }
+        }
       } catch (error) {
-        console.error('[useJobLogs] Error fetching job stats:', error);
+        console.error('[useJobLogs] Error fetching job status:', error);
       }
     };
 
-    fetchJobStats();
+    fetchJobStatus();
 
-    // Poll for updates if job is still running
+    // Poll for updates only if streaming is enabled and job is in active state
     const stats = logsStore.getStats(jobId);
-    if (enabled && (!stats || stats.status === 'running' || stats.status === 'pending')) {
-      const interval = setInterval(fetchJobStats, 3000);
+    if (
+      internalEnabled &&
+      (!stats ||
+        stats.status === ScrapeJobStatus.RUNNING ||
+        stats.status === ScrapeJobStatus.PENDING)
+    ) {
+      const interval = setInterval(fetchJobStatus, 3000);
       return () => clearInterval(interval);
     }
-  }, [jobId, enabled, logsStore]);
+  }, [jobId, internalEnabled, logsStore]);
 
   // Polling fallback function
   const startPolling = useCallback(() => {
@@ -175,7 +201,7 @@ export function useJobLogs(
 
   // SSE connection effect
   useEffect(() => {
-    if (!enabled) {
+    if (!internalEnabled) {
       logsStore.setConnectionStatus(jobId, 'disconnected');
       return;
     }
@@ -239,7 +265,7 @@ export function useJobLogs(
         eventSourceRef.current = null;
       }
     };
-  }, [jobId, enabled, logsStore, startPolling]);
+  }, [jobId, internalEnabled, logsStore, startPolling]);
 
   // Auto-scroll effect
   useEffect(() => {

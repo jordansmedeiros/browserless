@@ -23,7 +23,11 @@ export type CredencialWithRelations = Prisma.CredencialGetPayload<{
         };
       };
     };
-    advogado: true;
+    advogado: {
+      include: {
+        escritorio: true;
+      };
+    };
   };
 }>;
 

@@ -120,12 +120,16 @@ async function testScrape() {
 
     // 5. Testa salvamento no banco (simulando o que o orchestrator faria)
     const { compressJSON } = await import('@/lib/utils/compression');
-    const compressedData = compressJSON({
-      processos: result.result.processos
-    });
+    try {
+      const compressedData = await compressJSON({
+        processos: result.result.processos
+      });
 
-    console.log('   - Dados comprimidos:', compressedData.length, 'bytes');
-    console.log('   ✅ Compressão OK (não salvando no banco neste teste)');
+      console.log('   - Dados comprimidos:', compressedData.length, 'bytes');
+      console.log('   ✅ Compressão OK (não salvando no banco neste teste)');
+    } catch (compressionError: any) {
+      console.error('   ❌ Erro ao comprimir dados:', compressionError.message);
+    }
 
     // 6. Atualiza ID do advogado no banco se foi capturado
     if (result.result.advogado?.idAdvogado && result.result.advogado?.cpf) {
