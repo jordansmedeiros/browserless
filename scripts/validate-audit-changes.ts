@@ -51,8 +51,8 @@ const TEST_PHASES: TestPhase[] = [
     name: 'Static Analysis',
     tests: [
       {
-        name: 'Check error.message leaks',
-        command: 'node -e "console.log(\'Static analysis placeholder\')"',
+        name: 'ESLint Audit Rules',
+        command: 'npm run lint:audit',
         required: true,
       },
       { name: 'ESLint', command: 'npm run lint', required: false },

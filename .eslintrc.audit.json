@@ -1,0 +1,49 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module",
+    "project": "./tsconfig.json"
+  },
+  "plugins": ["@typescript-eslint"],
+  "rules": {
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "MemberExpression[object.name='error'][property.name='message']",
+        "message": "Direct access to 'error.message' is not allowed. Use sanitizeError() from '@/lib/utils/sanitization' instead."
+      },
+      {
+        "selector": "MemberExpression[object.type='Identifier'][property.name='message']:has(CallExpression[callee.property.name='catch'] ~ *)",
+        "message": "Do not expose raw error.message in catch blocks. Use sanitizeError() to sanitize before logging or returning."
+      },
+      {
+        "selector": "CallExpression[callee.object.name='console'][callee.property.name=/^(log|error|warn)$/] > MemberExpression[property.name='message']",
+        "message": "Do not log raw error.message. Use sanitizeError() to sanitize sensitive data before logging."
+      },
+      {
+        "selector": "CallExpression[callee.object.name='console'][callee.property.name=/^(log|error|warn)$/]:has(Identifier[name=/cpf|senha|password|token/i])",
+        "message": "Do not log variables that may contain sensitive data (CPF, senha, password, token). Use sanitization utilities."
+      },
+      {
+        "selector": "ReturnStatement > ObjectExpression > Property[key.name='message'] > MemberExpression[property.name='message']",
+        "message": "Do not return raw error.message in response objects. Use sanitizeError() to sanitize."
+      }
+    ],
+    "no-console": [
+      "warn",
+      {
+        "allow": ["warn", "error", "info"]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["*.test.ts", "*.spec.ts", "scripts/**/*.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
+}

@@ -47,7 +47,14 @@
     "test:failed-trts": "npx tsx scripts/test-failed-trts.ts",
     "test:accessibility": "npx tsx scripts/test-accessibility.ts",
     "test:responsiveness": "npx tsx scripts/test-responsiveness.ts",
-    "test:ux": "npm run test:accessibility && npm run test:responsiveness",
+    "test:ux": "npm run test:accessibility && npm run test:responsiveness && npm run test:e2e",
+    "test:sanitization": "npx tsx scripts/test-sanitization.ts",
+    "test:compression": "npx tsx scripts/test-compression-performance.ts",
+    "test:stores": "npx tsx scripts/test-stores.ts",
+    "test:hooks": "npx tsx scripts/test-hooks.ts",
+    "test:e2e": "npx tsx scripts/test-e2e-scraping.ts",
+    "lint:audit": "cross-env ESLINT_USE_FLAT_CONFIG=false eslint . --ext .ts,.tsx --config .eslintrc.audit.json",
+    "validate:all": "npx tsx scripts/validate-audit-changes.ts",
     "postinstall": "patch-package"
   },
   "files": [
