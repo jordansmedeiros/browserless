@@ -68,10 +68,14 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
         .then((result) => {
           if (result.success && result.data) {
             // Extract tribunal identifiers from the credential
-            // Normalize to match TribunalConfigConstant.id format (e.g., "TRT3-PJE-1g")
+            // Prefer using tribunalConfig.id if available, otherwise normalize to lowercase
             const tribunalIds = result.data.tribunais.map((ct) => {
               const config = ct.tribunalConfig;
-              return `${config.tribunal.codigo}-${config.sistema.toUpperCase()}-${config.grau}`;
+              // Use config.id if available, otherwise construct and normalize
+              if (config.id) {
+                return config.id.toLowerCase();
+              }
+              return `${config.tribunal.codigo}-${config.sistema}-${config.grau}`.toLowerCase();
             });
             console.log('[TribunalSelector] Credential tribunal IDs:', tribunalIds);
             setCredentialTribunals(tribunalIds);
@@ -105,7 +109,7 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
   const tribunaisAgrupadosPorTipo = useMemo(() => {
     // Filter tribunals based on credential if provided
     const filteredTribunals = credentialId && credentialTribunals.length > 0
-      ? tribunais.filter(t => credentialTribunals.includes(t.id))
+      ? tribunais.filter(t => credentialTribunals.includes(t.id.toLowerCase()))
       : tribunais;
 
     // Estrutura: Map<codigo, Map<sistema, TribunalConfigConstant[]>>

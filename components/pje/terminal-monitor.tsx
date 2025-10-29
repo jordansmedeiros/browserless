@@ -47,6 +47,7 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const reconnectAttemptsRef = useRef(0);
   const lastLogIndexRef = useRef(0);
+  const stopPollingRef = useRef<null | (() => void)>(null);
 
   // Update lastLogIndexRef whenever logs change
   useEffect(() => {
@@ -170,7 +171,9 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
           } else {
             // Fall back to polling after 3 failed attempts
             setConnectionStatus('disconnected');
-            startPolling();
+            // Stop any existing polling before starting new one
+            stopPollingRef.current?.();
+            stopPollingRef.current = startPolling();
           }
         };
       } catch (error) {
@@ -182,6 +185,11 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
     connectSSE();
 
     return () => {
+      // Clean up polling if active
+      stopPollingRef.current?.();
+      stopPollingRef.current = null;
+
+      // Clean up SSE connection
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
