@@ -58,7 +58,9 @@ async function benchmarkCompression(sizeKB: number): Promise<BenchmarkResult> {
   const compressed = await compressJSON(data);
   const asyncTime = performance.now() - asyncStart;
 
-  const compressedSize = compressed.length;
+  // Convert base64 string to Buffer to get actual compressed size
+  const asyncBuf = Buffer.from(compressed, 'base64');
+  const compressedSize = asyncBuf.length;
   const compressionRatio = (compressedSize / originalSize) * 100;
 
   console.log(`Compressed size: ${(compressedSize / 1024).toFixed(2)} KB`);
@@ -73,7 +75,7 @@ async function benchmarkCompression(sizeKB: number): Promise<BenchmarkResult> {
   console.log(`Sync time: ${syncTime.toFixed(2)}ms`);
 
   // Validate results are identical
-  const areIdentical = compressed.equals(syncCompressed);
+  const areIdentical = asyncBuf.equals(syncCompressed);
   console.log(`Results identical: ${areIdentical ? '✅' : '❌'}`);
 
   if (!areIdentical) {

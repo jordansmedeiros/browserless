@@ -93,27 +93,27 @@ describe('Sanitization Utils', () => {
     it('should mask CPF in error message', () => {
       const error = new Error('Failed to process CPF: 123.456.789-01');
       const result = sanitizeError(error);
-      expect(result.message).to.include('123.***.***-**');
-      expect(result.message).to.not.include('123.456.789-01');
+      expect(result).to.include('123.***.***-**');
+      expect(result).to.not.include('123.456.789-01');
     });
 
     it('should mask senha in error message', () => {
       const error = new Error('Authentication failed with senha: mypassword123');
       const result = sanitizeError(error);
-      expect(result.message).to.include('senha: ***');
-      expect(result.message).to.not.include('mypassword123');
+      expect(result).to.include('senha: ***');
+      expect(result).to.not.include('mypassword123');
     });
 
     it('should mask token in error message', () => {
       const error = new Error('Invalid token: eyJhbGciOiJIUzI1NiIsInR5cCI');
       const result = sanitizeError(error);
-      expect(result.message).to.include('token: eyJhbGci...');
+      expect(result).to.include('token: ***');
     });
 
     it('should preserve generic error messages', () => {
       const error = new Error('Database connection failed');
       const result = sanitizeError(error);
-      expect(result.message).to.equal('Database connection failed');
+      expect(result).to.equal('Database connection failed');
     });
   });
 
