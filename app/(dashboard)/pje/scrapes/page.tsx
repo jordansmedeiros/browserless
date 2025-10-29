@@ -44,6 +44,8 @@ import { ScrapeExecutionDetail } from '@/components/pje/scrape-execution-detail'
 import { TerminalMonitor } from '@/components/pje/terminal-monitor';
 import { TRIBUNAL_CONFIGS } from '@/lib/constants/tribunais';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { listEscritoriosAction } from '@/app/actions/pje';
+import type { CredencialWithRelations } from '@/lib/types';
 
 export default function ScrapesPage() {
   const router = useRouter();
@@ -55,8 +57,75 @@ export default function ScrapesPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [formHasChanges, setFormHasChanges] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [credentials, setCredentials] = useState<CredencialWithRelations[]>([]);
+  const [loadingCredentials, setLoadingCredentials] = useState(false);
 
   const isDesktop = useMediaQuery('(min-width: 768px)');
+
+  // Load credentials on mount
+  useEffect(() => {
+    loadCredentials();
+  }, []);
+
+  async function loadCredentials() {
+    setLoadingCredentials(true);
+    try {
+      // Get all escritorios with their lawyers and credentials
+      const result = await listEscritoriosAction();
+      if (result.success && result.data) {
+        console.log('[loadCredentials] Escritórios carregados:', result.data);
+
+        // Extract all credentials from all lawyers
+        const allCredentials: CredencialWithRelations[] = [];
+        result.data.forEach((escritorio) => {
+          console.log('[loadCredentials] Processando escritório:', escritorio.nome, 'com', escritorio.advogados.length, 'advogados');
+
+          escritorio.advogados.forEach((advogado) => {
+            console.log('[loadCredentials] Advogado:', advogado.nome, 'com', advogado.credenciais.length, 'credenciais');
+
+            // Add credentials with full relations
+            advogado.credenciais.forEach((credencial) => {
+              if (credencial.ativa) {
+                const credWithRelations = {
+                  ...credencial,
+                  advogado: {
+                    id: advogado.id,
+                    nome: advogado.nome,
+                    oabNumero: advogado.oabNumero,
+                    oabUf: advogado.oabUf,
+                    cpf: advogado.cpf,
+                    escritorioId: advogado.escritorioId,
+                    idAdvogado: advogado.idAdvogado,
+                    createdAt: advogado.createdAt,
+                    updatedAt: advogado.updatedAt,
+                    escritorio: {
+                      id: escritorio.id,
+                      nome: escritorio.nome,
+                      createdAt: escritorio.createdAt,
+                      updatedAt: escritorio.updatedAt,
+                      ativo: escritorio.ativo || true,
+                    },
+                    credenciais: [],
+                  },
+                  tribunais: [],
+                } as CredencialWithRelations;
+
+                console.log('[loadCredentials] Credencial adicionada:', credWithRelations.id, 'para advogado:', advogado.nome, 'escritório:', escritorio.nome);
+                allCredentials.push(credWithRelations);
+              }
+            });
+          });
+        });
+
+        console.log('[loadCredentials] Total de credenciais ativas:', allCredentials.length);
+        setCredentials(allCredentials);
+      }
+    } catch (error) {
+      console.error('Error loading credentials:', error);
+    } finally {
+      setLoadingCredentials(false);
+    }
+  }
 
   const handleJobCreated = (jobId: string) => {
     setFormHasChanges(false);
@@ -159,14 +228,15 @@ export default function ScrapesPage() {
 
       {/* New Scrape Job Dialog/Drawer */}
       <ConfigComponent open={showConfigDialog} onOpenChange={handleDialogClose}>
-        <ConfigTrigger className={isDesktop ? 'max-w-4xl' : ''}>
+        <ConfigTrigger className={isDesktop ? 'max-w-5xl max-h-[85vh] overflow-hidden flex flex-col' : ''}>
           {isDesktop ? (
             <>
-              <DialogHeader>
+              <DialogHeader className="flex-shrink-0">
                 <DialogTitle className="text-2xl font-bold">Nova Raspagem</DialogTitle>
               </DialogHeader>
-              <div className="py-4">
+              <div className="flex-1 overflow-y-auto py-4">
                 <ScrapeConfigForm
+                  credentials={credentials}
                   tribunais={TRIBUNAL_CONFIGS}
                   onJobCreated={handleJobCreated}
                   onReset={() => {
@@ -184,6 +254,7 @@ export default function ScrapesPage() {
               </DrawerHeader>
               <div className="px-4 overflow-y-auto max-h-[calc(90vh-200px)]">
                 <ScrapeConfigForm
+                  credentials={credentials}
                   tribunais={TRIBUNAL_CONFIGS}
                   onJobCreated={handleJobCreated}
                   onReset={() => {

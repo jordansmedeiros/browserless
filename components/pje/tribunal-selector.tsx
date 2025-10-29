@@ -17,10 +17,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Search, CheckSquare, Square } from 'lucide-react';
+import { Search, CheckSquare, Square, AlertCircle, Loader2 } from 'lucide-react';
 import type { TribunalConfigConstant } from '@/lib/constants/tribunais';
 import type { Regiao, Sistema } from '@/lib/types/tribunal';
 import { getGrauLabel, getSistemaBadgeColor } from '@/lib/types/tribunal';
+import { getCredencialAction } from '@/app/actions/pje';
 
 /**
  * IndeterminateCheckbox - Checkbox com suporte ao estado indeterminado
@@ -49,11 +50,46 @@ interface TribunalSelectorProps {
   selectedIds: string[];
   /** Callback quando a seleção muda */
   onChange: (selectedIds: string[]) => void;
+  /** ID da credencial para filtrar tribunais (opcional) */
+  credentialId?: string | null;
 }
 
-export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalSelectorProps) {
+export function TribunalSelector({ tribunais, selectedIds, onChange, credentialId }: TribunalSelectorProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRegion, setSelectedRegion] = useState<Regiao | 'Todas'>('Todas');
+  const [credentialTribunals, setCredentialTribunals] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Load tribunals associated with the selected credential
+  useEffect(() => {
+    if (credentialId) {
+      setLoading(true);
+      getCredencialAction(credentialId)
+        .then((result) => {
+          if (result.success && result.data) {
+            // Extract tribunal identifiers from the credential
+            const tribunalIds = result.data.tribunais.map((ct) => {
+              const config = ct.tribunalConfig;
+              return `${config.tribunal.codigo}-${config.sistema}-${config.grau}`;
+            });
+            setCredentialTribunals(tribunalIds);
+          } else {
+            console.error('Failed to load credential tribunals:', result.error);
+            setCredentialTribunals([]);
+          }
+        })
+        .catch((error) => {
+          console.error('Error loading credential tribunals:', error);
+          setCredentialTribunals([]);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } else {
+      // No credential selected - show all tribunals
+      setCredentialTribunals([]);
+    }
+  }, [credentialId]);
 
   // Determina o tipo de tribunal baseado no código
   const getTipoTribunal = (codigo: string): 'TRT' | 'TJ' | 'TRF' | 'Superior' => {
@@ -65,10 +101,15 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
 
   // Agrupa tribunais: tipo → código → sistema → configs[]
   const tribunaisAgrupadosPorTipo = useMemo(() => {
+    // Filter tribunals based on credential if provided
+    const filteredTribunals = credentialId && credentialTribunals.length > 0
+      ? tribunais.filter(t => credentialTribunals.includes(t.id))
+      : tribunais;
+
     // Estrutura: Map<codigo, Map<sistema, TribunalConfigConstant[]>>
     const gruposPorCodigo = new Map<string, Map<Sistema, TribunalConfigConstant[]>>();
 
-    tribunais.forEach((t) => {
+    filteredTribunals.forEach((t) => {
       if (!gruposPorCodigo.has(t.codigo)) {
         gruposPorCodigo.set(t.codigo, new Map());
       }
@@ -116,7 +157,7 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
     });
 
     return tipos;
-  }, [tribunais]);
+  }, [tribunais, credentialId, credentialTribunals]);
 
   // Filtro por busca e região - aplica filtros em cada tipo
   const tribunaisFiltrados = useMemo(() => {
@@ -227,6 +268,34 @@ export function TribunalSelector({ tribunais, selectedIds, onChange }: TribunalS
 
   return (
     <div className="space-y-4">
+      {/* Messages */}
+      {loading && (
+        <div className="flex items-center justify-center py-8 border-2 border-dashed rounded-lg">
+          <Loader2 className="w-6 h-6 animate-spin mr-2 text-primary" />
+          <span className="text-sm text-muted-foreground">
+            Carregando tribunais da credencial...
+          </span>
+        </div>
+      )}
+
+      {!loading && credentialId && credentialTribunals.length === 0 && (
+        <div className="flex items-center gap-2 p-4 border-2 border-amber-500/50 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+          <AlertCircle className="w-5 h-5 text-amber-600" />
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            A credencial selecionada não possui tribunais configurados.
+            Por favor, volte e selecione outra credencial ou adicione tribunais a esta credencial.
+          </p>
+        </div>
+      )}
+
+      {!loading && credentialId && credentialTribunals.length > 0 && (
+        <div className="flex items-center gap-2 p-3 border border-primary/20 bg-primary/5 rounded-lg">
+          <span className="text-sm text-muted-foreground">
+            Mostrando apenas tribunais associados à credencial selecionada ({credentialTribunals.length} disponíveis)
+          </span>
+        </div>
+      )}
+
       {/* Header com contador e ações */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

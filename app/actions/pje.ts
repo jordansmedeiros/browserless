@@ -1181,6 +1181,7 @@ export async function testCredencialAction(
 
 // Schema de validação para criação de job
 const createScrapeJobSchema = z.object({
+  credencialId: z.string().uuid('ID de credencial inválido'),
   // tribunalConfigIds aceita formato "TRT3-1g" ou UUIDs
   tribunalConfigIds: z.array(z.string()).min(1, 'Selecione ao menos um tribunal'),
   scrapeType: z.enum(['acervo_geral', 'pendentes', 'arquivados', 'minha_pauta']),
@@ -1206,8 +1207,8 @@ export async function createScrapeJobAction(input: CreateScrapeJobInput) {
       };
     }
 
-    const { tribunalConfigIds, scrapeType, scrapeSubType } = validacao.data;
-    console.log('[createScrapeJobAction] Input validado:', { tribunalConfigIds, scrapeType, scrapeSubType });
+    const { credencialId, tribunalConfigIds, scrapeType, scrapeSubType } = validacao.data;
+    console.log('[createScrapeJobAction] Input validado:', { credencialId, tribunalConfigIds, scrapeType, scrapeSubType });
 
     // Validate that 'pendentes' has a subtype
     if (scrapeType === 'pendentes' && !scrapeSubType) {
@@ -1218,85 +1219,119 @@ export async function createScrapeJobAction(input: CreateScrapeJobInput) {
       };
     }
 
-    // Parse tribunal IDs from format "TRT3-1g" to { codigo: "TRT3", grau: "1g" }
+    // Step 1: Validate credential exists and is active
+    console.log('[createScrapeJobAction] Validando credencial...');
+    const credencial = await prisma.credencial.findUnique({
+      where: { id: credencialId },
+      include: {
+        advogado: true,
+        tribunais: {
+          include: {
+            tribunalConfig: {
+              include: {
+                tribunal: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!credencial) {
+      console.error('[createScrapeJobAction] Credencial não encontrada');
+      return {
+        success: false,
+        error: 'Credencial não encontrada',
+      };
+    }
+
+    if (!credencial.ativa) {
+      console.error('[createScrapeJobAction] Credencial inativa');
+      return {
+        success: false,
+        error: 'Credencial inativa. Ative a credencial antes de criar o job.',
+      };
+    }
+
+    console.log('[createScrapeJobAction] Credencial validada:', {
+      id: credencial.id,
+      advogado: credencial.advogado.nome,
+      tribunaisCount: credencial.tribunais.length,
+    });
+
+    // Step 2: Parse tribunal IDs from format "TRT3-PJE-1g" to components
     console.log('[createScrapeJobAction] Parseando IDs de tribunais...');
     const tribunalQueries = tribunalConfigIds.map(id => {
-      const [codigo, grau] = id.split('-');
-      if (!codigo || !grau) {
-        throw new Error(`ID de tribunal inválido: ${id}. Esperado formato: TRT3-1g`);
+      const parts = id.split('-');
+      if (parts.length !== 3) {
+        throw new Error(`ID de tribunal inválido: ${id}. Esperado formato: TRT3-PJE-1g`);
       }
-      return { codigo, grau, originalId: id };
+      const [codigo, sistema, grau] = parts;
+      return { codigo, sistema, grau, originalId: id };
     });
     console.log('[createScrapeJobAction] Tribunais parseados:', tribunalQueries);
 
-    // Validate credentials exist for all tribunals
-    // Search by tribunal codigo + grau instead of UUID
-    console.log('[createScrapeJobAction] Buscando tribunais com credenciais...');
+    // Step 3: Get tribunal configs associated with this credential
+    const credentialTribunalConfigIds = credencial.tribunais.map(
+      (ct) => ct.tribunalConfigId
+    );
 
-    // Step 1: Find all matching tribunal configs
+    console.log('[createScrapeJobAction] IDs de tribunais da credencial:', credentialTribunalConfigIds);
+
+    // Step 4: Find matching tribunal configs that belong to this credential
     const whereClause = {
-      OR: tribunalQueries.map(q => ({
-        AND: [
-          { tribunal: { codigo: q.codigo } },
-          { grau: q.grau }
-        ]
-      }))
+      AND: [
+        {
+          id: {
+            in: credentialTribunalConfigIds,
+          },
+        },
+        {
+          OR: tribunalQueries.map(q => ({
+            AND: [
+              { tribunal: { codigo: q.codigo } },
+              { sistema: q.sistema },
+              { grau: q.grau },
+            ],
+          })),
+        },
+      ],
     };
 
     console.log('[createScrapeJobAction] Query WHERE clause:', JSON.stringify(whereClause, null, 2));
 
-    const allMatchingTribunals = await prisma.tribunalConfig.findMany({
+    const matchedTribunals = await prisma.tribunalConfig.findMany({
       where: whereClause,
       include: {
         tribunal: true,
-        credenciais: {
-          where: {
-            credencial: {
-              ativa: true
-            }
-          },
-          include: {
-            credencial: true
-          }
-        }
       },
     });
 
-    console.log('[createScrapeJobAction] Tribunais encontrados:', allMatchingTribunals.length);
-    console.log('[createScrapeJobAction] Detalhes:', allMatchingTribunals.map(t => ({
-      id: t.id,
-      codigo: t.tribunal.codigo,
-      grau: t.grau,
-      temCredenciais: t.credenciais.length > 0
-    })));
+    console.log('[createScrapeJobAction] Tribunais encontrados:', matchedTribunals.length);
 
-    // Step 2: Filter only those with active credentials
-    const tribunalsWithCredentials = allMatchingTribunals.filter(t => t.credenciais.length > 0);
-
-    console.log('[createScrapeJobAction] Tribunais com credenciais ativas:', tribunalsWithCredentials.length);
-
-    // Validate all requested tribunals were found with credentials
-    if (tribunalsWithCredentials.length !== tribunalConfigIds.length) {
-      const foundIds = tribunalsWithCredentials.map(
-        t => `${t.tribunal.codigo}-${t.grau}`
+    // Step 5: Validate all requested tribunals were found
+    if (matchedTribunals.length !== tribunalConfigIds.length) {
+      const foundIds = matchedTribunals.map(
+        (t) => `${t.tribunal.codigo}-${t.sistema}-${t.grau}`
       );
-      const missing = tribunalConfigIds.filter(id => !foundIds.includes(id));
+      const missing = tribunalConfigIds.filter((id) => !foundIds.includes(id));
 
-      console.error('[createScrapeJobAction] Credenciais faltando para:', missing);
+      console.error('[createScrapeJobAction] Tribunais não associados à credencial:', missing);
       return {
         success: false,
-        error: `Credenciais não encontradas para: ${missing.join(', ')}. Cadastre credenciais antes de criar o job.`,
+        error: `Os seguintes tribunais não estão associados à credencial selecionada: ${missing.join(', ')}`,
       };
     }
 
-    // Create job using real UUIDs from database
+    // Step 6: Create job using real UUIDs from database
+    console.log('[createScrapeJobAction] Criando job de raspagem...');
     const job = await prisma.scrapeJob.create({
       data: {
         status: ScrapeJobStatus.PENDING,
         scrapeType: scrapeType as string,
         scrapeSubType: scrapeSubType as string | undefined,
         tribunals: {
-          create: tribunalsWithCredentials.map(tc => ({
+          create: matchedTribunals.map(tc => ({
             tribunalConfigId: tc.id, // Use real UUID from database
             status: ScrapeJobStatus.PENDING,
           })),

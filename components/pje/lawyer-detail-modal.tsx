@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ChevronRight, Eye, EyeOff, Key, Loader2, Trash2 } from 'lucide-react';
 import type { AdvogadoWithCredenciais } from '@/lib/types';
 import {
@@ -33,6 +34,9 @@ import {
   deleteCredencialAction,
   toggleCredencialAction,
   testCredencialAction,
+  createCredencialAction,
+  updateCredencialAction,
+  listTribunalConfigsAction,
 } from '@/app/actions/pje';
 import { toast } from 'sonner';
 
@@ -57,6 +61,24 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [credentialToDelete, setCredentialToDelete] = useState<string | null>(null);
 
+  // Add credential dialog state
+  const [addCredentialDialog, setAddCredentialDialog] = useState(false);
+  const [tribunaisDisponiveis, setTribunaisDisponiveis] = useState<any[]>([]);
+  const [credentialForm, setCredentialForm] = useState({
+    senha: '',
+    descricao: '',
+    tribunalConfigIds: [] as string[],
+  });
+
+  // Edit credential dialog state
+  const [editCredentialDialog, setEditCredentialDialog] = useState(false);
+  const [editingCredentialId, setEditingCredentialId] = useState<string | null>(null);
+  const [editCredentialForm, setEditCredentialForm] = useState({
+    senha: '',
+    descricao: '',
+    tribunalConfigIds: [] as string[],
+  });
+
   // Form state for lawyer info
   const [lawyerForm, setLawyerForm] = useState({
     nome: '',
@@ -69,8 +91,37 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
   useEffect(() => {
     if (lawyerId) {
       loadAdvogado();
+      loadTribunais();
     }
   }, [lawyerId]);
+
+  async function loadTribunais() {
+    try {
+      console.log('Iniciando carregamento de tribunais...');
+      const result = await listTribunalConfigsAction();
+      console.log('Resultado tribunais:', result);
+
+      if (result.success) {
+        if (result.data && Array.isArray(result.data)) {
+          console.log('Tribunais carregados com sucesso:', result.data.length);
+          setTribunaisDisponiveis(result.data);
+
+          if (result.data.length === 0) {
+            setMessage({ type: 'error', text: 'Nenhum tribunal disponível no sistema' });
+          }
+        } else {
+          console.error('Dados inválidos:', result.data);
+          setMessage({ type: 'error', text: 'Dados de tribunais inválidos' });
+        }
+      } else {
+        console.error('Falha ao carregar tribunais:', result.error);
+        setMessage({ type: 'error', text: result.error || 'Erro ao carregar tribunais' });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar tribunais:', error);
+      setMessage({ type: 'error', text: 'Erro ao carregar tribunais: ' + (error instanceof Error ? error.message : 'Desconhecido') });
+    }
+  }
 
   async function loadAdvogado() {
     if (!lawyerId) return;
@@ -198,7 +249,133 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
   }
 
   function handleAddCredencial() {
-    toast.info('Funcionalidade de adicionar credencial será implementada em breve');
+    setAddCredentialDialog(true);
+  }
+
+  async function handleSubmitCredencial() {
+    if (!advogado) return;
+
+    // Validações
+    if (!credentialForm.senha || credentialForm.senha.length < 6) {
+      setMessage({ type: 'error', text: 'Senha deve ter no mínimo 6 caracteres' });
+      return;
+    }
+
+    if (credentialForm.tribunalConfigIds.length === 0) {
+      setMessage({ type: 'error', text: 'Selecione pelo menos um tribunal' });
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const result = await createCredencialAction({
+        advogadoId: advogado.id,
+        senha: credentialForm.senha,
+        descricao: credentialForm.descricao || undefined,
+        tribunalConfigIds: credentialForm.tribunalConfigIds,
+      });
+
+      if (result.success) {
+        toast.success('Credencial adicionada com sucesso!');
+        setAddCredentialDialog(false);
+        setCredentialForm({
+          senha: '',
+          descricao: '',
+          tribunalConfigIds: [],
+        });
+        await loadAdvogado();
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Erro ao adicionar credencial' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Erro ao adicionar credencial' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function toggleTribunal(tribunalId: string) {
+    setCredentialForm((prev) => {
+      const isSelected = prev.tribunalConfigIds.includes(tribunalId);
+      return {
+        ...prev,
+        tribunalConfigIds: isSelected
+          ? prev.tribunalConfigIds.filter((id) => id !== tribunalId)
+          : [...prev.tribunalConfigIds, tribunalId],
+      };
+    });
+  }
+
+  function toggleTribunalEdit(tribunalId: string) {
+    setEditCredentialForm((prev) => {
+      const isSelected = prev.tribunalConfigIds.includes(tribunalId);
+      return {
+        ...prev,
+        tribunalConfigIds: isSelected
+          ? prev.tribunalConfigIds.filter((id) => id !== tribunalId)
+          : [...prev.tribunalConfigIds, tribunalId],
+      };
+    });
+  }
+
+  function handleEditCredencial(credencialId: string) {
+    if (!advogado) return;
+
+    const credencial = advogado.credenciais.find((c) => c.id === credencialId);
+    if (!credencial) return;
+
+    // Populate form with existing credential data
+    setEditingCredentialId(credencialId);
+    setEditCredentialForm({
+      senha: '', // Don't pre-fill password for security
+      descricao: credencial.descricao || '',
+      tribunalConfigIds: credencial.tribunais.map((t) => {
+        const config = t.tribunalConfig;
+        return `${config.tribunal.codigo}-${config.sistema}-${config.grau}`;
+      }),
+    });
+    setEditCredentialDialog(true);
+  }
+
+  async function handleSubmitEditCredencial() {
+    if (!editingCredentialId) return;
+
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const updateData: any = {
+        descricao: editCredentialForm.descricao || undefined,
+        tribunalConfigIds: editCredentialForm.tribunalConfigIds,
+      };
+
+      // Only include password if user entered one
+      if (editCredentialForm.senha && editCredentialForm.senha.length >= 6) {
+        updateData.senha = editCredentialForm.senha;
+      }
+
+      const result = await updateCredencialAction(editingCredentialId, updateData);
+
+      if (result.success) {
+        toast.success('Credencial atualizada com sucesso!');
+        setEditCredentialDialog(false);
+        setEditingCredentialId(null);
+        setEditCredentialForm({
+          senha: '',
+          descricao: '',
+          tribunalConfigIds: [],
+        });
+        await loadAdvogado();
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Erro ao atualizar credencial' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Erro ao atualizar credencial' });
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (!lawyerId) return null;
@@ -380,7 +557,11 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
 
                           {/* Actions */}
                           <div className="flex gap-2 flex-wrap">
-                            <Button size="sm" variant="outline">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditCredencial(credencial.id)}
+                            >
                               Editar
                             </Button>
                             <Button
@@ -432,6 +613,287 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
           </>
         )}
       </DialogContent>
+
+      {/* Add Credential Dialog */}
+      <Dialog open={addCredentialDialog} onOpenChange={setAddCredentialDialog}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Adicionar Credencial</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Senha */}
+            <div>
+              <Label htmlFor="cred-senha">
+                Senha <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="cred-senha"
+                type="password"
+                value={credentialForm.senha}
+                onChange={(e) => setCredentialForm({ ...credentialForm, senha: e.target.value })}
+                placeholder="Mínimo 6 caracteres"
+                minLength={6}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Esta senha será usada para login nos tribunais selecionados
+              </p>
+            </div>
+
+            {/* Descrição */}
+            <div>
+              <Label htmlFor="cred-descricao">Descrição (opcional)</Label>
+              <Input
+                id="cred-descricao"
+                value={credentialForm.descricao}
+                onChange={(e) => setCredentialForm({ ...credentialForm, descricao: e.target.value })}
+                placeholder="Ex: Credencial principal, Credencial backup, etc."
+              />
+            </div>
+
+            {/* Tribunais */}
+            <div className="space-y-3">
+              <Label>
+                Tribunais <span className="text-red-500">*</span>
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Selecione os tribunais onde esta credencial será utilizada
+              </p>
+
+              {tribunaisDisponiveis.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed rounded-lg">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
+                  <p className="text-sm text-muted-foreground">Carregando tribunais...</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Se esta mensagem persistir, verifique o console para mais detalhes
+                  </p>
+                </div>
+              ) : (
+                <div className="border rounded-lg p-4 max-h-96 overflow-y-auto space-y-4">
+                  {/* Group by tribunal type */}
+                  {['TRT', 'TJ', 'TRF', 'TST', 'STJ', 'STF'].map((tipo) => {
+                    const tribunaisPorTipo = tribunaisDisponiveis.filter((t) => {
+                      // Determinar tipo do tribunal a partir do código
+                      const codigo = t.codigo;
+                      if (tipo === 'TRT') return codigo.startsWith('TRT');
+                      if (tipo === 'TJ') return codigo.startsWith('TJ');
+                      if (tipo === 'TRF') return codigo.startsWith('TRF');
+                      if (tipo === 'TST') return codigo === 'TST';
+                      if (tipo === 'STJ') return codigo === 'STJ';
+                      if (tipo === 'STF') return codigo === 'STF';
+                      return false;
+                    });
+                    if (tribunaisPorTipo.length === 0) return null;
+
+                    return (
+                      <div key={tipo} className="space-y-2">
+                        <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
+                          {tipo} ({tribunaisPorTipo.length})
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {tribunaisPorTipo.map((tribunal) => {
+                            const isSelected = credentialForm.tribunalConfigIds.includes(
+                              tribunal.id
+                            );
+                            return (
+                              <div
+                                key={tribunal.id}
+                                className="flex items-start space-x-2 p-2 rounded border hover:bg-accent cursor-pointer"
+                                onClick={() => toggleTribunal(tribunal.id)}
+                              >
+                                <Checkbox
+                                  id={`tribunal-${tribunal.id}`}
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleTribunal(tribunal.id)}
+                                />
+                                <Label
+                                  htmlFor={`tribunal-${tribunal.id}`}
+                                  className="text-xs cursor-pointer flex-1"
+                                >
+                                  {tribunal.nomeCompleto}
+                                  <span className="text-muted-foreground ml-1">
+                                    ({tribunal.grau === '1g' ? '1º Grau' : tribunal.grau === '2g' ? '2º Grau' : 'Único'})
+                                  </span>
+                                </Label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {credentialForm.tribunalConfigIds.length} tribunal(is) selecionado(s)
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAddCredentialDialog(false);
+                setCredentialForm({
+                  senha: '',
+                  descricao: '',
+                  tribunalConfigIds: [],
+                });
+              }}
+              disabled={saving}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSubmitCredencial} disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Adicionando...
+                </>
+              ) : (
+                'Adicionar Credencial'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Credential Dialog */}
+      <Dialog open={editCredentialDialog} onOpenChange={setEditCredentialDialog}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Credencial</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Senha */}
+            <div>
+              <Label htmlFor="edit-cred-senha">Nova Senha (opcional)</Label>
+              <Input
+                id="edit-cred-senha"
+                type="password"
+                value={editCredentialForm.senha}
+                onChange={(e) => setEditCredentialForm({ ...editCredentialForm, senha: e.target.value })}
+                placeholder="Deixe em branco para manter a atual"
+                minLength={6}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Preencha apenas se desejar alterar a senha (mínimo 6 caracteres)
+              </p>
+            </div>
+
+            {/* Descrição */}
+            <div>
+              <Label htmlFor="edit-cred-descricao">Descrição (opcional)</Label>
+              <Input
+                id="edit-cred-descricao"
+                value={editCredentialForm.descricao}
+                onChange={(e) => setEditCredentialForm({ ...editCredentialForm, descricao: e.target.value })}
+                placeholder="Ex: Credencial principal, Credencial backup, etc."
+              />
+            </div>
+
+            {/* Tribunais */}
+            <div className="space-y-3">
+              <Label>
+                Tribunais <span className="text-red-500">*</span>
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Selecione os tribunais onde esta credencial será utilizada
+              </p>
+
+              {tribunaisDisponiveis.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed rounded-lg">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
+                  <p className="text-sm text-muted-foreground">Carregando tribunais...</p>
+                </div>
+              ) : (
+                <div className="border rounded-lg p-4 max-h-96 overflow-y-auto space-y-4">
+                  {/* Group by tribunal type */}
+                  {['TRT', 'TJ', 'TRF', 'TST', 'STJ', 'STF'].map((tipo) => {
+                    const tribunaisPorTipo = tribunaisDisponiveis.filter((t) => {
+                      const codigo = t.codigo;
+                      if (tipo === 'TRT') return codigo.startsWith('TRT');
+                      if (tipo === 'TJ') return codigo.startsWith('TJ');
+                      if (tipo === 'TRF') return codigo.startsWith('TRF');
+                      if (tipo === 'TST') return codigo === 'TST';
+                      if (tipo === 'STJ') return codigo === 'STJ';
+                      if (tipo === 'STF') return codigo === 'STF';
+                      return false;
+                    });
+                    if (tribunaisPorTipo.length === 0) return null;
+
+                    return (
+                      <div key={tipo} className="space-y-2">
+                        <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
+                          {tipo} ({tribunaisPorTipo.length})
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {tribunaisPorTipo.map((tribunal) => {
+                            const isSelected = editCredentialForm.tribunalConfigIds.includes(
+                              tribunal.id
+                            );
+                            return (
+                              <div
+                                key={tribunal.id}
+                                className="flex items-start space-x-2 p-2 rounded border hover:bg-accent cursor-pointer"
+                                onClick={() => toggleTribunalEdit(tribunal.id)}
+                              >
+                                <Checkbox
+                                  id={`edit-tribunal-${tribunal.id}`}
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleTribunalEdit(tribunal.id)}
+                                />
+                                <Label
+                                  htmlFor={`edit-tribunal-${tribunal.id}`}
+                                  className="text-xs cursor-pointer flex-1"
+                                >
+                                  {tribunal.nomeCompleto}
+                                  <span className="text-muted-foreground ml-1">
+                                    ({tribunal.grau === '1g' ? '1º Grau' : tribunal.grau === '2g' ? '2º Grau' : 'Único'})
+                                  </span>
+                                </Label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {editCredentialForm.tribunalConfigIds.length} tribunal(is) selecionado(s)
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditCredentialDialog(false);
+                setEditingCredentialId(null);
+                setEditCredentialForm({
+                  senha: '',
+                  descricao: '',
+                  tribunalConfigIds: [],
+                });
+              }}
+              disabled={saving}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSubmitEditCredencial} disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                'Salvar Alterações'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Credential Confirmation Dialog */}
       <AlertDialog open={!!credentialToDelete} onOpenChange={(open) => !open && setCredentialToDelete(null)}>

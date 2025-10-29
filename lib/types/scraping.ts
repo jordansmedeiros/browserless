@@ -63,6 +63,7 @@ export interface ScrapeJobWithRelations extends ScrapeJob {
  * Entrada para criação de um job de raspagem
  */
 export interface CreateScrapeJobInput {
+  credencialId: string;
   tribunalConfigIds: string[];
   scrapeType: ScrapeType;
   scrapeSubType?: ScrapeSubType;

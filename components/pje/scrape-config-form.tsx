@@ -13,11 +13,15 @@ import { WizardNavigation } from '@/components/ui/wizard-navigation';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { TribunalSelector } from './tribunal-selector';
 import { ScrapeTypeSelector } from './scrape-type-selector';
+import { CredentialSelector } from './credential-selector';
 import { createScrapeJobAction } from '@/app/actions/pje';
 import type { TribunalConfigConstant } from '@/lib/constants/tribunais';
 import type { ScrapeType, ScrapeSubType } from '@/lib/types/scraping';
+import type { CredencialWithRelations } from '@/lib/types';
 
 interface ScrapeConfigFormProps {
+  /** All available credentials */
+  credentials: CredencialWithRelations[];
   /** All available tribunals */
   tribunais: TribunalConfigConstant[];
   /** Callback when job is created successfully */
@@ -28,11 +32,12 @@ interface ScrapeConfigFormProps {
   onFormChange?: () => void;
 }
 
-export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChange }: ScrapeConfigFormProps) {
+export function ScrapeConfigForm({ credentials, tribunais, onJobCreated, onReset, onFormChange }: ScrapeConfigFormProps) {
   // Wizard state
   const [currentStep, setCurrentStep] = useState(1);
 
   // Form state
+  const [selectedCredentialId, setSelectedCredentialId] = useState<string | null>(null);
   const [selectedTribunalIds, setSelectedTribunalIds] = useState<string[]>([]);
   const [selectedType, setSelectedType] = useState<ScrapeType | null>(null);
   const [selectedSubTypes, setSelectedSubTypes] = useState<ScrapeSubType[]>([]);
@@ -51,18 +56,19 @@ export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChang
 
   // Notify parent of form changes
   useEffect(() => {
-    if (selectedTribunalIds.length > 0 || selectedType !== null) {
+    if (selectedCredentialId || selectedTribunalIds.length > 0 || selectedType !== null) {
       onFormChange?.();
     }
-  }, [selectedTribunalIds, selectedType, onFormChange]);
+  }, [selectedCredentialId, selectedTribunalIds, selectedType, onFormChange]);
 
   // Step validation
   const stepValidation = useMemo(() => {
     return {
-      1: selectedTribunalIds.length > 0, // Step 1: At least one tribunal
-      2: selectedType !== null && (selectedType !== 'pendentes' || selectedSubTypes.length > 0), // Step 2: Type selected and subtypes if needed
+      1: selectedCredentialId !== null, // Step 1: Credential selected
+      2: selectedTribunalIds.length > 0, // Step 2: At least one tribunal
+      3: selectedType !== null && (selectedType !== 'pendentes' || selectedSubTypes.length > 0), // Step 3: Type selected and subtypes if needed
     };
-  }, [selectedTribunalIds, selectedType, selectedSubTypes]);
+  }, [selectedCredentialId, selectedTribunalIds, selectedType, selectedSubTypes]);
 
   // Overall validation
   const isValid = useMemo(() => {
@@ -81,12 +87,14 @@ export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChang
 
     try {
       console.log('[ScrapeConfigForm] Enviando requisição com:', {
+        credencialId: selectedCredentialId,
         tribunalConfigIds: selectedTribunalIds,
         scrapeType: selectedType,
         scrapeSubType: selectedSubTypes[0],
       });
 
       const result = await createScrapeJobAction({
+        credencialId: selectedCredentialId!,
         tribunalConfigIds: selectedTribunalIds,
         scrapeType: selectedType!,
         scrapeSubType: selectedSubTypes[0],
@@ -102,9 +110,11 @@ export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChang
         });
 
         // Reset form
+        setSelectedCredentialId(null);
         setSelectedTribunalIds([]);
         setSelectedType(null);
         setSelectedSubTypes([]);
+        setCurrentStep(1);
 
         // Callback
         onJobCreated?.(result.data.jobId);
@@ -127,9 +137,11 @@ export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChang
   };
 
   const handleReset = () => {
+    setSelectedCredentialId(null);
     setSelectedTribunalIds([]);
     setSelectedType(null);
     setSelectedSubTypes([]);
+    setCurrentStep(1);
     setMessage(null);
     onReset?.();
   };
@@ -151,21 +163,31 @@ export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChang
       {/* Wizard */}
       <WizardContainer
         currentStep={currentStep}
-        totalSteps={2}
+        totalSteps={3}
         onStepChange={setCurrentStep}
         stepValidation={stepValidation}
       >
-        {/* Step 1: Tribunal Selection */}
-        <WizardStep step={1} title="Selecionar Tribunais">
+        {/* Step 1: Credential Selection */}
+        <WizardStep step={1} title="Selecionar Credencial">
+          <CredentialSelector
+            credentials={credentials}
+            selectedCredentialId={selectedCredentialId}
+            onSelect={setSelectedCredentialId}
+          />
+        </WizardStep>
+
+        {/* Step 2: Tribunal Selection */}
+        <WizardStep step={2} title="Selecionar Tribunais">
           <TribunalSelector
             tribunais={tribunais}
             selectedIds={selectedTribunalIds}
             onChange={setSelectedTribunalIds}
+            credentialId={selectedCredentialId}
           />
         </WizardStep>
 
-        {/* Step 2: Configuration */}
-        <WizardStep step={2} title="Configurar Raspagem">
+        {/* Step 3: Configuration */}
+        <WizardStep step={3} title="Configurar Raspagem">
           <div className="space-y-6">
             {/* Scrape Type Selection */}
             <div>
