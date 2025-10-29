@@ -112,16 +112,22 @@ class ScrapeQueue {
    * Marca um job como completado ou falho
    * Called by orchestrator when job finishes
    * @param jobId - ID do job
-   * @param status - Status final (completed ou failed)
+   * @param status - Status final (aceita qualquer case, normalizado internamente)
    */
   public markAsCompleted(jobId: string, status: ScrapeJobStatus.COMPLETED | ScrapeJobStatus.FAILED | 'completed' | 'failed'): void {
+    // Normaliza status para lowercase antes de qualquer comparação
+    const normalizedStatus = String(status).toLowerCase();
+
+    // Valida status recebido
+    if (normalizedStatus !== 'completed' && normalizedStatus !== 'failed') {
+      console.warn(`[Queue] Invalid status received: ${status}, treating as 'failed'`);
+    }
+
     // Remove do set de running
     this.running.delete(jobId);
 
-    // Normaliza para string interna
-    const statusStr = String(status) as string;
-    const isCompleted = statusStr === 'COMPLETED' || statusStr === 'completed';
-    const internalStatus: 'completed' | 'failed' = isCompleted ? 'completed' : 'failed';
+    // Determina status interno final
+    const internalStatus: 'completed' | 'failed' = normalizedStatus === 'completed' ? 'completed' : 'failed';
 
     // Adiciona ao map de completed
     this.completed.set(jobId, {
@@ -129,7 +135,7 @@ class ScrapeQueue {
       completedAt: new Date(),
     });
 
-    console.log(`[Queue] Job ${jobId} marked as ${status}. Running: ${this.running.size}`);
+    console.log(`[Queue] Job ${jobId} marked as ${internalStatus}. Running: ${this.running.size}`);
   }
 
   /**

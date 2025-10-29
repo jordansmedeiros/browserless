@@ -411,71 +411,107 @@ function executeScriptWithSpawn(
 }
 
 /**
+ * Normaliza resultado parseado para ScrapingResult
+ * @param parsed - Objeto parseado do JSON
+ * @returns ScrapingResult normalizado
+ */
+function normalizeResult(parsed: any): ScrapingResult {
+  // Valida estrutura básica
+  if (typeof parsed.success !== 'boolean') {
+    throw new Error('Invalid script output: missing "success" field');
+  }
+
+  // Normaliza o resultado
+  return {
+    success: parsed.success,
+    processosCount: parsed.processosCount || parsed.processos?.length || 0,
+    processos: parsed.processos || [],
+    timestamp: parsed.timestamp || new Date().toISOString(),
+    advogado: parsed.advogado,
+    error: parsed.error,
+  };
+}
+
+/**
  * Parseia a saída do script (JSON no stdout)
+ * Utiliza estratégia em camadas para maior robustez
  *
  * @param stdout - Saída padrão do script
  * @returns Resultado da raspagem parseado
- * @throws Error se o parsing falhar
+ * @throws Error se o parsing falhar em todas as estratégias
  */
 function parseScriptOutput(stdout: string): ScrapingResult {
-  try {
-    const trimmed = stdout.trim();
+  const trimmed = stdout.trim();
 
-    // Tenta encontrar o último bloco JSON balanceado {...}
-    let jsonString: string | null = null;
-    let braceCount = 0;
-    let startIndex = -1;
-
-    // Busca de trás para frente pelo último objeto JSON completo
-    for (let i = trimmed.length - 1; i >= 0; i--) {
-      if (trimmed[i] === '}') {
-        if (braceCount === 0) {
-          startIndex = i;
-        }
-        braceCount++;
-      } else if (trimmed[i] === '{') {
-        braceCount--;
-        if (braceCount === 0 && startIndex !== -1) {
-          // Encontrou um bloco balanceado completo
-          jsonString = trimmed.substring(i, startIndex + 1);
-          break;
-        }
-      }
-    }
-
-    // Fallback: tenta parsear a saída completa após remover prefixos não-JSON
-    if (!jsonString) {
-      const firstBrace = trimmed.indexOf('{');
-      const lastBrace = trimmed.lastIndexOf('}');
-      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        jsonString = trimmed.substring(firstBrace, lastBrace + 1);
-      }
-    }
-
-    if (!jsonString) {
-      throw new Error('No valid JSON object found in script output');
-    }
-
-    const parsed = JSON.parse(jsonString);
-
-    // Valida estrutura básica
-    if (typeof parsed.success !== 'boolean') {
-      throw new Error('Invalid script output: missing "success" field');
-    }
-
-    // Normaliza o resultado
-    return {
-      success: parsed.success,
-      processosCount: parsed.processosCount || parsed.processos?.length || 0,
-      processos: parsed.processos || [],
-      timestamp: parsed.timestamp || new Date().toISOString(),
-      advogado: parsed.advogado,
-      error: parsed.error,
-    };
-  } catch (error: any) {
-    const snippet = stdout.substring(0, 500);
-    throw new Error(`Failed to parse script output: ${error.message}\nOutput snippet: ${snippet}${stdout.length > 500 ? '...' : ''}`);
+  if (!trimmed) {
+    throw new Error('Script output is empty');
   }
+
+  // Camada 1: Parse direto (caso mais comum - script retorna apenas JSON)
+  try {
+    const parsed = JSON.parse(trimmed);
+    return normalizeResult(parsed);
+  } catch (directParseError) {
+    // Continua para estratégias mais complexas
+  }
+
+  // Camada 2: Extração de primeiro/último bloco (fallback 1)
+  const firstBrace = trimmed.indexOf('{');
+  const lastBrace = trimmed.lastIndexOf('}');
+
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    const jsonCandidate = trimmed.substring(firstBrace, lastBrace + 1);
+    try {
+      const parsed = JSON.parse(jsonCandidate);
+      return normalizeResult(parsed);
+    } catch (extractParseError) {
+      // Continua para última estratégia
+    }
+  }
+
+  // Camada 3: Busca linha por linha (fallback 2)
+  const lines = trimmed.split('\n');
+
+  // Tenta linhas individuais de trás pra frente
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (line.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(line);
+        return normalizeResult(parsed);
+      } catch {
+        // Tenta próxima linha
+      }
+    }
+  }
+
+  // Camada 4: Multi-line JSON (fallback 3)
+  let jsonBuffer = '';
+  let foundStart = false;
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (trimmedLine.startsWith('{')) foundStart = true;
+    if (foundStart) jsonBuffer += line + '\n';
+    if (trimmedLine.endsWith('}') && foundStart) {
+      try {
+        const parsed = JSON.parse(jsonBuffer);
+        return normalizeResult(parsed);
+      } catch {
+        // Reset e continua
+        jsonBuffer = '';
+        foundStart = false;
+      }
+    }
+  }
+
+  // Todas as estratégias falharam
+  throw new Error(
+    `Failed to parse script output after trying all strategies.\n` +
+    `Output length: ${stdout.length} chars\n` +
+    `First 200 chars: ${stdout.substring(0, 200)}\n` +
+    `Last 200 chars: ${stdout.substring(Math.max(0, stdout.length - 200))}`
+  );
 }
 
 /**

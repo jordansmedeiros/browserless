@@ -28,7 +28,7 @@ export function CredentialSelector({
 
     credentials.forEach((cred) => {
       const firmName = cred.advogado?.escritorio?.nome || 'Sem escritório';
-      const lawyerId = cred.advogado.id;
+      const lawyerId = cred.advogado?.id || 'sem-advogado';
 
       if (!grouped[firmName]) {
         grouped[firmName] = {};
@@ -36,7 +36,11 @@ export function CredentialSelector({
 
       if (!grouped[firmName][lawyerId]) {
         grouped[firmName][lawyerId] = {
-          advogado: cred.advogado,
+          advogado: cred.advogado || {
+            oabUf: 'N/A',
+            oabNumero: 'N/A',
+            nome: 'N/A',
+          },
           credentials: [],
         };
       }
@@ -85,7 +89,7 @@ export function CredentialSelector({
               <div key={lawyerId} className="ml-6 space-y-2">
                 {/* Lawyer Header */}
                 <div className="text-sm font-medium text-muted-foreground">
-                  OAB/{advogado.oabUf} {advogado.oabNumero} - {advogado.nome}
+                  OAB/{advogado?.oabUf} {advogado?.oabNumero} - {advogado?.nome || 'N/A'}
                 </div>
 
                 {/* Lawyer's Credentials */}
@@ -203,7 +207,7 @@ export function CredentialSelector({
             return (
               <p className="text-sm">
                 <span className="font-medium text-foreground">Selecionada:</span>{' '}
-                OAB/{selected.advogado.oabUf} {selected.advogado.oabNumero} - {selected.advogado.nome}
+                OAB/{selected.advogado?.oabUf} {selected.advogado?.oabNumero} - {selected.advogado?.nome || 'N/A'}
                 {selected.descricao && <span className="text-muted-foreground"> ({selected.descricao})</span>}
               </p>
             );

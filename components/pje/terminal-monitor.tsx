@@ -39,13 +39,19 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
   const [logs, setLogs] = useState<LogEntry[]>(initialLogs);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
   const [autoScroll, setAutoScroll] = useState(true);
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [jobSummary, setJobSummary] = useState<JobSummary | null>(null);
   const [jobStatus, setJobStatus] = useState<string>('running');
 
   const terminalRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const lastLogIndexRef = useRef(0);
+
+  // Update lastLogIndexRef whenever logs change
+  useEffect(() => {
+    lastLogIndexRef.current = logs.length;
+  }, [logs.length]);
 
   // Memoize sanitized logs for performance
   const sanitizedLogs = useMemo(
@@ -138,7 +144,7 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
 
         eventSource.onopen = () => {
           setConnectionStatus('connected');
-          setReconnectAttempts(0);
+          reconnectAttemptsRef.current = 0;
         };
 
         eventSource.onmessage = (event) => {
@@ -155,10 +161,10 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
           setConnectionStatus('error');
 
           // Retry connection with exponential backoff
-          if (reconnectAttempts < 3) {
-            const delay = 1000 * Math.pow(2, reconnectAttempts);
+          if (reconnectAttemptsRef.current < 3) {
+            const delay = 1000 * Math.pow(2, reconnectAttemptsRef.current);
             setTimeout(() => {
-              setReconnectAttempts((prev) => prev + 1);
+              reconnectAttemptsRef.current += 1;
               connectSSE();
             }, delay);
           } else {
@@ -187,11 +193,12 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
   const startPolling = () => {
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`/api/scrapes/${jobId}/logs?fromIndex=${logs.length}`);
+        const response = await fetch(`/api/scrapes/${jobId}/logs?fromIndex=${lastLogIndexRef.current}`);
         const data = await response.json();
 
         if (data.logs && data.logs.length > 0) {
           setLogs((prev) => [...prev, ...data.logs]);
+          lastLogIndexRef.current += data.logs.length;
         }
 
         if (!data.hasMore) {

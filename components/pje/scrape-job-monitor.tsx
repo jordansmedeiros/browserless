@@ -39,6 +39,7 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
   // Use refs to track latest values without triggering re-renders
   const onJobsUpdateRef = useRef(onJobsUpdate);
   const initialJobIdsRef = useRef(initialJobIds);
+  const jobsRef = useRef<ScrapeJobWithRelations[]>([]);
 
   // Update refs when props change
   useEffect(() => {
@@ -55,7 +56,7 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
 
     const fetchActiveJobs = async () => {
       try {
-        const jobIds = initialJobIdsRef.current || jobs.map((j) => j.id);
+        const jobIds = initialJobIdsRef.current || jobsRef.current.map((j) => j.id);
 
         if (jobIds.length === 0 && !initialJobIdsRef.current) {
           // No jobs to monitor yet
@@ -71,6 +72,7 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
           );
 
           setJobs(activeJobs);
+          jobsRef.current = activeJobs; // Keep ref synchronized
           onJobsUpdateRef.current?.(activeJobs);
 
           // Stop polling if no active jobs
@@ -98,6 +100,7 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
         clearInterval(intervalId);
       }
     };
+    // jobsRef is used instead of jobs to avoid re-renders while keeping fresh IDs
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefresh]);
 

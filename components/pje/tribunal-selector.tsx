@@ -68,10 +68,12 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
         .then((result) => {
           if (result.success && result.data) {
             // Extract tribunal identifiers from the credential
+            // Normalize to match TribunalConfigConstant.id format (e.g., "TRT3-PJE-1g")
             const tribunalIds = result.data.tribunais.map((ct) => {
               const config = ct.tribunalConfig;
-              return `${config.tribunal.codigo}-${config.sistema}-${config.grau}`;
+              return `${config.tribunal.codigo}-${config.sistema.toUpperCase()}-${config.grau}`;
             });
+            console.log('[TribunalSelector] Credential tribunal IDs:', tribunalIds);
             setCredentialTribunals(tribunalIds);
           } else {
             console.error('Failed to load credential tribunals:', result.error);
