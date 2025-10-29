@@ -11,11 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
-import { getScrapeJobAction } from '@/app/actions/pje';
+import { getScrapeJobAction, getScrapeJobProcessesAction } from '@/app/actions/pje';
 import { ScrapeJobHeader } from '@/components/pje/scrape-job-header';
 import { ScrapeResultsTabs } from '@/components/pje/scrape-results-tabs';
 import type { ScrapeJobWithRelations } from '@/lib/types/scraping';
-import { decompressJSON } from '@/lib/utils/compression';
 import { toast } from 'sonner';
 
 export default function ScrapeJobDetailPage() {
@@ -24,29 +23,10 @@ export default function ScrapeJobDetailPage() {
   const jobId = params.id as string;
 
   const [job, setJob] = useState<ScrapeJobWithRelations | null>(null);
+  const [allProcesses, setAllProcesses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingProcesses, setIsLoadingProcesses] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Extract all process data from job executions
-  const allProcesses = useMemo(() => {
-    if (!job?.executions) return [];
-
-    const processes: any[] = [];
-    job.executions.forEach((execution) => {
-      if (execution.resultData) {
-        try {
-          const decompressed = decompressJSON(execution.resultData);
-          if (decompressed?.processos && Array.isArray(decompressed.processos)) {
-            processes.push(...decompressed.processos);
-          }
-        } catch (error) {
-          console.error('[ScrapeJobDetailPage] Error decompressing data:', error);
-        }
-      }
-    });
-
-    return processes;
-  }, [job]);
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -71,6 +51,35 @@ export default function ScrapeJobDetailPage() {
       fetchJob();
     }
   }, [jobId]);
+
+  // Load processes using hybrid strategy when job is loaded
+  useEffect(() => {
+    const fetchProcesses = async () => {
+      if (!job?.id) return;
+
+      try {
+        setIsLoadingProcesses(true);
+        console.log('[ScrapeJobDetailPage] Carregando processos usando estratégia híbrida...');
+
+        const result = await getScrapeJobProcessesAction(job.id);
+
+        if (result.success && result.data) {
+          setAllProcesses(result.data);
+          console.log(`[ScrapeJobDetailPage] ✓ ${result.data.length} processos carregados`);
+        } else {
+          console.error('[ScrapeJobDetailPage] Erro ao carregar processos:', result.error);
+          toast.error(result.error || 'Erro ao carregar processos');
+        }
+      } catch (err) {
+        console.error('[ScrapeJobDetailPage] Erro ao carregar processos:', err);
+        toast.error('Erro ao carregar dados dos processos');
+      } finally {
+        setIsLoadingProcesses(false);
+      }
+    };
+
+    fetchProcesses();
+  }, [job?.id]);
 
   if (isLoading) {
     return (
@@ -262,7 +271,14 @@ export default function ScrapeJobDetailPage() {
       />
 
       {/* Results Tabs */}
-      <ScrapeResultsTabs job={job} />
+      {isLoadingProcesses ? (
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-96 w-full" />
+        </div>
+      ) : (
+        <ScrapeResultsTabs job={job} allProcesses={allProcesses} />
+      )}
     </div>
   );
 }

@@ -16,6 +16,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Drawer,
   DrawerClose,
   DrawerContent,
@@ -46,6 +56,7 @@ export default function ScrapesPage() {
   const [newJobIds, setNewJobIds] = useState<string[]>([]);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [formHasChanges, setFormHasChanges] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
@@ -64,16 +75,18 @@ export default function ScrapesPage() {
 
   const handleDialogClose = (open: boolean) => {
     if (!open && formHasChanges) {
-      // User is trying to close with unsaved changes
-      const confirmed = window.confirm(
-        'Você tem seleções não salvas. Tem certeza que deseja fechar?'
-      );
-      if (!confirmed) {
-        return; // Don't close
-      }
+      // User is trying to close with unsaved changes - show confirmation
+      setShowCloseConfirm(true);
+      return; // Don't close yet
     }
     setFormHasChanges(false);
     setShowConfigDialog(open);
+  };
+
+  const handleConfirmClose = () => {
+    setFormHasChanges(false);
+    setShowConfigDialog(false);
+    setShowCloseConfirm(false);
   };
 
   const handleViewDetails = (jobId: string) => {
@@ -245,6 +258,24 @@ export default function ScrapesPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Close Confirmation Dialog */}
+      <AlertDialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Descartar alterações?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você tem seleções não salvas. Tem certeza que deseja fechar? As alterações serão perdidas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmClose}>
+              Descartar e Fechar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

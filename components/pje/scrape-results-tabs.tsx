@@ -15,9 +15,10 @@ import type { ScrapeJobWithRelations } from '@/lib/types/scraping';
 
 interface ScrapeResultsTabsProps {
   job: ScrapeJobWithRelations;
+  allProcesses: any[];
 }
 
-export function ScrapeResultsTabs({ job }: ScrapeResultsTabsProps) {
+export function ScrapeResultsTabs({ job, allProcesses }: ScrapeResultsTabsProps) {
   const [activeTab, setActiveTab] = useState('table');
 
   return (
@@ -38,15 +39,15 @@ export function ScrapeResultsTabs({ job }: ScrapeResultsTabsProps) {
       </TabsList>
 
       <TabsContent value="table" className="space-y-4">
-        <ResultsTableView job={job} />
+        <ResultsTableView job={job} allProcesses={allProcesses} />
       </TabsContent>
 
       <TabsContent value="json" className="space-y-4">
-        <ResultsJSONView job={job} />
+        <ResultsJSONView job={job} allProcesses={allProcesses} />
       </TabsContent>
 
       <TabsContent value="explorer" className="space-y-4">
-        <ResultsExplorerView job={job} />
+        <ResultsExplorerView job={job} allProcesses={allProcesses} />
       </TabsContent>
     </Tabs>
   );

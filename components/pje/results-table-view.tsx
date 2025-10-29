@@ -36,10 +36,10 @@ import {
   X,
 } from 'lucide-react';
 import type { ScrapeJobWithRelations } from '@/lib/types/scraping';
-import { decompressJSON } from '@/lib/utils/compression';
 
 interface ResultsTableViewProps {
   job: ScrapeJobWithRelations;
+  allProcesses: any[];
 }
 
 interface ProcessData {
@@ -53,33 +53,13 @@ interface ProcessData {
 
 type SortDirection = 'asc' | 'desc' | null;
 
-export function ResultsTableView({ job }: ResultsTableViewProps) {
+export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
-
-  // Extract and decompress process data from all executions
-  const allProcesses = useMemo(() => {
-    const processes: ProcessData[] = [];
-
-    job.executions?.forEach((execution) => {
-      if (execution.resultData) {
-        try {
-          const decompressed = decompressJSON(execution.resultData);
-          if (decompressed?.processos && Array.isArray(decompressed.processos)) {
-            processes.push(...decompressed.processos);
-          }
-        } catch (error) {
-          console.error('[ResultsTableView] Error decompressing data:', error);
-        }
-      }
-    });
-
-    return processes;
-  }, [job.executions]);
 
   // Filter processes by search term
   const filteredProcesses = useMemo(() => {

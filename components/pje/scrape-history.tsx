@@ -31,11 +31,22 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Loader2, Search, CalendarIcon, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Search, CalendarIcon, Eye, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { listScrapeJobsAction } from '@/app/actions/pje';
+import { listScrapeJobsAction, deleteScrapeJobAction } from '@/app/actions/pje';
 import type { ScrapeJobWithRelations, ScrapeJobStatus, ScrapeType } from '@/lib/types/scraping';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 interface ScrapeHistoryProps {
   /** Callback when user clicks to view job details */
@@ -56,6 +67,10 @@ export function ScrapeHistory({ onViewDetails, refreshTrigger }: ScrapeHistoryPr
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+
+  // Delete confirmation
+  const [jobToDelete, setJobToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchJobs();
@@ -139,6 +154,28 @@ export function ScrapeHistory({ onViewDetails, refreshTrigger }: ScrapeHistoryPr
     setDateFrom(undefined);
     setDateTo(undefined);
     setPage(1);
+  };
+
+  const handleDeleteJob = async () => {
+    if (!jobToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await deleteScrapeJobAction(jobToDelete);
+
+      if (result.success) {
+        toast.success('Raspagem deletada com sucesso');
+        setJobToDelete(null);
+        fetchJobs(); // Refresh list
+      } else {
+        toast.error(result.error || 'Erro ao deletar raspagem');
+      }
+    } catch (error) {
+      console.error('Error deleting job:', error);
+      toast.error('Erro ao deletar raspagem');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -274,14 +311,26 @@ export function ScrapeHistory({ onViewDetails, refreshTrigger }: ScrapeHistoryPr
                         <span className="text-sm font-medium">{getSuccessRate(job)}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onViewDetails?.(job.id)}
-                        >
-                          <Eye className="mr-2 h-4 w-4" />
-                          Ver Detalhes
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onViewDetails?.(job.id)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setJobToDelete(job.id);
+                            }}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -320,6 +369,35 @@ export function ScrapeHistory({ onViewDetails, refreshTrigger }: ScrapeHistoryPr
           </>
         )}
       </CardContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!jobToDelete} onOpenChange={(open) => !open && setJobToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deletar Raspagem</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja deletar esta raspagem? Esta ação não pode ser desfeita e todos os dados relacionados serão permanentemente removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteJob}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deletando...
+                </>
+              ) : (
+                'Deletar'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

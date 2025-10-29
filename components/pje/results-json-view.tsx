@@ -12,36 +12,16 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Copy, Check, Search, X, ChevronDown, ChevronRight } from 'lucide-react';
 import type { ScrapeJobWithRelations } from '@/lib/types/scraping';
-import { decompressJSON } from '@/lib/utils/compression';
 
 interface ResultsJSONViewProps {
   job: ScrapeJobWithRelations;
+  allProcesses: any[];
 }
 
-export function ResultsJSONView({ job }: ResultsJSONViewProps) {
+export function ResultsJSONView({ job, allProcesses }: ResultsJSONViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [copied, setCopied] = useState(false);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
-
-  // Extract all processes
-  const allProcesses = useMemo(() => {
-    const processes: any[] = [];
-
-    job.executions?.forEach((execution) => {
-      if (execution.resultData) {
-        try {
-          const decompressed = decompressJSON(execution.resultData);
-          if (decompressed?.processos && Array.isArray(decompressed.processos)) {
-            processes.push(...decompressed.processos);
-          }
-        } catch (error) {
-          console.error('[ResultsJSONView] Error decompressing data:', error);
-        }
-      }
-    });
-
-    return processes;
-  }, [job.executions]);
 
   // Create full data object
   const jsonData = useMemo(() => ({

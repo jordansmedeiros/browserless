@@ -2,6 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +34,7 @@ import {
   toggleCredencialAction,
   testCredencialAction,
 } from '@/app/actions/pje';
+import { toast } from 'sonner';
 
 const UFS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -44,6 +55,7 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
   const [activeTab, setActiveTab] = useState('lawyer-info');
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [credentialToDelete, setCredentialToDelete] = useState<string | null>(null);
 
   // Form state for lawyer info
   const [lawyerForm, setLawyerForm] = useState({
@@ -139,15 +151,20 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
   }
 
   async function handleDeleteCredencial(credencialId: string) {
-    if (!confirm('Deseja realmente excluir esta credencial?')) return;
+    setCredentialToDelete(credencialId);
+  }
 
-    const result = await deleteCredencialAction(credencialId);
+  async function confirmDeleteCredencial() {
+    if (!credentialToDelete) return;
+
+    const result = await deleteCredencialAction(credentialToDelete);
     if (result.success) {
       setMessage({ type: 'success', text: 'Credencial excluída' });
       await loadAdvogado();
     } else {
       setMessage({ type: 'error', text: result.error || 'Erro ao excluir credencial' });
     }
+    setCredentialToDelete(null);
   }
 
   async function handleTestCredencial(credencialId: string) {
@@ -178,6 +195,10 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
       }
       return newSet;
     });
+  }
+
+  function handleAddCredencial() {
+    toast.info('Funcionalidade de adicionar credencial será implementada em breve');
   }
 
   if (!lawyerId) return null;
@@ -300,104 +321,108 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
                 </div>
               </TabsContent>
 
-              <TabsContent value="credentials" className="flex-1 overflow-y-auto space-y-4 mt-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Lista de Credenciais ({advogado?.credenciais.length || 0})
-                  </h3>
-                  <Button size="sm">Adicionar Credencial</Button>
+              <TabsContent value="credentials" className="flex-1 flex flex-col mt-4">
+                <div className="flex-shrink-0 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      Lista de Credenciais ({advogado?.credenciais.length || 0})
+                    </h3>
+                    <Button size="sm" onClick={handleAddCredencial}>Adicionar Credencial</Button>
+                  </div>
                 </div>
 
-                {advogado?.credenciais && advogado.credenciais.length > 0 ? (
-                  <div className="space-y-3">
-                    {advogado.credenciais.map((credencial) => (
-                      <div
-                        key={credencial.id}
-                        className="p-4 rounded-lg border bg-card space-y-3"
-                      >
-                        {/* Header */}
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2">
-                            <Key className="w-5 h-5 text-yellow-600" />
-                            <span className="font-semibold">{credencial.descricao || 'Sem descrição'}</span>
+                <div className="flex-1 overflow-y-auto py-4 min-h-0">
+                  {advogado?.credenciais && advogado.credenciais.length > 0 ? (
+                    <div className="space-y-3">
+                      {advogado.credenciais.map((credencial) => (
+                        <div
+                          key={credencial.id}
+                          className="p-4 rounded-lg border bg-card space-y-3"
+                        >
+                          {/* Header */}
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                              <Key className="w-5 h-5 text-yellow-600" />
+                              <span className="font-semibold">{credencial.descricao || 'Sem descrição'}</span>
+                            </div>
+                            <Badge variant={credencial.ativa ? 'default' : 'secondary'}>
+                              {credencial.ativa ? 'Ativa' : 'Inativa'}
+                            </Badge>
                           </div>
-                          <Badge variant={credencial.ativa ? 'default' : 'secondary'}>
-                            {credencial.ativa ? 'Ativa' : 'Inativa'}
-                          </Badge>
-                        </div>
 
-                        {/* Senha */}
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className="text-muted-foreground font-medium">Senha:</span>
-                          <code className="bg-muted px-2 py-1 rounded">
-                            {visiblePasswords.has(credencial.id) ? credencial.senha : '••••••••'}
-                          </code>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={() => togglePasswordVisibility(credencial.id)}
-                          >
-                            {visiblePasswords.has(credencial.id) ? (
-                              <EyeOff className="w-3.5 h-3.5" />
-                            ) : (
-                              <Eye className="w-3.5 h-3.5" />
-                            )}
-                          </Button>
-                        </div>
+                          {/* Senha */}
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground font-medium">Senha:</span>
+                            <code className="bg-muted px-2 py-1 rounded">
+                              {visiblePasswords.has(credencial.id) ? credencial.senha : '••••••••'}
+                            </code>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => togglePasswordVisibility(credencial.id)}
+                            >
+                              {visiblePasswords.has(credencial.id) ? (
+                                <EyeOff className="w-3.5 h-3.5" />
+                              ) : (
+                                <Eye className="w-3.5 h-3.5" />
+                              )}
+                            </Button>
+                          </div>
 
-                        {/* Tribunais */}
-                        <div className="text-sm">
-                          <span className="text-muted-foreground font-medium">Tribunais:</span>{' '}
-                          <span className="text-muted-foreground">
-                            {credencial.tribunais.length} configurado(s)
-                          </span>
-                        </div>
+                          {/* Tribunais */}
+                          <div className="text-sm">
+                            <span className="text-muted-foreground font-medium">Tribunais:</span>{' '}
+                            <span className="text-muted-foreground">
+                              {credencial.tribunais.length} configurado(s)
+                            </span>
+                          </div>
 
-                        {/* Actions */}
-                        <div className="flex gap-2 flex-wrap">
-                          <Button size="sm" variant="outline">
-                            Editar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleTestCredencial(credencial.id)}
-                          >
-                            Testar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleToggleCredencial(credencial.id)}
-                          >
-                            {credencial.ativa ? 'Desativar' : 'Ativar'}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleDeleteCredencial(credencial.id)}
-                          >
-                            <Trash2 className="w-3.5 h-3.5 mr-1" />
-                            Excluir
-                          </Button>
+                          {/* Actions */}
+                          <div className="flex gap-2 flex-wrap">
+                            <Button size="sm" variant="outline">
+                              Editar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleTestCredencial(credencial.id)}
+                            >
+                              Testar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleToggleCredencial(credencial.id)}
+                            >
+                              {credencial.ativa ? 'Desativar' : 'Ativar'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleDeleteCredencial(credencial.id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1" />
+                              Excluir
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                    <Key className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
-                    <h3 className="text-lg font-semibold mb-1">Nenhuma credencial cadastrada</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Adicione credenciais para permitir acesso aos sistemas do PJE
-                    </p>
-                    <Button>Adicionar Credencial</Button>
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                      <Key className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                      <h3 className="text-lg font-semibold mb-1">Nenhuma credencial cadastrada</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Adicione credenciais para permitir acesso aos sistemas do PJE
+                      </p>
+                      <Button onClick={handleAddCredencial}>Adicionar Credencial</Button>
+                    </div>
+                  )}
+                </div>
 
-                <div className="flex justify-end pt-4 border-t">
+                <div className="flex-shrink-0 flex justify-end pt-4 border-t mt-4">
                   <Button variant="outline" onClick={onClose}>
                     Fechar
                   </Button>
@@ -407,6 +432,27 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
           </>
         )}
       </DialogContent>
+
+      {/* Delete Credential Confirmation Dialog */}
+      <AlertDialog open={!!credentialToDelete} onOpenChange={(open) => !open && setCredentialToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Credencial</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta credencial? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteCredencial}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

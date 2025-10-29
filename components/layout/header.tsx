@@ -13,9 +13,6 @@ export function Header() {
       <div className="flex flex-1 items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Dashboard</h2>
-          <p className="text-sm text-muted-foreground">
-            Bem-vindo ao sistema de automação PJE
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon">

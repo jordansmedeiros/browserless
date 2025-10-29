@@ -25,10 +25,10 @@ import {
   X,
 } from 'lucide-react';
 import type { ScrapeJobWithRelations } from '@/lib/types/scraping';
-import { decompressJSON } from '@/lib/utils/compression';
 
 interface ResultsExplorerViewProps {
   job: ScrapeJobWithRelations;
+  allProcesses: any[];
 }
 
 interface ProcessNode {
@@ -44,47 +44,29 @@ interface TribunalNode {
   expanded: boolean;
 }
 
-export function ResultsExplorerView({ job }: ResultsExplorerViewProps) {
+export function ResultsExplorerView({ job, allProcesses }: ResultsExplorerViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
-  // Build tribunal tree structure
+  // Build simplified tree structure (all processes grouped together)
   const tribunalTree = useMemo(() => {
-    const nodes: TribunalNode[] = [];
+    if (allProcesses.length === 0) return [];
 
-    job.executions?.forEach((execution) => {
-      if (execution.resultData) {
-        try {
-          const decompressed = decompressJSON(execution.resultData);
-          if (decompressed?.processos && Array.isArray(decompressed.processos)) {
-            // Get tribunal info
-            const tribunalConfig = job.tribunals?.find(
-              (t) => t.tribunalConfigId === execution.tribunalConfigId
-            )?.tribunalConfig;
-
-            const tribunalName = tribunalConfig
-              ? `${tribunalConfig.tribunal.codigo} - ${tribunalConfig.grau}º Grau`
-              : execution.id.slice(0, 8);
-
-            nodes.push({
-              tribunal: tribunalName,
-              executionId: execution.id,
-              processCount: decompressed.processos.length,
-              processes: decompressed.processos.map((p: any) => ({
-                numeroProcesso: p.numeroProcesso || 'Sem número',
-                data: p,
-              })),
-              expanded: false,
-            });
-          }
-        } catch (error) {
-          console.error('[ResultsExplorerView] Error decompressing data:', error);
-        }
-      }
-    });
+    // Group all processes under a single node
+    const nodes: TribunalNode[] = [{
+      tribunal: 'Todos os Processos',
+      executionId: 'all',
+      processCount: allProcesses.length,
+      processes: allProcesses.map((p: any) => ({
+        numeroProcesso: p.numeroProcesso || p.nrProcesso || 'Sem número',
+        data: p,
+      })),
+      expanded: false,
+    }];
 
     return nodes;
-  }, [job.executions, job.tribunals]);
+  }, [allProcesses]);
+
 
   // Filter by search term
   const filteredTree = useMemo(() => {

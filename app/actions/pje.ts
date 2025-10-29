@@ -1549,6 +1549,153 @@ export async function getScrapeExecutionAction(executionId: string) {
 }
 
 /**
+ * Server Action: Get Scrape Execution Processes
+ * Gets processes from an execution using hybrid loading strategy:
+ * 1. Tries to load from type-specific tables (preferred)
+ * 2. Falls back to compressed resultData if tables are empty
+ */
+export async function getScrapeExecutionProcessesAction(
+  executionId: string,
+  scrapeType: string
+) {
+  try {
+    const { loadProcessosFromExecution } = await import('@/lib/services/scrape-data-loader');
+    const { ScrapeType } = await import('@/lib/types/scraping');
+    const prisma = await getPrisma();
+
+    // Validate scrape type
+    const validTypes = Object.values(ScrapeType);
+    if (!validTypes.includes(scrapeType as ScrapeType)) {
+      return {
+        success: false,
+        error: `Tipo de raspagem inválido: ${scrapeType}`,
+      };
+    }
+
+    // Get execution to fetch resultData (for fallback)
+    const execution = await prisma.scrapeExecution.findUnique({
+      where: { id: executionId },
+      select: { resultData: true },
+    });
+
+    if (!execution) {
+      return {
+        success: false,
+        error: 'Execução não encontrada',
+      };
+    }
+
+    // Load processes using hybrid strategy
+    const processos = await loadProcessosFromExecution(
+      executionId,
+      scrapeType as ScrapeType,
+      execution.resultData
+    );
+
+    return {
+      success: true,
+      data: processos,
+    };
+  } catch (error) {
+    console.error('[getScrapeExecutionProcessesAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao carregar processos',
+    };
+  }
+}
+
+/**
+ * Server Action: Get All Processes from Scrape Job
+ * Gets all processes from all executions of a job using hybrid loading strategy
+ */
+export async function getScrapeJobProcessesAction(jobId: string) {
+  try {
+    const { loadAllProcessosFromJob } = await import('@/lib/services/scrape-data-loader');
+    const prisma = await getPrisma();
+
+    // Get job with executions
+    const job = await prisma.scrapeJob.findUnique({
+      where: { id: jobId },
+      select: {
+        scrapeType: true,
+        executions: {
+          select: {
+            id: true,
+            resultData: true,
+          },
+        },
+      },
+    });
+
+    if (!job) {
+      return {
+        success: false,
+        error: 'Job não encontrado',
+      };
+    }
+
+    // Load all processes using hybrid strategy
+    const processos = await loadAllProcessosFromJob(
+      job.executions,
+      job.scrapeType as any
+    );
+
+    return {
+      success: true,
+      data: processos,
+    };
+  } catch (error) {
+    console.error('[getScrapeJobProcessesAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao carregar processos',
+    };
+  }
+}
+
+/**
+ * Server Action: Delete Scrape Job
+ * Deletes a scrape job and all its related data
+ */
+export async function deleteScrapeJobAction(jobId: string) {
+  try {
+    const prisma = await getPrisma();
+
+    // Verify job exists
+    const job = await prisma.scrapeJob.findUnique({
+      where: { id: jobId },
+      select: { id: true, scrapeType: true },
+    });
+
+    if (!job) {
+      return {
+        success: false,
+        error: 'Job não encontrado',
+      };
+    }
+
+    // Delete job (cascade will delete related records)
+    await prisma.scrapeJob.delete({
+      where: { id: jobId },
+    });
+
+    console.log(`[deleteScrapeJobAction] Job ${jobId} deletado com sucesso`);
+
+    return {
+      success: true,
+      message: 'Job deletado com sucesso',
+    };
+  } catch (error) {
+    console.error('[deleteScrapeJobAction] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao deletar job',
+    };
+  }
+}
+
+/**
  * Server Action: Retry Scrape Execution
  * Retries a failed execution for a specific tribunal
  */
