@@ -554,14 +554,22 @@ async function getCredentialsForTribunal(
     return null;
   }
 
+  // Busca idAdvogado do CredencialTribunal (específico por tribunal/grau)
+  // Fallback para Advogado.idAdvogado (backward compatibility)
+  const idAdvogado = credencialTribunal.idAdvogado ||
+                     credencialTribunal.credencial.advogado.idAdvogado;
+
+  if (!idAdvogado) {
+    throw new Error(
+      `ID do advogado não encontrado para o tribunal. ` +
+      `Verifique se o campo idAdvogado está preenchido na credencial do tribunal.`
+    );
+  }
+
   return {
     cpf: credencialTribunal.credencial.advogado.cpf,
     senha: credencialTribunal.credencial.senha,
-    // Busca idAdvogado do CredencialTribunal (específico por tribunal/grau)
-    // Fallback para Advogado.idAdvogado (backward compatibility)
-    idAdvogado: credencialTribunal.idAdvogado ||
-                credencialTribunal.credencial.advogado.idAdvogado ||
-                '',
+    idAdvogado: idAdvogado,
   };
 }
 

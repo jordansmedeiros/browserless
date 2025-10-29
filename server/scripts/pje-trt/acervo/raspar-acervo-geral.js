@@ -15,40 +15,17 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import fs from 'fs/promises';
+import { validarCredenciais, obterIdAdvogado } from '../common/auth-helpers.js';
 
 puppeteer.use(StealthPlugin());
 
-// Validação de credenciais
-function validarCredenciais() {
-  const credenciaisFaltando = [];
-
-  if (!process.env.PJE_CPF) credenciaisFaltando.push('PJE_CPF');
-  if (!process.env.PJE_SENHA) credenciaisFaltando.push('PJE_SENHA');
-  if (!process.env.PJE_ID_ADVOGADO) credenciaisFaltando.push('PJE_ID_ADVOGADO');
-
-  if (credenciaisFaltando.length > 0) {
-    console.error('\n' + '='.repeat(70));
-    console.error('❌ ERRO: Credenciais PJE não configuradas');
-    console.error('='.repeat(70));
-    console.error('\nVariáveis de ambiente faltando:');
-    credenciaisFaltando.forEach(v => console.error(`  - ${v}`));
-    console.error('\n💡 Como configurar:');
-    console.error('  1. Copie o arquivo .env.example para .env');
-    console.error('  2. Preencha as variáveis PJE_CPF, PJE_SENHA e PJE_ID_ADVOGADO');
-    console.error('  3. Execute o script novamente');
-    console.error('\n📖 Consulte o README para mais informações.\n');
-    console.error('='.repeat(70) + '\n');
-    process.exit(1);
-  }
-}
-
-// Valida credenciais antes de prosseguir
-validarCredenciais();
+// Valida credenciais antes de prosseguir (CPF e SENHA são obrigatórios, ID_ADVOGADO é opcional)
+validarCredenciais(false);
 
 // Lê credenciais das variáveis de ambiente
 const CPF = process.env.PJE_CPF;
 const SENHA = process.env.PJE_SENHA;
-const ID_ADVOGADO = parseInt(process.env.PJE_ID_ADVOGADO, 10);
+const ID_ADVOGADO = process.env.PJE_ID_ADVOGADO ? parseInt(process.env.PJE_ID_ADVOGADO, 10) : null;
 
 // URLs configuráveis via environment variables (para multi-tribunal)
 const PJE_LOGIN_URL = process.env.PJE_LOGIN_URL || 'https://pje.trt3.jus.br/primeirograu/login.seam';
@@ -128,14 +105,10 @@ async function rasparAcervoGeral() {
     await delay(5000);
 
     // ====================================================================
-    // PASSO 2: DEFINIR ID DO ADVOGADO
+    // PASSO 2: BUSCAR ID DO ADVOGADO (do JWT ou fallback para variável de ambiente)
     // ====================================================================
 
-    console.error('👤 Configurando ID do advogado...\n');
-
-    // Usando ID da variável de ambiente
-    const idAdvogado = ID_ADVOGADO;
-    console.error(`✅ ID do advogado: ${idAdvogado}\n`);
+    const { idAdvogado, advogadoInfo } = await obterIdAdvogado(page, ID_ADVOGADO);
 
     // ====================================================================
     // PASSO 3: BUSCAR TOTALIZADORES (para confirmar quantidade)
@@ -196,7 +169,9 @@ async function rasparAcervoGeral() {
       success: true,
       processosCount: processos.length,
       processos: processos,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      // Inclui info do advogado para salvar no banco (se foi descoberto via JWT)
+      advogado: advogadoInfo,
     };
     console.log(JSON.stringify(resultado));
 

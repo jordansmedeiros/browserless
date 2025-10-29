@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Table,
@@ -63,6 +63,11 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
+  // Clear selection when filters or sorting changes
+  useEffect(() => {
+    setSelectedRows(new Set());
+  }, [searchTerm, sortColumn, sortDirection]);
+
   // Filter processes by search term
   const filteredProcesses = useMemo(() => {
     if (!searchTerm.trim()) return allProcesses;
@@ -107,7 +112,6 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
     getScrollElement: () => tableContainerRef.current,
     estimateSize: () => 48, // Altura estimada de cada linha em pixels
     overscan: 5, // Renderizar 5 linhas extras acima/abaixo do viewport
-    enabled: paginatedProcesses.length > 50, // Só ativar virtualização se >50 linhas
   });
 
   // Calculate pagination info
@@ -158,13 +162,34 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
     setSelectedRows(newSelected);
   };
 
-  // Handle select all
+  // Handle select all (only current page)
   const handleSelectAll = () => {
-    if (selectedRows.size === sortedProcesses.length) {
-      setSelectedRows(new Set());
-    } else {
-      setSelectedRows(new Set(sortedProcesses.map((_, index) => index)));
+    const start = (currentPage - 1) * pageSize;
+    const count = paginatedProcesses.length;
+    const end = start + count;
+
+    // Check if entire current page is selected
+    let allPageSelected = true;
+    for (let i = start; i < end; i++) {
+      if (!selectedRows.has(i)) {
+        allPageSelected = false;
+        break;
+      }
     }
+
+    const newSelected = new Set(selectedRows);
+    if (allPageSelected) {
+      // Unselect all indices on current page
+      for (let i = start; i < end; i++) {
+        newSelected.delete(i);
+      }
+    } else {
+      // Select all indices on current page
+      for (let i = start; i < end; i++) {
+        newSelected.add(i);
+      }
+    }
+    setSelectedRows(newSelected);
   };
 
   // Format cell value
@@ -258,7 +283,16 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
               <TableHead className="w-12">
                 <Checkbox
                   aria-label="Selecionar todos os processos da página"
-                  checked={selectedRows.size === sortedProcesses.length && sortedProcesses.length > 0}
+                  checked={(() => {
+                    const start = (currentPage - 1) * pageSize;
+                    const count = paginatedProcesses.length;
+                    const end = start + count;
+                    if (count === 0) return false;
+                    for (let i = start; i < end; i++) {
+                      if (!selectedRows.has(i)) return false;
+                    }
+                    return true;
+                  })()}
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
@@ -296,7 +330,16 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
               // Virtualização ativada para >50 linhas
               <>
                 {/* Spacer para altura total */}
-                <tr style={{ height: `${rowVirtualizer.getTotalSize()}px` }} />
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length + 1}
+                    style={{
+                      height: `${rowVirtualizer.getTotalSize()}px`,
+                      padding: 0,
+                      border: 'none'
+                    }}
+                  />
+                </TableRow>
 
                 {/* Renderizar apenas linhas virtualizadas */}
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {

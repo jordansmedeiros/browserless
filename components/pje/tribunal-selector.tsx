@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -22,28 +22,6 @@ import type { TribunalConfigConstant } from '@/lib/constants/tribunais';
 import type { Regiao, Sistema } from '@/lib/types/tribunal';
 import { getGrauLabel, getSistemaBadgeColor } from '@/lib/types/tribunal';
 import { getCredencialAction } from '@/app/actions/pje';
-
-/**
- * IndeterminateCheckbox - Checkbox com suporte ao estado indeterminado
- * O estado `indeterminate` é uma propriedade DOM, não um atributo HTML
- */
-interface IndeterminateCheckboxProps extends React.ComponentPropsWithoutRef<typeof Checkbox> {
-  indeterminate?: boolean;
-}
-
-function IndeterminateCheckbox({ indeterminate, ...props }: IndeterminateCheckboxProps) {
-  const ref = useRef<React.ElementRef<typeof Checkbox>>(null);
-
-  useEffect(() => {
-    if (ref.current) {
-      // Radix UI Checkbox.Root renderiza <button role="checkbox"> mas expõe propriedade indeterminate
-      // via ref forwarding interno
-      (ref.current as any).indeterminate = indeterminate ?? false;
-    }
-  }, [indeterminate]);
-
-  return <Checkbox ref={ref} {...props} />;
-}
 
 interface TribunalSelectorProps {
   /** Lista de todos os tribunais disponíveis */
@@ -394,9 +372,8 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
                     const selectionState = getTribunalSelectionState(grupo.sistemas);
                     return (
                       <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
-                        <IndeterminateCheckbox
-                          checked={selectionState === 'all'}
-                          indeterminate={selectionState === 'partial'}
+                        <Checkbox
+                          checked={selectionState === 'all' ? true : (selectionState === 'partial' ? 'indeterminate' : false)}
                           onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
                         />
                         <div className="flex items-center gap-2 min-w-[180px]">
@@ -409,9 +386,8 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
                             const sistemaState = getSistemaSelectionState(configs);
                             return (
                               <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-2">
-                                <IndeterminateCheckbox
-                                  checked={sistemaState === 'all'}
-                                  indeterminate={sistemaState === 'partial'}
+                                <Checkbox
+                                  checked={sistemaState === 'all' ? true : (sistemaState === 'partial' ? 'indeterminate' : false)}
                                   onCheckedChange={() => handleToggleSistema(configs)}
                                 />
                                 <Badge
@@ -463,9 +439,8 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
                     const selectionState = getTribunalSelectionState(grupo.sistemas);
                     return (
                       <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
-                        <IndeterminateCheckbox
-                          checked={selectionState === 'all'}
-                          indeterminate={selectionState === 'partial'}
+                        <Checkbox
+                          checked={selectionState === 'all' ? true : (selectionState === 'partial' ? 'indeterminate' : false)}
                           onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
                         />
                         <div className="flex items-center gap-2 min-w-[180px]">
@@ -478,9 +453,8 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
                             const sistemaState = getSistemaSelectionState(configs);
                             return (
                               <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-2">
-                                <IndeterminateCheckbox
-                                  checked={sistemaState === 'all'}
-                                  indeterminate={sistemaState === 'partial'}
+                                <Checkbox
+                                  checked={sistemaState === 'all' ? true : (sistemaState === 'partial' ? 'indeterminate' : false)}
                                   onCheckedChange={() => handleToggleSistema(configs)}
                                 />
                                 <Badge
@@ -532,9 +506,8 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
                     const selectionState = getTribunalSelectionState(grupo.sistemas);
                     return (
                       <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
-                        <IndeterminateCheckbox
-                          checked={selectionState === 'all'}
-                          indeterminate={selectionState === 'partial'}
+                        <Checkbox
+                          checked={selectionState === 'all' ? true : (selectionState === 'partial' ? 'indeterminate' : false)}
                           onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
                         />
                         <div className="flex items-center gap-2 min-w-[180px]">
@@ -547,9 +520,8 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
                             const sistemaState = getSistemaSelectionState(configs);
                             return (
                               <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-2">
-                                <IndeterminateCheckbox
-                                  checked={sistemaState === 'all'}
-                                  indeterminate={sistemaState === 'partial'}
+                                <Checkbox
+                                  checked={sistemaState === 'all' ? true : (sistemaState === 'partial' ? 'indeterminate' : false)}
                                   onCheckedChange={() => handleToggleSistema(configs)}
                                 />
                                 <Badge
@@ -601,9 +573,8 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
                     const selectionState = getTribunalSelectionState(grupo.sistemas);
                     return (
                       <div key={grupo.codigo} className="flex items-center gap-4 px-4 py-3 hover:bg-accent">
-                        <IndeterminateCheckbox
-                          checked={selectionState === 'all'}
-                          indeterminate={selectionState === 'partial'}
+                        <Checkbox
+                          checked={selectionState === 'all' ? true : (selectionState === 'partial' ? 'indeterminate' : false)}
                           onCheckedChange={() => handleToggleTribunal(grupo.sistemas)}
                         />
                         <div className="flex items-center gap-2 min-w-[180px]">
@@ -616,9 +587,8 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
                             const sistemaState = getSistemaSelectionState(configs);
                             return (
                               <div key={`${grupo.codigo}-${sistema}`} className="flex items-center gap-2">
-                                <IndeterminateCheckbox
-                                  checked={sistemaState === 'all'}
-                                  indeterminate={sistemaState === 'partial'}
+                                <Checkbox
+                                  checked={sistemaState === 'all' ? true : (sistemaState === 'partial' ? 'indeterminate' : false)}
                                   onCheckedChange={() => handleToggleSistema(configs)}
                                 />
                                 <Badge
