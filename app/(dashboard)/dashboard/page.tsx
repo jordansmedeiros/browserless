@@ -31,13 +31,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Visão geral do sistema de automação PJE
-        </p>
-      </div>
-
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
@@ -58,83 +51,6 @@ export default function DashboardPage() {
             </Card>
           );
         })}
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Início Rápido</CardTitle>
-            <CardDescription>
-              Comece a usar o sistema em 3 passos simples
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
-                1
-              </div>
-              <div>
-                <p className="font-medium">Faça login no PJE</p>
-                <p className="text-sm text-muted-foreground">
-                  Configure suas credenciais e autentique no sistema
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
-                2
-              </div>
-              <div>
-                <p className="font-medium">Configure raspagem</p>
-                <p className="text-sm text-muted-foreground">
-                  Escolha quais processos deseja monitorar
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
-                3
-              </div>
-              <div>
-                <p className="font-medium">Visualize resultados</p>
-                <p className="text-sm text-muted-foreground">
-                  Acesse os dados coletados em tempo real
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Recursos Disponíveis</CardTitle>
-            <CardDescription>
-              Funcionalidades implementadas nesta versão
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-green-500" />
-              <span className="text-sm">Login automatizado no PJE</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-green-500" />
-              <span className="text-sm">Raspagem de processos</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-green-500" />
-              <span className="text-sm">Anti-detecção CloudFront</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-yellow-500" />
-              <span className="text-sm">Dashboard em tempo real (em breve)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-yellow-500" />
-              <span className="text-sm">Agendamento de tarefas (em breve)</span>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

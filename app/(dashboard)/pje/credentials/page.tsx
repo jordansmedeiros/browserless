@@ -192,17 +192,7 @@ export default function CredentialsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">
-          Gerenciamento de Credenciais PJE
-        </h1>
-        <p className="text-muted-foreground">
-          Gerencie escritórios, advogados e credenciais do PJE
-        </p>
-      </div>
-
-      {/* Action Bar */}
+        {/* Action Bar */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex flex-col sm:flex-row gap-3 flex-1">
           <Button onClick={() => setEscritorioDialog(true)}>

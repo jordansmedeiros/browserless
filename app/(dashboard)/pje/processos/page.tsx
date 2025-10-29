@@ -6,12 +6,6 @@ export default function ProcessosPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Processos</h1>
-          <p className="text-muted-foreground">
-            Visualize e gerencie os processos raspados do PJE
-          </p>
-        </div>
         <div className="flex gap-2">
           <Button variant="outline">
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -38,7 +32,7 @@ export default function ProcessosPage() {
             <p className="mb-4 text-sm text-muted-foreground">
               Execute uma raspagem para visualizar processos aqui
             </p>
-            <Button>Ir para Login PJE</Button>
+            <Button>Ir para Raspagens</Button>
           </div>
         </CardContent>
       </Card>

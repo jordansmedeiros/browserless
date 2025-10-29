@@ -29,13 +29,11 @@ import {
   Drawer,
   DrawerClose,
   DrawerContent,
-  DrawerDescription,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Plus, Activity, History, Eye, X, RefreshCw, Terminal as TerminalIcon } from 'lucide-react';
@@ -103,46 +101,40 @@ export default function ScrapesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Raspagens PJE</h1>
-          <p className="text-muted-foreground">
-            Configure e monitore raspagens de processos judiciais
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          {/* Auto-refresh toggle */}
-          <div className="flex items-center gap-2">
-            <Switch
-              id="auto-refresh"
-              checked={autoRefresh}
-              onCheckedChange={setAutoRefresh}
-            />
-            <Label htmlFor="auto-refresh" className="cursor-pointer flex items-center gap-1.5">
-              <RefreshCw className={`h-4 w-4 ${autoRefresh ? 'text-primary' : 'text-muted-foreground'}`} />
-              <span className="text-sm">Auto-atualizar</span>
-            </Label>
-          </div>
-          <Button onClick={() => setShowConfigDialog(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nova Raspagem
-          </Button>
-        </div>
-      </div>
-
       {/* Main Content Tabs */}
       <Tabs defaultValue="active" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="active" className="gap-2">
-            <Activity className="h-4 w-4" />
-            Jobs Ativos
-          </TabsTrigger>
-          <TabsTrigger value="history" className="gap-2">
-            <History className="h-4 w-4" />
-            Histórico
-          </TabsTrigger>
-        </TabsList>
+        {/* Header: Tabs + Controls */}
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="active" className="gap-2">
+              <Activity className="h-4 w-4" />
+              Jobs Ativos
+            </TabsTrigger>
+            <TabsTrigger value="history" className="gap-2">
+              <History className="h-4 w-4" />
+              Histórico
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="flex items-center gap-4">
+            {/* Auto-refresh toggle */}
+            <div className="flex items-center gap-2">
+              <Switch
+                id="auto-refresh"
+                checked={autoRefresh}
+                onCheckedChange={setAutoRefresh}
+              />
+              <Label htmlFor="auto-refresh" className="cursor-pointer flex items-center gap-1.5">
+                <RefreshCw className={`h-4 w-4 ${autoRefresh ? 'text-primary' : 'text-muted-foreground'}`} />
+                <span className="text-sm">Auto-atualizar</span>
+              </Label>
+            </div>
+            <Button onClick={() => setShowConfigDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nova Raspagem
+            </Button>
+          </div>
+        </div>
 
         <TabsContent value="active" className="space-y-4">
           <ScrapeJobMonitor
