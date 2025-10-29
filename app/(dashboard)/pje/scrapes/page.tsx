@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,7 +36,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Plus, Activity, History, Eye, X, RefreshCw, Terminal as TerminalIcon } from 'lucide-react';
+import { Plus, Activity, History, X, RefreshCw, Terminal as TerminalIcon } from 'lucide-react';
 import { ScrapeConfigForm } from '@/components/pje/scrape-config-form';
 import { ScrapeJobMonitor } from '@/components/pje/scrape-job-monitor';
 import { ScrapeHistory } from '@/components/pje/scrape-history';
@@ -44,80 +44,23 @@ import { ScrapeExecutionDetail } from '@/components/pje/scrape-execution-detail'
 import { TerminalMonitor } from '@/components/pje/terminal-monitor';
 import { TRIBUNAL_CONFIGS } from '@/lib/constants/tribunais';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { listAdvogadosAction } from '@/app/actions/pje';
-import type { CredencialWithRelations } from '@/lib/types';
+import { useJobsStore } from '@/lib/stores';
 
 export default function ScrapesPage() {
   const router = useRouter();
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
   const [terminalJobId, setTerminalJobId] = useState<string | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [newJobIds, setNewJobIds] = useState<string[]>([]);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [formHasChanges, setFormHasChanges] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
-  const [credentials, setCredentials] = useState<CredencialWithRelations[]>([]);
-  const [loadingCredentials, setLoadingCredentials] = useState(false);
 
   const isDesktop = useMediaQuery('(min-width: 768px)');
-
-  // Load credentials on mount
-  useEffect(() => {
-    loadCredentials();
-  }, []);
-
-  async function loadCredentials() {
-    setLoadingCredentials(true);
-    try {
-      // Get all advogados with their credentials (including tribunais relationship)
-      const result = await listAdvogadosAction();
-      if (result.success && result.data) {
-        console.log('[loadCredentials] Advogados carregados:', result.data.length);
-
-        // Extract all active credentials from all advogados
-        const allCredentials: CredencialWithRelations[] = [];
-        result.data.forEach((advogado) => {
-          console.log('[loadCredentials] Advogado:', advogado.nome,
-            'escritório:', advogado.escritorio?.nome || 'Sem escritório',
-            'com', advogado.credenciais.length, 'credenciais');
-
-          advogado.credenciais.forEach((credencial) => {
-            if (credencial.ativa) {
-              const tribunaisCount = credencial.tribunais?.length || 0;
-              console.log('[loadCredentials] Credencial:', credencial.id,
-                'descrição:', credencial.descricao || 'sem descrição',
-                'tribunais:', tribunaisCount);
-
-              // Credentials from listAdvogadosAction already include tribunais with full relations
-              allCredentials.push({
-                ...credencial,
-                advogado: {
-                  ...advogado,
-                  credenciais: [], // Avoid circular reference
-                },
-              } as CredencialWithRelations);
-            }
-          });
-        });
-
-        console.log('[loadCredentials] Total de credenciais ativas:', allCredentials.length);
-        console.log('[loadCredentials] Tribunais por credencial:',
-          allCredentials.map(c => ({ id: c.id.slice(0, 8), tribunais: c.tribunais?.length || 0 })));
-        setCredentials(allCredentials);
-      }
-    } catch (error) {
-      console.error('Error loading credentials:', error);
-    } finally {
-      setLoadingCredentials(false);
-    }
-  }
+  const jobsStore = useJobsStore();
 
   const handleJobCreated = (jobId: string) => {
     setFormHasChanges(false);
     setShowConfigDialog(false);
-    setNewJobIds((prev) => [...prev, jobId]);
-    setRefreshTrigger((prev) => prev + 1);
     // Open terminal monitor for the new job
     setTerminalJobId(jobId);
   };
@@ -193,13 +136,7 @@ export default function ScrapesPage() {
 
         <TabsContent value="active" className="space-y-4">
           <ScrapeJobMonitor
-            initialJobIds={newJobIds}
             autoRefresh={autoRefresh}
-            onJobsUpdate={(jobs) => {
-              // Update new job IDs based on active jobs
-              const activeIds = jobs.map((j) => j.id);
-              setNewJobIds((prev) => prev.filter((id) => activeIds.includes(id)));
-            }}
             onViewTerminal={handleViewTerminal}
           />
         </TabsContent>
@@ -207,7 +144,6 @@ export default function ScrapesPage() {
         <TabsContent value="history" className="space-y-4">
           <ScrapeHistory
             onViewDetails={handleViewDetails}
-            refreshTrigger={refreshTrigger}
           />
         </TabsContent>
       </Tabs>
@@ -222,7 +158,6 @@ export default function ScrapesPage() {
               </DialogHeader>
               <div className="flex-1 overflow-y-auto py-4">
                 <ScrapeConfigForm
-                  credentials={credentials}
                   tribunais={TRIBUNAL_CONFIGS}
                   onJobCreated={handleJobCreated}
                   onReset={() => {
@@ -240,7 +175,6 @@ export default function ScrapesPage() {
               </DrawerHeader>
               <div className="px-4 overflow-y-auto max-h-[calc(90vh-200px)]">
                 <ScrapeConfigForm
-                  credentials={credentials}
                   tribunais={TRIBUNAL_CONFIGS}
                   onJobCreated={handleJobCreated}
                   onReset={() => {

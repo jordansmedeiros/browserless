@@ -35,6 +35,7 @@ import { Loader2, Search, CalendarIcon, Eye, ChevronLeft, ChevronRight, Trash2 }
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { listScrapeJobsAction, deleteScrapeJobAction } from '@/app/actions/pje';
+import { useJobsStore } from '@/lib/stores';
 import type { ScrapeJobWithRelations, ScrapeJobStatus, ScrapeType } from '@/lib/types/scraping';
 import {
   AlertDialog,
@@ -51,11 +52,10 @@ import { toast } from 'sonner';
 interface ScrapeHistoryProps {
   /** Callback when user clicks to view job details */
   onViewDetails?: (jobId: string) => void;
-  /** Refresh trigger */
-  refreshTrigger?: number;
 }
 
-export function ScrapeHistory({ onViewDetails, refreshTrigger }: ScrapeHistoryProps) {
+export function ScrapeHistory({ onViewDetails }: ScrapeHistoryProps) {
+  const jobsStore = useJobsStore();
   const [jobs, setJobs] = useState<ScrapeJobWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -74,7 +74,8 @@ export function ScrapeHistory({ onViewDetails, refreshTrigger }: ScrapeHistoryPr
 
   useEffect(() => {
     fetchJobs();
-  }, [page, statusFilter, typeFilter, searchTerm, dateFrom, dateTo, refreshTrigger]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, statusFilter, typeFilter, searchTerm, dateFrom, dateTo, jobsStore.lastFetch]);
 
   const fetchJobs = async () => {
     setIsLoading(true);
@@ -166,7 +167,11 @@ export function ScrapeHistory({ onViewDetails, refreshTrigger }: ScrapeHistoryPr
       if (result.success) {
         toast.success('Raspagem deletada com sucesso');
         setJobToDelete(null);
-        fetchJobs(); // Refresh list
+
+        // Invalidate store to force refresh in other components
+        jobsStore.fetchActiveJobs();
+
+        fetchJobs(); // Refresh local list
       } else {
         toast.error(result.error || 'Erro ao deletar raspagem');
       }
