@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -16,7 +16,8 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Loader2, X, ChevronDown, ChevronRight, Circle, Terminal } from 'lucide-react';
-import { getActiveJobsStatusAction, cancelScrapeJobAction } from '@/app/actions/pje';
+import { useJobPolling } from '@/hooks';
+import { useJobsStore } from '@/lib/stores';
 import type { ScrapeJobWithRelations } from '@/lib/types/scraping';
 
 interface ScrapeJobMonitorProps {
@@ -31,79 +32,21 @@ interface ScrapeJobMonitorProps {
 }
 
 export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = true, onViewTerminal }: ScrapeJobMonitorProps) {
-  const [jobs, setJobs] = useState<ScrapeJobWithRelations[]>([]);
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
-  const [cancelingJobs, setCancelingJobs] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Use refs to track latest values without triggering re-renders
-  const onJobsUpdateRef = useRef(onJobsUpdate);
-  const initialJobIdsRef = useRef(initialJobIds);
-  const jobsRef = useRef<ScrapeJobWithRelations[]>([]);
+  // Use custom hook for polling
+  const { jobs, isLoading } = useJobPolling({
+    jobIds: initialJobIds,
+    enabled: autoRefresh,
+    interval: 3000,
+  });
 
-  // Update refs when props change
+  const jobsStore = useJobsStore();
+
+  // Notify parent when jobs change
   useEffect(() => {
-    onJobsUpdateRef.current = onJobsUpdate;
-  }, [onJobsUpdate]);
-
-  useEffect(() => {
-    initialJobIdsRef.current = initialJobIds;
-  }, [initialJobIds]);
-
-  // Polling for active jobs
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-
-    const fetchActiveJobs = async () => {
-      try {
-        const jobIds = initialJobIdsRef.current || jobsRef.current.map((j) => j.id);
-
-        if (jobIds.length === 0 && !initialJobIdsRef.current) {
-          // No jobs to monitor yet
-          setIsLoading(false);
-          return;
-        }
-
-        const result = await getActiveJobsStatusAction(jobIds);
-
-        if (result.success && result.data) {
-          const activeJobs = result.data.filter(
-            (j) => j.status === 'pending' || j.status === 'running'
-          );
-
-          setJobs(activeJobs);
-          jobsRef.current = activeJobs; // Keep ref synchronized
-          onJobsUpdateRef.current?.(activeJobs);
-
-          // Stop polling only if monitoring specific job IDs and they're all done
-          if (activeJobs.length === 0 && initialJobIdsRef.current && intervalId) {
-            clearInterval(intervalId);
-          }
-          // If not monitoring specific IDs, keep polling to detect new jobs
-        }
-      } catch (error) {
-        console.error('Error fetching active jobs:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    // Initial fetch
-    fetchActiveJobs();
-
-    // Only poll if autoRefresh is enabled
-    if (autoRefresh) {
-      intervalId = setInterval(fetchActiveJobs, 3000);
-    }
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-    // jobsRef is used instead of jobs to avoid re-renders while keeping fresh IDs
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRefresh]);
+    onJobsUpdate?.(jobs);
+  }, [jobs, onJobsUpdate]);
 
   const toggleExpand = (jobId: string) => {
     setExpandedJobs((prev) => {
@@ -118,25 +61,8 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
   };
 
   const handleCancelJob = async (jobId: string) => {
-    setCancelingJobs((prev) => new Set(prev).add(jobId));
-
-    try {
-      const result = await cancelScrapeJobAction(jobId);
-
-      if (result.success) {
-        // Job will be removed on next poll
-      } else {
-        console.error('Failed to cancel job:', result.error);
-      }
-    } catch (error) {
-      console.error('Error canceling job:', error);
-    } finally {
-      setCancelingJobs((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(jobId);
-        return newSet;
-      });
-    }
+    // Store handles optimistic update and cancellation
+    await jobsStore.cancelJob(jobId);
   };
 
   const getProgress = (job: ScrapeJobWithRelations): number => {
@@ -219,7 +145,7 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
         const progress = getProgress(job);
         const currentTribunal = getCurrentTribunal(job);
         const isExpanded = expandedJobs.has(job.id);
-        const isCanceling = cancelingJobs.has(job.id);
+        const isCanceling = job.status === 'canceled';
 
         return (
           <Card key={job.id}>

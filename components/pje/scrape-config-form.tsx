@@ -10,18 +10,16 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { WizardContainer } from '@/components/ui/wizard-container';
 import { WizardStep } from '@/components/ui/wizard-step';
 import { WizardNavigation } from '@/components/ui/wizard-navigation';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { TribunalSelector } from './tribunal-selector';
 import { ScrapeTypeSelector } from './scrape-type-selector';
 import { CredentialSelector } from './credential-selector';
 import { createScrapeJobAction } from '@/app/actions/pje';
+import { useCredentials } from '@/hooks';
 import type { TribunalConfigConstant } from '@/lib/constants/tribunais';
 import type { ScrapeType, ScrapeSubType } from '@/lib/types/scraping';
-import type { CredencialWithRelations } from '@/lib/types';
 
 interface ScrapeConfigFormProps {
-  /** All available credentials */
-  credentials: CredencialWithRelations[];
   /** All available tribunals */
   tribunais: TribunalConfigConstant[];
   /** Callback when job is created successfully */
@@ -32,7 +30,9 @@ interface ScrapeConfigFormProps {
   onFormChange?: () => void;
 }
 
-export function ScrapeConfigForm({ credentials, tribunais, onJobCreated, onReset, onFormChange }: ScrapeConfigFormProps) {
+export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChange }: ScrapeConfigFormProps) {
+  // Load credentials from store
+  const { credentials, isLoading: loadingCredentials } = useCredentials();
   // Wizard state
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -160,21 +160,30 @@ export function ScrapeConfigForm({ credentials, tribunais, onJobCreated, onReset
         </Alert>
       )}
 
+      {/* Loading state */}
+      {loadingCredentials && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-sm text-muted-foreground">Carregando credenciais...</span>
+        </div>
+      )}
+
       {/* Wizard */}
-      <WizardContainer
-        currentStep={currentStep}
-        totalSteps={3}
-        onStepChange={setCurrentStep}
-        stepValidation={stepValidation}
-      >
-        {/* Step 1: Credential Selection */}
-        <WizardStep step={1} title="Selecionar Credencial">
-          <CredentialSelector
-            credentials={credentials}
-            selectedCredentialId={selectedCredentialId}
-            onSelect={setSelectedCredentialId}
-          />
-        </WizardStep>
+      {!loadingCredentials && (
+        <WizardContainer
+          currentStep={currentStep}
+          totalSteps={3}
+          onStepChange={setCurrentStep}
+          stepValidation={stepValidation}
+        >
+          {/* Step 1: Credential Selection */}
+          <WizardStep step={1} title="Selecionar Credencial">
+            <CredentialSelector
+              credentials={credentials}
+              selectedCredentialId={selectedCredentialId}
+              onSelect={setSelectedCredentialId}
+            />
+          </WizardStep>
 
         {/* Step 2: Tribunal Selection */}
         <WizardStep step={2} title="Selecionar Tribunais">
@@ -208,6 +217,7 @@ export function ScrapeConfigForm({ credentials, tribunais, onJobCreated, onReset
           onSubmit={handleSubmit}
         />
       </WizardContainer>
+      )}
     </div>
   );
 }

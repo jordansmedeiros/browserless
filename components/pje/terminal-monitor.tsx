@@ -5,14 +5,14 @@
 
 'use client';
 
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Terminal, AnimatedSpan, TypingAnimation } from '@/components/ui/shadcn-io/terminal';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowDown, AlertCircle, CheckCircle2, Loader2, Clock, FileText, TrendingUp, XCircle, Download } from 'lucide-react';
 import { type LogEntry } from '@/lib/services/scrape-logger';
-import { getScrapeJobAction } from '@/app/actions/pje';
+import { useJobLogs } from '@/hooks';
 import { sanitizeLogEntry } from '@/lib/utils/sanitization';
 
 interface TerminalMonitorProps {
@@ -24,48 +24,28 @@ interface TerminalMonitorProps {
   initialLogs?: LogEntry[];
 }
 
-interface JobSummary {
-  status: string;
-  totalTribunals: number;
-  completedTribunals: number;
-  failedTribunals: number;
-  totalProcesses: number;
-  duration?: number; // in seconds
-  startedAt?: Date;
-  completedAt?: Date;
-}
-
 export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: TerminalMonitorProps) {
-  const [logs, setLogs] = useState<LogEntry[]>(initialLogs);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
   const [autoScroll, setAutoScroll] = useState(true);
-  const [jobSummary, setJobSummary] = useState<JobSummary | null>(null);
-  const [jobStatus, setJobStatus] = useState<string>('running');
 
   const terminalRef = useRef<HTMLDivElement>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const reconnectAttemptsRef = useRef(0);
-  const lastLogIndexRef = useRef(0);
-  const stopPollingRef = useRef<null | (() => void)>(null);
 
-  // Update lastLogIndexRef whenever logs change
-  useEffect(() => {
-    lastLogIndexRef.current = logs.length;
-  }, [logs.length]);
+  // Use custom hook for logs management
+  const { logs, connectionStatus, stats, scrollToBottom: hookScrollToBottom, downloadLogs: hookDownloadLogs } = useJobLogs(jobId, {
+    enabled: isRunning,
+    autoScroll,
+  });
+
+  // Use initialLogs if logs are empty (for historical viewing)
+  const displayLogs = logs.length > 0 ? logs : initialLogs;
+  const jobSummary = stats;
+  const jobStatus = stats?.status || 'running';
 
   // Memoize sanitized logs for performance
   const sanitizedLogs = useMemo(
-    () => logs.map(sanitizeLogEntry),
-    [logs]
+    () => displayLogs.map(sanitizeLogEntry),
+    [displayLogs]
   );
-
-  // Auto-scroll to bottom when new logs arrive
-  useEffect(() => {
-    if (autoScroll && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
-    }
-  }, [logs, autoScroll]);
 
   // Detect manual scroll to disable auto-scroll
   const handleScroll = () => {
@@ -85,142 +65,7 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
       setAutoScroll(true);
     }
-  };
-
-  // Fetch job statistics
-  useEffect(() => {
-    const fetchJobStats = async () => {
-      try {
-        const result = await getScrapeJobAction(jobId);
-        if (result.success && result.data) {
-          const job = result.data;
-          const completedTribunals = job.tribunals?.filter(t => t.status === 'completed').length || 0;
-          const failedTribunals = job.tribunals?.filter(t => t.status === 'failed').length || 0;
-          const totalProcesses = job.executions?.reduce((sum, exec) => sum + (exec.processosCount || 0), 0) || 0;
-
-          let duration: number | undefined;
-          if (job.startedAt && job.completedAt) {
-            duration = Math.floor((new Date(job.completedAt).getTime() - new Date(job.startedAt).getTime()) / 1000);
-          }
-
-          setJobSummary({
-            status: job.status,
-            totalTribunals: job.tribunals?.length || 0,
-            completedTribunals,
-            failedTribunals,
-            totalProcesses,
-            duration,
-            startedAt: job.startedAt ? new Date(job.startedAt) : undefined,
-            completedAt: job.completedAt ? new Date(job.completedAt) : undefined,
-          });
-          setJobStatus(job.status);
-        }
-      } catch (error) {
-        console.error('[TerminalMonitor] Error fetching job stats:', error);
-      }
-    };
-
-    fetchJobStats();
-
-    // Poll for updates if job is still running
-    if (isRunning || jobStatus === 'running' || jobStatus === 'pending') {
-      const interval = setInterval(fetchJobStats, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [jobId, isRunning, jobStatus]);
-
-  // SSE connection for live logs
-  useEffect(() => {
-    if (!isRunning) {
-      setConnectionStatus('disconnected');
-      return;
-    }
-
-    const connectSSE = () => {
-      setConnectionStatus('connecting');
-
-      try {
-        const eventSource = new EventSource(`/api/scrapes/${jobId}/logs/stream`);
-        eventSourceRef.current = eventSource;
-
-        eventSource.onopen = () => {
-          setConnectionStatus('connected');
-          reconnectAttemptsRef.current = 0;
-        };
-
-        eventSource.onmessage = (event) => {
-          try {
-            const log: LogEntry = JSON.parse(event.data);
-            setLogs((prev) => [...prev, log]);
-          } catch (error) {
-            console.error('[TerminalMonitor] Error parsing log:', error);
-          }
-        };
-
-        eventSource.onerror = () => {
-          eventSource.close();
-          setConnectionStatus('error');
-
-          // Retry connection with exponential backoff
-          if (reconnectAttemptsRef.current < 3) {
-            const delay = 1000 * Math.pow(2, reconnectAttemptsRef.current);
-            setTimeout(() => {
-              reconnectAttemptsRef.current += 1;
-              connectSSE();
-            }, delay);
-          } else {
-            // Fall back to polling after 3 failed attempts
-            setConnectionStatus('disconnected');
-            // Stop any existing polling before starting new one
-            stopPollingRef.current?.();
-            stopPollingRef.current = startPolling();
-          }
-        };
-      } catch (error) {
-        console.error('[TerminalMonitor] Error creating EventSource:', error);
-        setConnectionStatus('error');
-      }
-    };
-
-    connectSSE();
-
-    return () => {
-      // Clean up polling if active
-      stopPollingRef.current?.();
-      stopPollingRef.current = null;
-
-      // Clean up SSE connection
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-    };
-  }, [jobId, isRunning]);
-
-  // Polling fallback
-  const startPolling = () => {
-    const pollInterval = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/scrapes/${jobId}/logs?fromIndex=${lastLogIndexRef.current}`);
-        const data = await response.json();
-
-        if (data.logs && data.logs.length > 0) {
-          setLogs((prev) => [...prev, ...data.logs]);
-          lastLogIndexRef.current += data.logs.length;
-        }
-
-        if (!data.hasMore) {
-          clearInterval(pollInterval);
-          setConnectionStatus('disconnected');
-        }
-      } catch (error) {
-        console.error('[TerminalMonitor] Polling error:', error);
-        clearInterval(pollInterval);
-        setConnectionStatus('error');
-      }
-    }, 2000);
-
-    return () => clearInterval(pollInterval);
+    hookScrollToBottom();
   };
 
   // Get log color by level
@@ -259,32 +104,6 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
   const getSuccessRate = (): number => {
     if (!jobSummary || jobSummary.totalTribunals === 0) return 0;
     return Math.round((jobSummary.completedTribunals / jobSummary.totalTribunals) * 100);
-  };
-
-  // Download logs as .log file
-  const downloadLogs = () => {
-    if (sanitizedLogs.length === 0) return;
-
-    // Format logs as plain text (using sanitized logs)
-    const logText = sanitizedLogs
-      .map((log) => {
-        const timestamp = formatTime(log.timestamp);
-        const level = log.level.toUpperCase().padEnd(7);
-        const context = log.context ? ` ${JSON.stringify(log.context)}` : '';
-        return `[${timestamp}] ${level} ${log.message}${context}`;
-      })
-      .join('\n');
-
-    // Create blob and download
-    const blob = new Blob([logText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `scrape-job-${jobId.slice(0, 8)}-logs.log`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   return (
@@ -393,7 +212,7 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
             ))}
 
             {isRunning && (
-              <AnimatedSpan delay={logs.length * 50}>
+              <AnimatedSpan delay={displayLogs.length * 50}>
                 <TypingAnimation duration={60} className="text-primary">
                   ▊
                 </TypingAnimation>
@@ -448,12 +267,12 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
           {jobSummary && jobSummary.totalProcesses > 0 && (
             <span>{jobSummary.totalProcesses} processos</span>
           )}
-          <span>{logs.length} {logs.length === 1 ? 'log' : 'logs'}</span>
-          {logs.length > 0 && (
+          <span>{displayLogs.length} {displayLogs.length === 1 ? 'log' : 'logs'}</span>
+          {displayLogs.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={downloadLogs}
+              onClick={hookDownloadLogs}
               className="h-7 gap-2"
             >
               <Download className="h-3 w-3" />

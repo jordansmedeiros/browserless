@@ -26,20 +26,21 @@ model Tribunal {
 }
 
 model TribunalConfig {
-  id                 String               @id @default(uuid())
-  sistema            String               @default("PJE") // PJE, EPROC, ESAJ, PROJUDI, THEMIS
+  id                 String                       @id @default(uuid())
+  sistema            String                       @default("PJE") // PJE, EPROC, ESAJ, PROJUDI, THEMIS
   grau               String // 1g, 2g, unico
   urlBase            String
   urlLoginSeam       String
   urlApi             String? // Nullable - not all systems have APIs
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
   tribunalId         String
   credenciais        CredencialTribunal[]
   raspagens          Raspagem[]
   scrapeExecutions   ScrapeExecution[]
   scrapeJobTribunals ScrapeJobTribunal[]
-  tribunal           Tribunal             @relation(fields: [tribunalId], references: [id], onDelete: Cascade)
+  performanceMetrics TribunalPerformanceMetrics[]
+  tribunal           Tribunal                     @relation(fields: [tribunalId], references: [id], onDelete: Cascade)
 
   @@unique([tribunalId, sistema, grau])
   @@index([grau])
@@ -148,12 +149,14 @@ model CredencialTribunal {
   id               String         @id @default(uuid())
   tipoTribunal     String
   validadoEm       DateTime?
+  idAdvogado       String?        // ID do advogado específico para este tribunal/grau
   credencialId     String
   tribunalConfigId String
   credencial       Credencial     @relation(fields: [credencialId], references: [id], onDelete: Cascade)
   tribunalConfig   TribunalConfig @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
 
   @@unique([credencialId, tribunalConfigId])
+  @@index([idAdvogado])
 }
 
 model ScrapeJob {
@@ -189,25 +192,26 @@ model ScrapeJobTribunal {
 }
 
 model ScrapeExecution {
-  id                   String                  @id @default(uuid())
+  id                   String                         @id @default(uuid())
   status               String
-  processosCount       Int                     @default(0)
+  processosCount       Int                            @default(0)
   resultData           String?
   errorMessage         String?
-  retryAttempt         Int                     @default(0)
-  createdAt            DateTime                @default(now())
-  updatedAt            DateTime                @updatedAt
+  retryAttempt         Int                            @default(0)
+  createdAt            DateTime                       @default(now())
+  updatedAt            DateTime                       @updatedAt
   startedAt            DateTime?
   completedAt          DateTime?
   scrapeJobId          String
   tribunalConfigId     String
   logs                 Json?
-  scrapeJob            ScrapeJob               @relation(fields: [scrapeJobId], references: [id], onDelete: Cascade)
-  tribunalConfig       TribunalConfig          @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
+  scrapeJob            ScrapeJob                      @relation(fields: [scrapeJobId], references: [id], onDelete: Cascade)
+  tribunalConfig       TribunalConfig                 @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
   processosPendentes   PendentesManifestacao[]
   processosAcervoGeral Processos[]
   processosArquivados  ProcessosArquivados[]
   processosMinhaPauta  MinhaPauta[]
+  performanceMetrics   TribunalPerformanceMetrics?
 
   @@index([status])
   @@index([scrapeJobId])
@@ -341,4 +345,21 @@ model MinhaPauta {
   @@index([nrProcesso])
   @@index([idPje])
   @@index([dataInicio])
+}
+
+model TribunalPerformanceMetrics {
+  id                String          @id @default(uuid())
+  tribunalConfigId  String
+  scrapeExecutionId String          @unique
+  duracao           Int             // Duração em milissegundos
+  processosCount    Int
+  sucesso           Boolean
+  errorType         String?
+  createdAt         DateTime        @default(now())
+  tribunalConfig    TribunalConfig  @relation(fields: [tribunalConfigId], references: [id], onDelete: Cascade)
+  scrapeExecution   ScrapeExecution @relation(fields: [scrapeExecutionId], references: [id], onDelete: Cascade)
+
+  @@index([tribunalConfigId, createdAt])
+  @@index([duracao])
+  @@index([sucesso])
 }
