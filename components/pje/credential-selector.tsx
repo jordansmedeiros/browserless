@@ -117,11 +117,11 @@ export function CredentialSelector({
 
                             {/* Content */}
                             <div className="flex-1 space-y-1.5">
-                              {/* Credential Info */}
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
+                              {/* Credential Info - primeira linha */}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
                                   {credential.descricao ? (
-                                    <span className="text-sm font-medium italic text-muted-foreground">
+                                    <span className="text-sm font-medium italic text-muted-foreground truncate">
                                       {credential.descricao}
                                     </span>
                                   ) : (
@@ -129,10 +129,13 @@ export function CredentialSelector({
                                       Credencial
                                     </span>
                                   )}
+                                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                    | {tribunalCount} tribunal{tribunalCount !== 1 ? 'is' : ''}
+                                  </span>
                                 </div>
 
                                 {/* Status Badges */}
-                                <div className="flex gap-1.5">
+                                <div className="flex gap-1.5 flex-shrink-0">
                                   {credential.ativa ? (
                                     <Badge variant="default" className="text-xs h-5">
                                       Ativa
@@ -149,12 +152,6 @@ export function CredentialSelector({
                                     </Badge>
                                   )}
                                 </div>
-                              </div>
-
-                              {/* Tribunal Info */}
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <Key className="w-3 h-3" />
-                                <span>{tribunalCount} tribunal{tribunalCount !== 1 ? 'is' : ''} configurado{tribunalCount !== 1 ? 's' : ''}</span>
                               </div>
 
                               {/* Tribunal Summary - only show if has tribunals */}
@@ -177,7 +174,7 @@ export function CredentialSelector({
                                 </div>
                               )}
 
-                              {/* Warning if no tribunals */}
+                              {/* Warning if no tribunals - only show message when count is 0 */}
                               {tribunalCount === 0 && (
                                 <div className="flex items-center gap-1 text-xs text-amber-600">
                                   <AlertCircle className="w-3 h-3" />

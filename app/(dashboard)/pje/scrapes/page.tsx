@@ -44,7 +44,7 @@ import { ScrapeExecutionDetail } from '@/components/pje/scrape-execution-detail'
 import { TerminalMonitor } from '@/components/pje/terminal-monitor';
 import { TRIBUNAL_CONFIGS } from '@/lib/constants/tribunais';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { listEscritoriosAction } from '@/app/actions/pje';
+import { listAdvogadosAction } from '@/app/actions/pje';
 import type { CredencialWithRelations } from '@/lib/types';
 
 export default function ScrapesPage() {
@@ -70,54 +70,40 @@ export default function ScrapesPage() {
   async function loadCredentials() {
     setLoadingCredentials(true);
     try {
-      // Get all escritorios with their lawyers and credentials
-      const result = await listEscritoriosAction();
+      // Get all advogados with their credentials (including tribunais relationship)
+      const result = await listAdvogadosAction();
       if (result.success && result.data) {
-        console.log('[loadCredentials] Escritórios carregados:', result.data);
+        console.log('[loadCredentials] Advogados carregados:', result.data.length);
 
-        // Extract all credentials from all lawyers
+        // Extract all active credentials from all advogados
         const allCredentials: CredencialWithRelations[] = [];
-        result.data.forEach((escritorio) => {
-          console.log('[loadCredentials] Processando escritório:', escritorio.nome, 'com', escritorio.advogados.length, 'advogados');
+        result.data.forEach((advogado) => {
+          console.log('[loadCredentials] Advogado:', advogado.nome,
+            'escritório:', advogado.escritorio?.nome || 'Sem escritório',
+            'com', advogado.credenciais.length, 'credenciais');
 
-          escritorio.advogados.forEach((advogado) => {
-            console.log('[loadCredentials] Advogado:', advogado.nome, 'com', advogado.credenciais.length, 'credenciais');
+          advogado.credenciais.forEach((credencial) => {
+            if (credencial.ativa) {
+              const tribunaisCount = credencial.tribunais?.length || 0;
+              console.log('[loadCredentials] Credencial:', credencial.id,
+                'descrição:', credencial.descricao || 'sem descrição',
+                'tribunais:', tribunaisCount);
 
-            // Add credentials with full relations
-            advogado.credenciais.forEach((credencial) => {
-              if (credencial.ativa) {
-                const credWithRelations = {
-                  ...credencial,
-                  advogado: {
-                    id: advogado.id,
-                    nome: advogado.nome,
-                    oabNumero: advogado.oabNumero,
-                    oabUf: advogado.oabUf,
-                    cpf: advogado.cpf,
-                    escritorioId: advogado.escritorioId,
-                    idAdvogado: advogado.idAdvogado,
-                    createdAt: advogado.createdAt,
-                    updatedAt: advogado.updatedAt,
-                    escritorio: {
-                      id: escritorio.id,
-                      nome: escritorio.nome,
-                      createdAt: escritorio.createdAt,
-                      updatedAt: escritorio.updatedAt,
-                      ativo: escritorio.ativo || true,
-                    },
-                    credenciais: [],
-                  },
-                  tribunais: [],
-                } as CredencialWithRelations;
-
-                console.log('[loadCredentials] Credencial adicionada:', credWithRelations.id, 'para advogado:', advogado.nome, 'escritório:', escritorio.nome);
-                allCredentials.push(credWithRelations);
-              }
-            });
+              // Credentials from listAdvogadosAction already include tribunais with full relations
+              allCredentials.push({
+                ...credencial,
+                advogado: {
+                  ...advogado,
+                  credenciais: [], // Avoid circular reference
+                },
+              } as CredencialWithRelations);
+            }
           });
         });
 
         console.log('[loadCredentials] Total de credenciais ativas:', allCredentials.length);
+        console.log('[loadCredentials] Tribunais por credencial:',
+          allCredentials.map(c => ({ id: c.id.slice(0, 8), tribunais: c.tribunais?.length || 0 })));
         setCredentials(allCredentials);
       }
     } catch (error) {

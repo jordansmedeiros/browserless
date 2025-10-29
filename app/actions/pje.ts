@@ -879,8 +879,54 @@ export async function updateCredencialAction(id: string, input: UpdateCredencial
     if (input.senha) updateData.senha = input.senha;
     if (input.descricao !== undefined) updateData.descricao = input.descricao;
 
+    // Convert tribunal IDs from format "TRT3-PJE-1g" to UUIDs
+    let tribunalConfigUUIDs: string[] = [];
+    if (input.tribunalConfigIds && input.tribunalConfigIds.length > 0) {
+      console.log('[updateCredencialAction] Converting tribunal IDs:', input.tribunalConfigIds);
+
+      // Parse tribunal IDs
+      const tribunalQueries = input.tribunalConfigIds.map(idStr => {
+        const parts = idStr.split('-');
+        if (parts.length !== 3) {
+          throw new Error(`ID de tribunal inválido: ${idStr}. Esperado formato: TRT3-PJE-1g`);
+        }
+        const [codigo, sistema, grau] = parts;
+        return { codigo, sistema, grau };
+      });
+
+      // Find matching tribunal configs
+      const whereClause = {
+        OR: tribunalQueries.map(q => ({
+          AND: [
+            { tribunal: { codigo: q.codigo } },
+            { sistema: q.sistema },
+            { grau: q.grau },
+          ],
+        })),
+      };
+
+      const matchedTribunals = await prisma.tribunalConfig.findMany({
+        where: whereClause,
+        include: {
+          tribunal: true,
+        },
+      });
+
+      console.log('[updateCredencialAction] Found tribunals:', matchedTribunals.length);
+
+      if (matchedTribunals.length !== input.tribunalConfigIds.length) {
+        const foundIds = matchedTribunals.map(
+          (t) => `${t.tribunal.codigo}-${t.sistema}-${t.grau}`
+        );
+        const missing = input.tribunalConfigIds.filter((id) => !foundIds.includes(id));
+        throw new Error(`Tribunais não encontrados: ${missing.join(', ')}`);
+      }
+
+      tribunalConfigUUIDs = matchedTribunals.map(t => t.id);
+    }
+
     // Se senha mudou, reseta validações
-    if (senhaChanged && input.tribunalConfigIds) {
+    if (senhaChanged && tribunalConfigUUIDs.length > 0) {
       // Remove associações antigas
       await prisma.credencialTribunal.deleteMany({
         where: { credencialId: id },
@@ -890,7 +936,7 @@ export async function updateCredencialAction(id: string, input: UpdateCredencial
       const tribunais = await prisma.tribunalConfig.findMany({
         where: {
           id: {
-            in: input.tribunalConfigIds,
+            in: tribunalConfigUUIDs,
           },
         },
         include: {
@@ -898,14 +944,19 @@ export async function updateCredencialAction(id: string, input: UpdateCredencial
         },
       });
 
+      // Helper function to determine tribunal type
+      const getTipoTribunal = (codigo: string): string => {
+        if (codigo.startsWith('TRT')) return 'TRT';
+        if (codigo.startsWith('TJ')) return 'TJ';
+        if (codigo.startsWith('TRF')) return 'TRF';
+        return 'Superior'; // TST, STJ, STF, etc.
+      };
+
       // Cria novas associações
       updateData.tribunais = {
-        create: input.tribunalConfigIds.map((tribunalConfigId) => {
+        create: tribunalConfigUUIDs.map((tribunalConfigId) => {
           const tribunal = tribunais.find((t) => t.id === tribunalConfigId);
-          const codigoTribunal = tribunal?.tribunal.codigo || '';
-          let tipoTribunal = 'TRT';
-          if (codigoTribunal.startsWith('TJ')) tipoTribunal = 'TJ';
-          else if (codigoTribunal.startsWith('TRF')) tipoTribunal = 'TRF';
+          const tipoTribunal = getTipoTribunal(tribunal?.tribunal.codigo || '');
 
           return {
             tribunalConfigId,
@@ -914,15 +965,23 @@ export async function updateCredencialAction(id: string, input: UpdateCredencial
           };
         }),
       };
-    } else if (input.tribunalConfigIds) {
+    } else if (tribunalConfigUUIDs.length > 0) {
+      // Helper function to determine tribunal type
+      const getTipoTribunal = (codigo: string): string => {
+        if (codigo.startsWith('TRT')) return 'TRT';
+        if (codigo.startsWith('TJ')) return 'TJ';
+        if (codigo.startsWith('TRF')) return 'TRF';
+        return 'Superior'; // TST, STJ, STF, etc.
+      };
+
       // Apenas atualiza associações sem resetar validações
       const existentes = await prisma.credencialTribunal.findMany({
         where: { credencialId: id },
       });
 
       const existentesIds = existentes.map((e) => e.tribunalConfigId);
-      const novosIds = input.tribunalConfigIds.filter((id) => !existentesIds.includes(id));
-      const removidosIds = existentesIds.filter((id) => !input.tribunalConfigIds!.includes(id));
+      const novosIds = tribunalConfigUUIDs.filter((uuid) => !existentesIds.includes(uuid));
+      const removidosIds = existentesIds.filter((uuid) => !tribunalConfigUUIDs.includes(uuid));
 
       // Remove não selecionados
       if (removidosIds.length > 0) {
@@ -952,10 +1011,7 @@ export async function updateCredencialAction(id: string, input: UpdateCredencial
         await prisma.credencialTribunal.createMany({
           data: novosIds.map((tribunalConfigId) => {
             const tribunal = tribunais.find((t) => t.id === tribunalConfigId);
-            const codigoTribunal = tribunal?.tribunal.codigo || '';
-            let tipoTribunal = 'TRT';
-            if (codigoTribunal.startsWith('TJ')) tipoTribunal = 'TJ';
-            else if (codigoTribunal.startsWith('TRF')) tipoTribunal = 'TRF';
+            const tipoTribunal = getTipoTribunal(tribunal?.tribunal.codigo || '');
 
             return {
               credencialId: id,
