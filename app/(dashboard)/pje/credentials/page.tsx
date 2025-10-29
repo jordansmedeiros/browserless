@@ -50,6 +50,7 @@ import type {
   EscritorioWithAdvogados,
 } from '@/lib/types';
 import { LawyerDetailModal } from '@/components/pje/lawyer-detail-modal';
+import { useCredentialsStore } from '@/lib/stores/credentials-store';
 
 const UFS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -187,6 +188,8 @@ export default function CredentialsPage() {
       setMessage({ type: 'success', text: 'Advogado excluído com sucesso' });
       setDeleteAdvogadoDialog(false);
       setAdvogadoToDelete(null);
+      // Refresh credentials store (credentials are deleted with advogado)
+      useCredentialsStore.getState().invalidate();
       loadData();
     } else {
       setMessage({ type: 'error', text: result.error || 'Erro ao excluir advogado' });
@@ -259,6 +262,8 @@ export default function CredentialsPage() {
         createNewFirm: false,
         newFirmName: '',
       });
+      // Refresh credentials store in case credentials were added
+      useCredentialsStore.getState().invalidate();
       loadData();
     } else {
       setMessage({ type: 'error', text: result.error || 'Erro ao criar advogado' });
@@ -623,9 +628,10 @@ export default function CredentialsPage() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDeleteEscritorio}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!!escritorios.find(e => e.id === escritorioToDelete)?.advogados.length}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Excluir
+              {escritorios.find(e => e.id === escritorioToDelete)?.advogados.length ? 'Não Pode Excluir' : 'Excluir'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

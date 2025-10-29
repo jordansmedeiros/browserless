@@ -39,6 +39,7 @@ import {
   deleteAdvogadoAction,
 } from '@/app/actions/pje';
 import { toast } from 'sonner';
+import { useCredentialsStore } from '@/lib/stores/credentials-store';
 
 const UFS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -208,6 +209,8 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
       if (result.success) {
         toast.success('Advogado excluído com sucesso!');
         setDeleteAdvogadoDialog(false);
+        // Refresh credentials store (credentials are deleted with advogado)
+        useCredentialsStore.getState().invalidate();
         onUpdate();
         onClose();
       } else {
@@ -225,6 +228,8 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
     if (result.success) {
       setMessage({ type: 'success', text: 'Status atualizado' });
       await loadAdvogado();
+      // Refresh credentials store
+      useCredentialsStore.getState().invalidate();
     } else {
       setMessage({ type: 'error', text: result.error || 'Erro ao atualizar status' });
     }
@@ -241,6 +246,8 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
     if (result.success) {
       setMessage({ type: 'success', text: 'Credencial excluída' });
       await loadAdvogado();
+      // Refresh credentials store
+      useCredentialsStore.getState().invalidate();
     } else {
       setMessage({ type: 'error', text: result.error || 'Erro ao excluir credencial' });
     }
@@ -298,6 +305,8 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
           tribunalConfigIds: [],
         });
         await loadAdvogado();
+        // Refresh credentials store
+        useCredentialsStore.getState().invalidate();
       } else {
         setMessage({ type: 'error', text: result.error || 'Erro ao adicionar credencial' });
       }
@@ -380,6 +389,8 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
           tribunalConfigIds: [],
         });
         await loadAdvogado();
+        // Refresh credentials store
+        useCredentialsStore.getState().invalidate();
       } else {
         setMessage({ type: 'error', text: result.error || 'Erro ao atualizar credencial' });
       }

@@ -154,6 +154,11 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
       Superior: [],
     };
 
+    // If credential has no tribunals, return empty filtered results
+    if (credentialId && !loading && credentialTribunals.length === 0) {
+      return filtrados;
+    }
+
     Object.entries(tribunaisAgrupadosPorTipo).forEach(([tipo, grupos]) => {
       filtrados[tipo as keyof typeof filtrados] = grupos.filter((grupo) => {
         const matchSearch =
@@ -170,14 +175,24 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
     });
 
     return filtrados;
-  }, [tribunaisAgrupadosPorTipo, searchTerm, selectedRegion]);
+  }, [tribunaisAgrupadosPorTipo, searchTerm, selectedRegion, credentialId, loading, credentialTribunals]);
 
   // Regiões únicas
   const regioes: Regiao[] = ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
 
   // Funções de seleção
   const handleSelectAll = () => {
-    const allIds = tribunais.map((t) => t.id);
+    // Collect IDs only from the currently filtered set
+    const allIds: string[] = [];
+    Object.values(tribunaisFiltrados).forEach((grupos) => {
+      grupos.forEach((grupo) => {
+        grupo.sistemas.forEach((configs) => {
+          configs.forEach((config) => {
+            allIds.push(config.id);
+          });
+        });
+      });
+    });
     onChange(allIds);
   };
 
@@ -250,7 +265,18 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
   };
 
   const totalSelecionados = selectedIds.length;
-  const totalDisponiveis = tribunais.length;
+  // Count total available configs in the filtered set
+  const totalDisponiveis = useMemo(() => {
+    let total = 0;
+    Object.values(tribunaisFiltrados).forEach((grupos) => {
+      grupos.forEach((grupo) => {
+        grupo.sistemas.forEach((configs) => {
+          total += configs.length;
+        });
+      });
+    });
+    return total;
+  }, [tribunaisFiltrados]);
 
   return (
     <div className="space-y-4">

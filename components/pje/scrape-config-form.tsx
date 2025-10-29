@@ -54,6 +54,13 @@ export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChang
     }
   }, [message]);
 
+  // Clear tribunal selection when credential changes
+  useEffect(() => {
+    setSelectedTribunalIds([]);
+    setSelectedType(null);
+    setSelectedSubTypes([]);
+  }, [selectedCredentialId]);
+
   // Notify parent of form changes
   useEffect(() => {
     if (selectedCredentialId || selectedTribunalIds.length > 0 || selectedType !== null) {
