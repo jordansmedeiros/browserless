@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { scrapeLoggerService, type LogEntry } from '@/lib/services/scrape-logger';
 import { sanitizeLogEntry } from '@/lib/utils/sanitization';
 

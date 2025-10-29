@@ -7,7 +7,7 @@
 import { NextRequest } from 'next/server';
 import { scrapeLoggerService, type LogEntry } from '@/lib/services/scrape-logger';
 import { subscribeToJobLogs, isRedisEnabled } from '@/lib/redis';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { sanitizeLogEntry } from '@/lib/utils/sanitization';
 
 export const runtime = 'nodejs';

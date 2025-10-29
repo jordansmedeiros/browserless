@@ -3,7 +3,7 @@
  * Serviço para salvar dados de raspagem nas tabelas específicas por tipo
  */
 
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { ScrapeType, type ScrapingResult } from '@/lib/types/scraping';
 
 /**

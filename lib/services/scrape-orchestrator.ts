@@ -3,7 +3,7 @@
  * Orquestra a execução de jobs de raspagem
  */
 
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { scrapeQueue } from './scrape-queue';
 import { executeScriptWithRetry, type CredenciaisParaLogin, type TribunalConfigParaRaspagem } from './scrape-executor';
 import { compressJSON } from '@/lib/utils/compression';

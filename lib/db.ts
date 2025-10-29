@@ -1,6 +1,7 @@
 /**
- * Prisma Client Instance
- * Single instance for database access
+ * Prisma Client Singleton
+ * Módulo consolidado para acesso ao banco de dados
+ * Evita múltiplas instâncias do Prisma Client em desenvolvimento
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -16,3 +17,5 @@ export const prisma =
   });
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+
+export default prisma;

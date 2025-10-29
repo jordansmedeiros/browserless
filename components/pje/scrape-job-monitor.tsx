@@ -75,10 +75,11 @@ export function ScrapeJobMonitor({ onJobsUpdate, initialJobIds, autoRefresh = tr
           jobsRef.current = activeJobs; // Keep ref synchronized
           onJobsUpdateRef.current?.(activeJobs);
 
-          // Stop polling if no active jobs
-          if (activeJobs.length === 0 && intervalId) {
+          // Stop polling only if monitoring specific job IDs and they're all done
+          if (activeJobs.length === 0 && initialJobIdsRef.current && intervalId) {
             clearInterval(intervalId);
           }
+          // If not monitoring specific IDs, keep polling to detect new jobs
         }
       } catch (error) {
         console.error('Error fetching active jobs:', error);

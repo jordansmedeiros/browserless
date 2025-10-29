@@ -5,7 +5,7 @@
  * 2. Fallback para resultData comprimido se as tabelas estiverem vazias
  */
 
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { ScrapeType } from '@/lib/types/scraping';
 import { decompressJSON } from '@/lib/utils/compression';
 

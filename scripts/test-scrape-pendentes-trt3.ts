@@ -7,7 +7,7 @@
 
 import { executeScript, executeScriptWithRetry } from '@/lib/services/scrape-executor';
 import { ScrapeType, ScrapeSubType } from '@/lib/types/scraping';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 
 async function testScrape() {
   console.log('╔═══════════════════════════════════════════════════════════════════╗');
