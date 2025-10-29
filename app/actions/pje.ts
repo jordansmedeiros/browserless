@@ -102,8 +102,7 @@ export async function loginPJEAction(formData: FormData): Promise<LoginResult> {
 
     return resultado;
   } catch (error) {
-    console.error('[loginPJEAction] Erro:', error);
-    console.error('[loginPJEAction] Erro sanitizado:', sanitizeError(error));
+    console.error('[loginPJEAction] Erro:', sanitizeError(error));
     return {
       success: false,
       message: 'Erro interno do servidor',
@@ -159,7 +158,7 @@ export async function scrapeProcessosPJEAction(
 
     return resultado;
   } catch (error) {
-    console.error('[scrapeProcessosPJEAction] Erro:', error);
+    console.error('[scrapeProcessosPJEAction] Erro:', sanitizeError(error));
     return {
       success: false,
       processos: [],
@@ -1256,7 +1255,7 @@ export async function testCredencialAction(
       };
     }
   } catch (error) {
-    console.error('[testCredencialAction] Erro:', error);
+    console.error('[testCredencialAction] Erro:', sanitizeError(error));
     return {
       success: false,
       message: 'Erro ao testar credencial',

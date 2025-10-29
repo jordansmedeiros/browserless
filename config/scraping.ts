@@ -14,10 +14,11 @@ export const SCRAPING_CONCURRENCY = {
   /** Máximo de jobs executando simultaneamente */
   maxConcurrentJobs: parseInt(process.env.MAX_CONCURRENT_JOBS || '2', 10),
 
-  /** Máximo de tribunais sendo raspados simultaneamente dentro de um job */
-  maxConcurrentTribunals: parseInt(process.env.MAX_CONCURRENT_TRIBUNALS || '2', 10),
-
-  /** Máximo de instâncias de browser abertas simultaneamente (limite de memória) */
+  /**
+   * Máximo de instâncias de browser abertas simultaneamente (limite de memória)
+   * NOTA: Tribunais dentro de um job são executados SEQUENCIALMENTE (não concorrente)
+   * para evitar timeouts e bloqueios do PJE
+   */
   maxBrowserInstances: parseInt(process.env.MAX_BROWSER_INSTANCES || '10', 10),
 } as const;
 
@@ -44,6 +45,23 @@ export const SCRAPING_POLLING = {
 
   /** Timeout para considerar um job como "travado" */
   jobStuckTimeout: 30 * 60 * 1000, // 30 minutes
+} as const;
+
+/**
+ * Configuração de monitoramento de performance
+ */
+export const SCRAPING_PERFORMANCE = {
+  /** Duração máxima considerada normal (5 minutos) */
+  durationThreshold: 5 * 60 * 1000,
+
+  /** Número de falhas consecutivas para gerar alerta */
+  failureThreshold: 3,
+
+  /** Janela de tempo para análise de performance (últimos 7 dias) */
+  analysisWindowDays: 7,
+
+  /** Multiplicador de desvio padrão para alertas de degradação (2 = média + 2σ) */
+  performanceDegradationMultiplier: 2,
 } as const;
 
 /**

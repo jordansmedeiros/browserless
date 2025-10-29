@@ -33,6 +33,11 @@ export const SENSITIVE_KEYS = [
 export const CPF_REGEX = /\d{3}\.?\d{3}\.?\d{3}-?\d{2}/g;
 
 /**
+ * Non-global regex for testing CPF patterns (to avoid lastIndex side effects)
+ */
+const CPF_TEST = /\d{3}\.?\d{3}\.?\d{3}-?\d{2}/;
+
+/**
  * Masks a CPF keeping only the first 3 digits visible
  *
  * @example
@@ -182,8 +187,9 @@ export function sanitizeObject<T>(
         sanitized[key] = sanitizeObject(value, sensitiveKeys);
       } else if (typeof value === 'string') {
         // Check if the string value contains CPF patterns
+        // Use CPF_TEST (non-global) for testing, CPF_REGEX (global) for replace
         let sanitizedValue = value;
-        if (CPF_REGEX.test(value)) {
+        if (CPF_TEST.test(value)) {
           sanitizedValue = value.replace(CPF_REGEX, (match) => maskCPF(match));
         }
         sanitized[key] = sanitizedValue;
@@ -233,6 +239,14 @@ export function sanitizeLogEntry(log: LogEntry): LogEntry {
     message = message.replace(/senha[:\s=]+\S+/gi, 'senha: ***');
     message = message.replace(/password[:\s=]+\S+/gi, 'password: ***');
     message = message.replace(/token[:\s=]+\S+/gi, 'token: ***');
+
+    // Mask Authorization headers (Bearer tokens, Basic auth, etc.)
+    message = message.replace(/authorization:\s*bearer\s+\S+/gi, 'Authorization: ***');
+    message = message.replace(/authorization:\s*basic\s+\S+/gi, 'Authorization: ***');
+    message = message.replace(/authorization:\s*\S+/gi, 'Authorization: ***');
+
+    // Mask Cookie headers
+    message = message.replace(/cookie:\s*[^\n\r]+/gi, 'Cookie: ***');
 
     sanitized.message = message;
   }

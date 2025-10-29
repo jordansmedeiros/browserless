@@ -3,7 +3,7 @@
  * Orquestra a execução de jobs de raspagem
  */
 
-import { prisma } from '@/lib/db';
+import { prisma } from '@/lib/prisma';
 import { scrapeQueue } from './scrape-queue';
 import { executeScriptWithRetry, type CredenciaisParaLogin, type TribunalConfigParaRaspagem } from './scrape-executor';
 import { compressJSON } from '@/lib/utils/compression';
@@ -12,6 +12,8 @@ import { ScrapeJobStatus } from '@/lib/types/scraping';
 import { ScrapingError, formatErrorForLog } from '@/lib/errors/scraping-errors';
 import { createJobLogger, type LogEntry } from './scrape-logger';
 import { persistProcessos } from './scrape-data-persister';
+import { sortTribunals, describeExecutionOrder } from './tribunal-sorter';
+import { trackExecutionPerformance } from './performance-tracker';
 
 /**
  * Controle de polling
@@ -19,31 +21,6 @@ import { persistProcessos } from './scrape-data-persister';
 let pollingInterval: NodeJS.Timeout | null = null;
 let isPolling: boolean = false;
 let pollingIterationCount: number = 0;
-
-/**
- * Limita execuções concorrentes dentro de um job
- */
-class ConcurrencyLimiter {
-  private running = 0;
-  private queue: Array<() => void> = [];
-
-  constructor(private maxConcurrent: number) {}
-
-  async run<T>(fn: () => Promise<T>): Promise<T> {
-    while (this.running >= this.maxConcurrent) {
-      await new Promise<void>(resolve => this.queue.push(resolve));
-    }
-
-    this.running++;
-    try {
-      return await fn();
-    } finally {
-      this.running--;
-      const next = this.queue.shift();
-      if (next) next();
-    }
-  }
-}
 
 /**
  * Executa um job de raspagem completo
@@ -108,15 +85,26 @@ export async function executeJob(jobId: string): Promise<void> {
 
     console.log(`[Orchestrator] Job ${jobId} has ${job.tribunals.length} tribunals to process`);
 
-    // Limiter para controlar concorrência dentro do job
-    const limiter = new ConcurrencyLimiter(SCRAPING_CONCURRENCY.maxConcurrentTribunals);
+    // Ordena tribunais para execução sequencial otimizada
+    const sortedTribunals = await sortTribunals(job.tribunals);
+    const executionOrder = describeExecutionOrder(sortedTribunals);
 
-    // Executa raspagem para cada tribunal
-    const results = await Promise.allSettled(
-      job.tribunals.map(jobTribunal =>
-        limiter.run(() => executeTribunalScraping(job, jobTribunal, logger))
-      )
-    );
+    logger.info(`Tribunais ordenados para execução sequencial`, {
+      total: sortedTribunals.length,
+      ordem: executionOrder
+    });
+    console.log(`[Orchestrator] Ordem de execução: ${executionOrder}`);
+
+    // Executa raspagem SEQUENCIALMENTE (sem concorrência)
+    const results = [];
+    for (const jobTribunal of sortedTribunals) {
+      try {
+        await executeTribunalScraping(job, jobTribunal, logger);
+        results.push({ status: 'fulfilled' as const });
+      } catch (error) {
+        results.push({ status: 'rejected' as const, reason: error });
+      }
+    }
 
     // Conta sucessos e falhas
     const successful = results.filter(r => r.status === 'fulfilled').length;
@@ -360,6 +348,14 @@ async function executeTribunalScraping(
       },
     });
 
+    // Rastreia métricas de performance
+    try {
+      await trackExecutionPerformance(execution.id, tribunalConfig.id);
+    } catch (error: any) {
+      console.error(`[Orchestrator] Erro ao rastrear performance:`, error);
+      // Não lança erro para não falhar a execução
+    }
+
     // Salva processos nas tabelas específicas por tipo
     try {
       logger.info(`Salvando ${result.result.processosCount} processos no banco...`);
@@ -384,6 +380,7 @@ async function executeTribunalScraping(
         await updateAdvogadoIdFromScraping(
           result.result.advogado.cpf,
           result.result.advogado.idAdvogado,
+          tribunalConfig.id,
           result.result.advogado.nome
         );
 
@@ -474,13 +471,15 @@ async function executeTribunalScraping(
 
 /**
  * Atualiza ID do advogado no banco com dados obtidos na raspagem
+ * IMPORTANTE: ID do advogado é específico por tribunal/grau, então grava em CredencialTribunal
  */
 async function updateAdvogadoIdFromScraping(
   cpf: string,
   idAdvogado: string,
+  tribunalConfigId: string,
   nome?: string
 ): Promise<void> {
-  console.log(`[Orchestrator] Atualizando ID do advogado ${cpf} -> ${idAdvogado}`);
+  console.log(`[Orchestrator] Atualizando ID do advogado ${cpf} -> ${idAdvogado} para tribunal ${tribunalConfigId}`);
 
   // Busca advogado pelo CPF
   const advogado = await prisma.advogado.findFirst({
@@ -492,19 +491,33 @@ async function updateAdvogadoIdFromScraping(
     return;
   }
 
-  // Atualiza apenas se o ID não estiver configurado ou for diferente
-  if (!advogado.idAdvogado || advogado.idAdvogado !== idAdvogado) {
+  // Atualiza em CredencialTribunal (ID específico por tribunal/grau)
+  const updated = await prisma.credencialTribunal.updateMany({
+    where: {
+      tribunalConfigId,
+      credencial: {
+        advogadoId: advogado.id
+      }
+    },
+    data: {
+      idAdvogado
+    }
+  });
+
+  if (updated.count > 0) {
+    console.log(`[Orchestrator] ID do advogado atualizado em ${updated.count} CredencialTribunal: ${idAdvogado}`);
+  }
+
+  // Atualiza também em Advogado (fallback/compatibilidade) se não estiver configurado
+  if (!advogado.idAdvogado) {
     await prisma.advogado.update({
       where: { id: advogado.id },
       data: {
         idAdvogado,
-        // Atualiza nome também se fornecido e diferente
         ...(nome && nome !== advogado.nome ? { nome } : {}),
       }
     });
-    console.log(`[Orchestrator] ID do advogado atualizado: ${advogado.nome} -> ${idAdvogado}`);
-  } else {
-    console.log(`[Orchestrator] ID do advogado já está configurado corretamente`);
+    console.log(`[Orchestrator] ID do advogado também atualizado em Advogado (fallback): ${idAdvogado}`);
   }
 }
 
@@ -537,7 +550,11 @@ async function getCredentialsForTribunal(
   return {
     cpf: credencialTribunal.credencial.advogado.cpf,
     senha: credencialTribunal.credencial.senha,
-    idAdvogado: credencialTribunal.credencial.advogado.idAdvogado || '',
+    // Busca idAdvogado do CredencialTribunal (específico por tribunal/grau)
+    // Fallback para Advogado.idAdvogado (backward compatibility)
+    idAdvogado: credencialTribunal.idAdvogado ||
+                credencialTribunal.credencial.advogado.idAdvogado ||
+                '',
   };
 }
 

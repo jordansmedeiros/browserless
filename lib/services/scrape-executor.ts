@@ -398,11 +398,29 @@ function executeScriptWithSpawn(
         });
       } else {
         console.error(`[Executor] Script exited with code ${code}`);
-        const error = new Error(`Script exited with code ${code}`);
+
+        // Tenta extrair erro real do JSON no stdout
+        let errorMessage = `Script exited with code ${code}`;
+        let errorDetails = null;
+
+        try {
+          const result = JSON.parse(stdoutBuffer);
+          if (result.error) {
+            errorMessage = result.error.message || errorMessage;
+            errorDetails = result.error;
+            console.error(`[Executor] Erro parseado do script:`, errorDetails);
+          }
+        } catch (e) {
+          // stdout não é JSON válido ou não contém erro estruturado
+          // Usa mensagem genérica
+        }
+
+        const error = new Error(errorMessage);
         Object.assign(error, {
           code,
           stderr: stderrBuffer,
           stdout: stdoutBuffer,
+          errorDetails,
         });
         reject(error);
       }
