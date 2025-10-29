@@ -556,15 +556,10 @@ async function getCredentialsForTribunal(
 
   // Busca idAdvogado do CredencialTribunal (específico por tribunal/grau)
   // Fallback para Advogado.idAdvogado (backward compatibility)
+  // Se não encontrar, retorna string vazia e o script descobrirá automaticamente via JWT
   const idAdvogado = credencialTribunal.idAdvogado ||
-                     credencialTribunal.credencial.advogado.idAdvogado;
-
-  if (!idAdvogado) {
-    throw new Error(
-      `ID do advogado não encontrado para o tribunal. ` +
-      `Verifique se o campo idAdvogado está preenchido na credencial do tribunal.`
-    );
-  }
+                     credencialTribunal.credencial.advogado.idAdvogado ||
+                     '';
 
   return {
     cpf: credencialTribunal.credencial.advogado.cpf,
