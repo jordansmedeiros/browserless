@@ -8,6 +8,7 @@ import { NextRequest } from 'next/server';
 import { scrapeLoggerService, type LogEntry } from '@/lib/services/scrape-logger';
 import { subscribeToJobLogs, isRedisEnabled } from '@/lib/redis';
 import { prisma } from '@/lib/prisma';
+import { sanitizeLogEntry } from '@/lib/utils/sanitization';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,10 +28,11 @@ export async function GET(
       let heartbeat: NodeJS.Timeout | null = null;
 
       try {
-        // Create log listener
+        // Create log listener with sanitization
         const sendLog = (log: LogEntry) => {
           try {
-            const data = `data: ${JSON.stringify(log)}\n\n`;
+            const sanitized = sanitizeLogEntry(log);
+            const data = `data: ${JSON.stringify(sanitized)}\n\n`;
             controller.enqueue(encoder.encode(data));
           } catch (error) {
             console.error(`[Stream] Error sending log for job ${jobId}:`, error);
@@ -44,8 +46,24 @@ export async function GET(
             select: { logs: true, status: true },
           });
 
-          if (job?.logs && Array.isArray(job.logs)) {
-            job.logs.forEach((log: any) => {
+          if (job?.logs) {
+            // Parse logs if stored as JSON string
+            let logsArray: any[];
+            if (typeof job.logs === 'string') {
+              try {
+                logsArray = JSON.parse(job.logs);
+              } catch (parseError) {
+                console.error(`[Stream] Error parsing job.logs JSON for job ${jobId}:`, parseError);
+                logsArray = [];
+              }
+            } else if (Array.isArray(job.logs)) {
+              logsArray = job.logs;
+            } else {
+              logsArray = [];
+            }
+
+            // Send each log entry
+            logsArray.forEach((log: any) => {
               sendLog(log as LogEntry);
             });
           }

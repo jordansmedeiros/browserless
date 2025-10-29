@@ -49,7 +49,9 @@
       "Bash(npx tsc:*)",
       "Bash(openspec spec list:*)",
       "Bash(openspec show:*)",
-      "Bash(openspec diff:*)"
+      "Bash(openspec diff:*)",
+      "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678A@\" PJE_ID_ADVOGADO=\"29203\" PJE_LOGIN_URL=\"https://pje.trt3.jus.br/primeirograu/login.seam\" PJE_BASE_URL=\"https://pje.trt3.jus.br\" PJE_API_URL=\"https://pje.trt3.jus.br/pje-comum-api/api\" PJE_OUTPUT_FILE=\"\" node:*)",
+      "Bash(tee:*)"
     ],
     "deny": [],
     "ask": []

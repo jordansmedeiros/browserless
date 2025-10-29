@@ -5,9 +5,9 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'JusBrowserless',
+  title: 'JusBro',
   description:
-    'Plataforma open source de automação judicial brasileira. Navegadores headless (Browserless) + scripts especializados para o PJE (Processo Judicial Eletrônico). Suporte a todos os 24 TRTs.',
+    'Plataforma open source para raspagem automatizada de dados processuais.',
   keywords: [
     'browserless',
     'pje',
@@ -23,9 +23,9 @@ export const metadata: Metadata = {
     'jurídico',
   ],
   authors: [{ name: 'Browserless Contributors' }],
-  creator: 'Browserless',
-  publisher: 'Browserless',
-  applicationName: 'JusBrowserless',
+  creator: 'Sinesys',
+  publisher: 'Sinesys',
+  applicationName: 'JusBro',
   generator: 'Next.js',
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
@@ -34,10 +34,10 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'pt_BR',
     url: '/',
-    siteName: 'JusBrowserless',
-    title: 'JusBrowserless',
+    siteName: 'JusBro',
+    title: 'JusBro',
     description:
-      'Plataforma open source de automação judicial brasileira. Navegadores headless + scripts especializados para PJE.',
+      'Plataforma open source para raspagem automatizada de dados processuais.',
     images: [
       {
         url: '/og-image.png',
@@ -49,9 +49,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'JusBrowserless',
+    title: 'JusBro',
     description:
-      'Plataforma open source de automação judicial brasileira com suporte a todos os 24 TRTs.',
+      'Plataforma open source para raspagem automatizada de dados processuais.',
     images: ['/og-image.png'],
   },
   robots: {

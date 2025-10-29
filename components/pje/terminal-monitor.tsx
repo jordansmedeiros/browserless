@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { Terminal, AnimatedSpan, TypingAnimation } from '@/components/ui/shadcn-io/terminal';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowDown, AlertCircle, CheckCircle2, Loader2, Clock, FileText, TrendingUp, XCircle, Download } from 'lucide-react';
 import { type LogEntry } from '@/lib/services/scrape-logger';
 import { getScrapeJobAction } from '@/app/actions/pje';
+import { sanitizeLogEntry } from '@/lib/utils/sanitization';
 
 interface TerminalMonitorProps {
   /** Scrape job ID */
@@ -45,6 +46,12 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
   const terminalRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Memoize sanitized logs for performance
+  const sanitizedLogs = useMemo(
+    () => logs.map(sanitizeLogEntry),
+    [logs]
+  );
 
   // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
@@ -241,10 +248,10 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
 
   // Download logs as .log file
   const downloadLogs = () => {
-    if (logs.length === 0) return;
+    if (sanitizedLogs.length === 0) return;
 
-    // Format logs as plain text
-    const logText = logs
+    // Format logs as plain text (using sanitized logs)
+    const logText = sanitizedLogs
       .map((log) => {
         const timestamp = formatTime(log.timestamp);
         const level = log.level.toUpperCase().padEnd(7);
@@ -346,7 +353,7 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
             onScroll={handleScroll}
             className="max-h-[400px] overflow-y-auto"
           >
-            {logs.length === 0 && (
+            {sanitizedLogs.length === 0 && (
               <div className="text-muted-foreground">
                 {isRunning ? (
                   <TypingAnimation duration={60}>Aguardando logs...</TypingAnimation>
@@ -356,7 +363,7 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
               </div>
             )}
 
-            {logs.map((log, index) => (
+            {sanitizedLogs.map((log, index) => (
               <AnimatedSpan key={index} delay={index * 50} className="font-mono">
                 <span className={getLogColor(log.level)}>
                   [{formatTime(log.timestamp)}]

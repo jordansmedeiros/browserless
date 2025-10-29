@@ -21,22 +21,13 @@ export function Hero({ githubStats }: HeroProps) {
         <div className="flex flex-col items-center text-center">
           {/* Main Heading */}
           <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-            JusBrowserless
+            JusBro
           </h1>
 
           {/* Subheading */}
           <p className="mb-8 max-w-3xl text-lg text-muted-foreground sm:text-xl md:text-2xl">
             Plataforma <span className="font-semibold">open source</span> de
-            automação judicial brasileira
-          </p>
-
-          <p className="mb-10 max-w-2xl text-base text-muted-foreground md:text-lg">
-            Combine navegadores headless (Browserless) com scripts
-            especializados para o{' '}
-            <span className="font-medium">
-              PJE (Processo Judicial Eletrônico)
-            </span>
-            . Suporte completo aos 24 TRTs brasileiros.
+            raspagem de dados processuais
           </p>
 
           {/* GitHub Badges */}

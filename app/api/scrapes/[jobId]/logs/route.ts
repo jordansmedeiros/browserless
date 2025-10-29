@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { scrapeLoggerService, type LogEntry } from '@/lib/services/scrape-logger';
+import { sanitizeLogEntry } from '@/lib/utils/sanitization';
 
 export async function GET(
   request: NextRequest,
@@ -66,12 +67,15 @@ export async function GET(
     // Sort by timestamp
     allLogs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
+    // Sanitize logs before sending to client
+    const sanitizedLogs = allLogs.map(sanitizeLogEntry);
+
     // Get logs from specified index
-    const requestedLogs = allLogs.slice(fromIndex);
+    const requestedLogs = sanitizedLogs.slice(fromIndex);
 
     return NextResponse.json({
       logs: requestedLogs,
-      lastIndex: allLogs.length,
+      lastIndex: sanitizedLogs.length,
       jobStatus: job.status,
       hasMore: job.status === 'running' || job.status === 'pending',
     });

@@ -40,31 +40,23 @@ const data = {
       isActive: false,
     },
     {
-      title: "PJE Automação",
-      url: "/pje",
-      icon: Gavel,
+      title: "Credenciais",
+      url: "/pje/credentials",
+      icon: Key,
       isActive: false,
-      items: [
-        {
-          title: "Credenciais",
-          url: "/pje/credentials",
-        },
-        {
-          title: "Processos",
-          url: "/pje/processos",
-        },
-        {
-          title: "Raspagens",
-          url: "/pje/scrapes",
-        },
-      ],
     },
     {
-      title: "Configurações",
-      url: "/settings",
-      icon: Settings2,
+      title: "Raspagens",
+      url: "/pje/scrapes",
+      icon: List,
       isActive: false,
     },
+    {
+      title: "Processos",
+      url: "/pje/processos",
+      icon: FileText,
+      isActive: false,
+    },   
   ],
   navSecondary: [
     {
@@ -74,7 +66,7 @@ const data = {
     },
     {
       title: "GitHub",
-      url: "https://github.com/browserless/browserless",
+      url: "https://github.com/SinesysTech/JusBro",
       icon: Github,
     },
   ],
@@ -100,8 +92,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <Gavel className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">JusBrowserless</span>
-                  <span className="truncate text-xs">PJE Automation</span>
+                  <span className="truncate font-semibold">JusBro</span>
                 </div>
               </a>
             </SidebarMenuButton>

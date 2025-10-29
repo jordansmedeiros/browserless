@@ -38,6 +38,7 @@ import type {
 import { z } from 'zod';
 import { decompressJSON } from '@/lib/utils/compression';
 import { parseTribunalConfigId, getTipoTribunal } from '@/lib/types/tribunal';
+import { sanitizeError, maskCPF } from '@/lib/utils/sanitization';
 
 // Lazy load Prisma to avoid edge runtime issues
 async function getPrisma() {
@@ -101,14 +102,15 @@ export async function loginPJEAction(formData: FormData): Promise<LoginResult> {
 
     return resultado;
   } catch (error) {
-    console.error('[Server Action] Erro no login:', error);
+    console.error('[loginPJEAction] Erro:', error);
+    console.error('[loginPJEAction] Erro sanitizado:', sanitizeError(error));
     return {
       success: false,
       message: 'Erro interno do servidor',
       error: {
         type: 'UNKNOWN_ERROR',
         category: 'UNKNOWN',
-        message: error instanceof Error ? error.message : 'Erro desconhecido',
+        message: 'Erro interno do servidor',
         retryable: false,
         timestamp: new Date().toISOString(),
       },
@@ -157,7 +159,7 @@ export async function scrapeProcessosPJEAction(
 
     return resultado;
   } catch (error) {
-    console.error('[Server Action] Erro na raspagem:', error);
+    console.error('[scrapeProcessosPJEAction] Erro:', error);
     return {
       success: false,
       processos: [],
@@ -166,7 +168,7 @@ export async function scrapeProcessosPJEAction(
       error: {
         type: 'UNKNOWN_ERROR',
         category: 'UNKNOWN',
-        message: error instanceof Error ? error.message : 'Erro desconhecido',
+        message: 'Erro interno do servidor',
         retryable: false,
         timestamp: new Date().toISOString(),
       },
@@ -199,7 +201,7 @@ export async function testConnectionAction(): Promise<{ success: boolean; messag
   } catch (error) {
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Erro de conexão',
+      message: 'Erro ao testar conexão',
     };
   }
 }
@@ -286,10 +288,10 @@ export async function createEscritorioAction(input: CreateEscritorioInput) {
       data: escritorio,
     };
   } catch (error) {
-    console.error('[createEscritorioAction] Error:', error);
+    console.error('[createEscritorioAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao criar escritório',
+      error: 'Erro ao criar escritório',
     };
   }
 }
@@ -315,10 +317,10 @@ export async function listEscritoriosAction() {
       data: escritorios as EscritorioWithAdvogados[],
     };
   } catch (error) {
-    console.error('[listEscritoriosAction] Error:', error);
+    console.error('[listEscritoriosAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao listar escritórios',
+      error: 'Erro ao listar escritórios',
       data: [],
     };
   }
@@ -350,10 +352,10 @@ export async function getEscritorioAction(id: string) {
       data: escritorio as EscritorioWithAdvogados,
     };
   } catch (error) {
-    console.error('[getEscritorioAction] Error:', error);
+    console.error('[getEscritorioAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao buscar escritório',
+      error: 'Erro ao buscar escritório',
     };
   }
 }
@@ -381,10 +383,10 @@ export async function updateEscritorioAction(id: string, input: UpdateEscritorio
       data: escritorio,
     };
   } catch (error) {
-    console.error('[updateEscritorioAction] Error:', error);
+    console.error('[updateEscritorioAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao atualizar escritório',
+      error: 'Erro ao atualizar escritório',
     };
   }
 }
@@ -412,10 +414,10 @@ export async function deleteEscritorioAction(id: string) {
       success: true,
     };
   } catch (error) {
-    console.error('[deleteEscritorioAction] Error:', error);
+    console.error('[deleteEscritorioAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao deletar escritório',
+      error: 'Erro ao deletar escritório',
     };
   }
 }
@@ -481,10 +483,10 @@ export async function createAdvogadoAction(input: CreateAdvogadoInput) {
       data: advogado,
     };
   } catch (error) {
-    console.error('[createAdvogadoAction] Error:', error);
+    console.error('[createAdvogadoAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao criar advogado',
+      error: 'Erro ao criar advogado',
     };
   }
 }
@@ -520,10 +522,10 @@ export async function listAdvogadosAction(escritorioId?: string) {
       data: advogados as AdvogadoWithCredenciais[],
     };
   } catch (error) {
-    console.error('[listAdvogadosAction] Error:', error);
+    console.error('[listAdvogadosAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao listar advogados',
+      error: 'Erro ao listar advogados',
       data: [],
     };
   }
@@ -564,10 +566,10 @@ export async function getAdvogadoAction(id: string) {
       data: advogado as AdvogadoWithCredenciais,
     };
   } catch (error) {
-    console.error('[getAdvogadoAction] Error:', error);
+    console.error('[getAdvogadoAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao buscar advogado',
+      error: 'Erro ao buscar advogado',
     };
   }
 }
@@ -591,10 +593,10 @@ export async function updateAdvogadoAction(id: string, input: UpdateAdvogadoInpu
       data: advogado,
     };
   } catch (error) {
-    console.error('[updateAdvogadoAction] Error:', error);
+    console.error('[updateAdvogadoAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao atualizar advogado',
+      error: 'Erro ao atualizar advogado',
     };
   }
 }
@@ -611,10 +613,10 @@ export async function deleteAdvogadoAction(id: string) {
       success: true,
     };
   } catch (error) {
-    console.error('[deleteAdvogadoAction] Error:', error);
+    console.error('[deleteAdvogadoAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao deletar advogado',
+      error: 'Erro ao deletar advogado',
     };
   }
 }
@@ -686,7 +688,7 @@ export async function createCredencialAction(input: CreateCredencialInput) {
       } catch (error) {
         return {
           success: false,
-          error: `ID de tribunal inválido: ${tribunalId}. ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+          error: `ID de tribunal inválido: ${tribunalId}`,
         };
       }
     }
@@ -723,7 +725,13 @@ export async function createCredencialAction(input: CreateCredencialInput) {
           }),
         },
       },
-      include: {
+      select: {
+        id: true,
+        descricao: true,
+        ativa: true,
+        advogadoId: true,
+        createdAt: true,
+        updatedAt: true,
         tribunais: {
           include: {
             tribunalConfig: {
@@ -742,10 +750,10 @@ export async function createCredencialAction(input: CreateCredencialInput) {
       data: credencial as CredencialWithRelations,
     };
   } catch (error) {
-    console.error('[createCredencialAction] Error:', error);
+    console.error('[createCredencialAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao criar credencial',
+      error: 'Erro ao criar credencial',
     };
   }
 }
@@ -755,7 +763,13 @@ export async function listCredenciaisAction(advogadoId: string) {
     const prisma = await getPrisma();
     const credenciais = await prisma.credencial.findMany({
       where: { advogadoId },
-      include: {
+      select: {
+        id: true,
+        descricao: true,
+        ativa: true,
+        advogadoId: true,
+        createdAt: true,
+        updatedAt: true,
         tribunais: {
           include: {
             tribunalConfig: {
@@ -777,10 +791,10 @@ export async function listCredenciaisAction(advogadoId: string) {
       data: credenciais as CredencialWithRelations[],
     };
   } catch (error) {
-    console.error('[listCredenciaisAction] Error:', error);
+    console.error('[listCredenciaisAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao listar credenciais',
+      error: 'Erro ao listar credenciais',
       data: [],
     };
   }
@@ -821,10 +835,10 @@ export async function listTribunalConfigsAction() {
       data: configsFormatted,
     };
   } catch (error) {
-    console.error('[listTribunalConfigsAction] Error:', error);
+    console.error('[listTribunalConfigsAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao listar tribunais',
+      error: 'Erro ao listar tribunais',
       data: [],
     };
   }
@@ -835,7 +849,13 @@ export async function getCredencialAction(id: string) {
     const prisma = await getPrisma();
     const credencial = await prisma.credencial.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        descricao: true,
+        ativa: true,
+        advogadoId: true,
+        createdAt: true,
+        updatedAt: true,
         tribunais: {
           include: {
             tribunalConfig: {
@@ -861,10 +881,10 @@ export async function getCredencialAction(id: string) {
       data: credencial as CredencialWithRelations,
     };
   } catch (error) {
-    console.error('[getCredencialAction] Error:', error);
+    console.error('[getCredencialAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao buscar credencial',
+      error: 'Erro ao buscar credencial',
     };
   }
 }
@@ -1026,7 +1046,13 @@ export async function updateCredencialAction(id: string, input: UpdateCredencial
     const credencial = await prisma.credencial.update({
       where: { id },
       data: updateData,
-      include: {
+      select: {
+        id: true,
+        descricao: true,
+        ativa: true,
+        advogadoId: true,
+        createdAt: true,
+        updatedAt: true,
         tribunais: {
           include: {
             tribunalConfig: {
@@ -1045,10 +1071,10 @@ export async function updateCredencialAction(id: string, input: UpdateCredencial
       data: credencial as CredencialWithRelations,
     };
   } catch (error) {
-    console.error('[updateCredencialAction] Error:', error);
+    console.error('[updateCredencialAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao atualizar credencial',
+      error: 'Erro ao atualizar credencial',
     };
   }
 }
@@ -1064,10 +1090,10 @@ export async function deleteCredencialAction(id: string) {
       success: true,
     };
   } catch (error) {
-    console.error('[deleteCredencialAction] Error:', error);
+    console.error('[deleteCredencialAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao deletar credencial',
+      error: 'Erro ao deletar credencial',
     };
   }
 }
@@ -1077,6 +1103,7 @@ export async function toggleCredencialAction(id: string) {
     const prisma = await getPrisma();
     const credencial = await prisma.credencial.findUnique({
       where: { id },
+      select: { id: true, ativa: true },
     });
 
     if (!credencial) {
@@ -1091,6 +1118,14 @@ export async function toggleCredencialAction(id: string) {
       data: {
         ativa: !credencial.ativa,
       },
+      select: {
+        id: true,
+        descricao: true,
+        ativa: true,
+        advogadoId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     return {
@@ -1098,10 +1133,10 @@ export async function toggleCredencialAction(id: string) {
       data: updated,
     };
   } catch (error) {
-    console.error('[toggleCredencialAction] Error:', error);
+    console.error('[toggleCredencialAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao alterar status da credencial',
+      error: 'Erro ao alterar status da credencial',
     };
   }
 }
@@ -1188,7 +1223,7 @@ export async function testCredencialAction(
     lastTestTimes.set(credencialId, now);
 
     // Executa login
-    console.log(`[Test Credential] Testando credencial para ${credencial.advogado.nome} em ${tribunalConfig.tribunal.codigo}-${tribunalConfig.grau}`);
+    console.log(`[testCredencialAction] Testando credencial para ${credencial.advogado.nome} (CPF: ${maskCPF(credencial.advogado.cpf)}) em ${tribunalConfig.tribunal.codigo}-${tribunalConfig.grau}`);
 
     const resultado = await executarLoginPJE(
       credencial.advogado.cpf,
@@ -1218,15 +1253,13 @@ export async function testCredencialAction(
       return {
         success: false,
         message: resultado.message || 'Falha no login',
-        errorDetails: resultado.error?.message,
       };
     }
   } catch (error) {
-    console.error('[testCredencialAction] Error:', error);
+    console.error('[testCredencialAction] Erro:', error);
     return {
       success: false,
       message: 'Erro ao testar credencial',
-      errorDetails: error instanceof Error ? error.message : 'Erro desconhecido',
     };
   }
 }
@@ -1250,7 +1283,12 @@ const createScrapeJobSchema = z.object({
  */
 export async function createScrapeJobAction(input: CreateScrapeJobInput) {
   try {
-    console.log('[createScrapeJobAction] Iniciando criação de job com input:', JSON.stringify(input));
+    console.log('[createScrapeJobAction] Iniciando criação de job:', {
+      credencialId: input.credencialId,
+      tribunalCount: input.tribunalConfigIds.length,
+      scrapeType: input.scrapeType,
+      scrapeSubType: input.scrapeSubType
+    });
     const prisma = await getPrisma();
 
     // Validate input
@@ -1312,6 +1350,7 @@ export async function createScrapeJobAction(input: CreateScrapeJobInput) {
     console.log('[createScrapeJobAction] Credencial validada:', {
       id: credencial.id,
       advogado: credencial.advogado.nome,
+      cpf: maskCPF(credencial.advogado.cpf),
       tribunaisCount: credencial.tribunais.length,
     });
 
@@ -1416,10 +1455,10 @@ export async function createScrapeJobAction(input: CreateScrapeJobInput) {
       },
     };
   } catch (error) {
-    console.error('[createScrapeJobAction] Error:', error);
+    console.error('[createScrapeJobAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao criar job de raspagem',
+      error: 'Erro ao criar job de raspagem',
     };
   }
 }
@@ -1518,10 +1557,10 @@ export async function listScrapeJobsAction(filters?: ListScrapeJobsFilters) {
       data: result,
     };
   } catch (error) {
-    console.error('[listScrapeJobsAction] Error:', error);
+    console.error('[listScrapeJobsAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao listar jobs',
+      error: 'Erro ao listar jobs',
       data: {
         jobs: [],
         total: 0,
@@ -1577,10 +1616,10 @@ export async function getScrapeJobAction(jobId: string) {
       data: job as ScrapeJobWithRelations,
     };
   } catch (error) {
-    console.error('[getScrapeJobAction] Error:', error);
+    console.error('[getScrapeJobAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao buscar job',
+      error: 'Erro ao buscar job',
     };
   }
 }
@@ -1631,10 +1670,10 @@ export async function getScrapeExecutionAction(executionId: string) {
       data: result,
     };
   } catch (error) {
-    console.error('[getScrapeExecutionAction] Error:', error);
+    console.error('[getScrapeExecutionAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao buscar execução',
+      error: 'Erro ao buscar execução',
     };
   }
 }
@@ -1688,10 +1727,10 @@ export async function getScrapeExecutionProcessesAction(
       data: processos,
     };
   } catch (error) {
-    console.error('[getScrapeExecutionProcessesAction] Error:', error);
+    console.error('[getScrapeExecutionProcessesAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao carregar processos',
+      error: 'Erro ao carregar processos',
     };
   }
 }
@@ -1737,10 +1776,10 @@ export async function getScrapeJobProcessesAction(jobId: string) {
       data: processos,
     };
   } catch (error) {
-    console.error('[getScrapeJobProcessesAction] Error:', error);
+    console.error('[getScrapeJobProcessesAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao carregar processos',
+      error: 'Erro ao carregar processos',
     };
   }
 }
@@ -1778,10 +1817,10 @@ export async function deleteScrapeJobAction(jobId: string) {
       message: 'Job deletado com sucesso',
     };
   } catch (error) {
-    console.error('[deleteScrapeJobAction] Error:', error);
+    console.error('[deleteScrapeJobAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao deletar job',
+      error: 'Erro ao deletar job',
     };
   }
 }
@@ -1881,10 +1920,10 @@ export async function retryScrapeExecutionAction(executionId: string) {
       },
     };
   } catch (error) {
-    console.error('[retryScrapeExecutionAction] Error:', error);
+    console.error('[retryScrapeExecutionAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao reexecutar',
+      error: 'Erro ao reexecutar',
     };
   }
 }
@@ -1942,10 +1981,10 @@ export async function cancelScrapeJobAction(jobId: string) {
       success: true,
     };
   } catch (error) {
-    console.error('[cancelScrapeJobAction] Error:', error);
+    console.error('[cancelScrapeJobAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao cancelar job',
+      error: 'Erro ao cancelar job',
     };
   }
 }
@@ -1984,10 +2023,10 @@ export async function getActiveJobsStatusAction(jobIds: string[]) {
       data: jobs,
     };
   } catch (error) {
-    console.error('[getActiveJobsStatusAction] Error:', error);
+    console.error('[getActiveJobsStatusAction] Erro:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro ao buscar status',
+      error: 'Erro ao buscar status',
       data: [],
     };
   }
