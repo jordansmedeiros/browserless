@@ -53,8 +53,16 @@ export function useJobPolling(options: UseJobPollingOptions = {}): UseJobPolling
   }, [interval]);
 
   // Hash function for detecting job changes
+  // Includes tribunal-level progress to avoid backoff during active work
   const getJobsHash = (jobs: ScrapeJobWithRelations[]): string => {
-    return jobs.map(j => `${j.id}:${j.status}`).sort().join(',');
+    return jobs.map(j => {
+      const tribunalStats = {
+        completed: j.tribunals.filter(t => t.status === 'completed').length,
+        failed: j.tribunals.filter(t => t.status === 'failed').length,
+        running: j.tribunals.filter(t => t.status === 'running').length,
+      };
+      return `${j.id}:${j.status}:${tribunalStats.completed}/${tribunalStats.failed}/${tribunalStats.running}`;
+    }).sort().join(',');
   };
 
   // Polling effect
@@ -67,9 +75,11 @@ export function useJobPolling(options: UseJobPollingOptions = {}): UseJobPolling
     const poll = async () => {
       // Get job IDs to monitor
       // Priority: explicit jobIds prop > watchedJobIds > all active jobs
-      const ids = jobIdsRef.current || jobsStore.watchedJobIds.length > 0
-        ? jobsStore.watchedJobIds
-        : jobsStore.activeJobs.map((j) => j.id);
+      const ids = jobIdsRef.current ?? (
+        jobsStore.watchedJobIds.length > 0
+          ? jobsStore.watchedJobIds
+          : jobsStore.activeJobs.map((j) => j.id)
+      );
 
       // Skip if no jobs to monitor
       if (ids.length === 0 && !jobIdsRef.current) {

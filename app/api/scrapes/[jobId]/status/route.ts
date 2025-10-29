@@ -15,10 +15,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ jobId: string }> }
+  { params }: { params: { jobId: string } }
 ) {
   try {
-    const { jobId } = await params;
+    const { jobId } = params;
 
     // Fetch job with all relations
     const job = await prisma.scrapeJob.findUnique({

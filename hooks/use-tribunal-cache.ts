@@ -1,10 +1,13 @@
 /**
  * useTribunalCache Hook
- * Custom hook that listens to tribunal cache invalidations and refetches automatically
+ * Custom hook for fetching and managing tribunal data
+ *
+ * Note: This hook does not implement real-time cache invalidation.
+ * For real-time updates, implement a proper event channel (SSE/WebSocket)
+ * through a separate client-safe module.
  */
 
 import { useEffect, useState } from 'react';
-import { onCacheInvalidation } from '@/lib/services/tribunal';
 import type { TribunalInfo } from '@/lib/types/tribunal';
 
 interface UseTribunalCacheReturn {
@@ -24,9 +27,12 @@ export function useTribunalCache(): UseTribunalCacheReturn {
     setError(null);
 
     try {
-      // Importar dinamicamente para evitar circular dependency
-      const { listAllTRTs } = await import('@/lib/services/tribunal');
-      const data = await listAllTRTs();
+      // Fetch via API endpoint to respect client/server boundary
+      const response = await fetch('/api/tribunals');
+      if (!response.ok) {
+        throw new Error('Erro ao buscar tribunais');
+      }
+      const data = await response.json();
       setTribunals(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar tribunais');
@@ -38,16 +44,6 @@ export function useTribunalCache(): UseTribunalCacheReturn {
   // Fetch inicial
   useEffect(() => {
     fetchTribunals();
-  }, []);
-
-  // Escutar invalidações de cache
-  useEffect(() => {
-    const unsubscribe = onCacheInvalidation(() => {
-      console.log('[useTribunalCache] Cache invalidated, refetching...');
-      fetchTribunals();
-    });
-
-    return unsubscribe;
   }, []);
 
   return {
