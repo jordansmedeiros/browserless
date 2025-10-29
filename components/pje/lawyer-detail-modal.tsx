@@ -36,6 +36,7 @@ import {
   createCredencialAction,
   updateCredencialAction,
   listTribunalConfigsAction,
+  deleteAdvogadoAction,
 } from '@/app/actions/pje';
 import { toast } from 'sonner';
 
@@ -59,6 +60,7 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [credentialToDelete, setCredentialToDelete] = useState<string | null>(null);
+  const [deleteAdvogadoDialog, setDeleteAdvogadoDialog] = useState(false);
 
   // Add credential dialog state
   const [addCredentialDialog, setAddCredentialDialog] = useState(false);
@@ -185,6 +187,34 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
       await loadAdvogado();
     } catch (error) {
       setMessage({ type: 'error', text: 'Erro ao salvar dados' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleDeleteAdvogado() {
+    setDeleteAdvogadoDialog(true);
+  }
+
+  async function confirmDeleteAdvogado() {
+    if (!advogado) return;
+
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const result = await deleteAdvogadoAction(advogado.id);
+
+      if (result.success) {
+        toast.success('Advogado excluído com sucesso!');
+        setDeleteAdvogadoDialog(false);
+        onUpdate();
+        onClose();
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Erro ao excluir advogado' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Erro ao excluir advogado' });
     } finally {
       setSaving(false);
     }
@@ -463,20 +493,30 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
-                  <Button variant="outline" onClick={onClose} disabled={saving}>
-                    Cancelar
+                <div className="flex justify-between pt-4 border-t">
+                  <Button
+                    variant="destructive"
+                    onClick={handleDeleteAdvogado}
+                    disabled={saving}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Excluir Advogado
                   </Button>
-                  <Button onClick={handleSaveLawyerInfo} disabled={saving}>
-                    {saving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Salvando...
-                      </>
-                    ) : (
-                      'Salvar Alterações'
-                    )}
-                  </Button>
+                  <div className="flex gap-3">
+                    <Button variant="outline" onClick={onClose} disabled={saving}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleSaveLawyerInfo} disabled={saving}>
+                      {saving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Salvando...
+                        </>
+                      ) : (
+                        'Salvar Alterações'
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </TabsContent>
 
@@ -886,6 +926,38 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Advogado Confirmation Dialog */}
+      <AlertDialog open={deleteAdvogadoDialog} onOpenChange={setDeleteAdvogadoDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Advogado</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este advogado? Esta ação não pode ser desfeita.
+              <span className="block mt-2 text-amber-600 font-medium">
+                Todas as credenciais vinculadas a este advogado serão removidas.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteAdvogado}
+              disabled={saving}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                'Excluir'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

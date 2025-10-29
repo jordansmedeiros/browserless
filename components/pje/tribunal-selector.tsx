@@ -32,10 +32,12 @@ interface IndeterminateCheckboxProps extends React.ComponentPropsWithoutRef<type
 }
 
 function IndeterminateCheckbox({ indeterminate, ...props }: IndeterminateCheckboxProps) {
-  const ref = useRef<HTMLButtonElement>(null);
+  const ref = useRef<React.ElementRef<typeof Checkbox>>(null);
 
   useEffect(() => {
     if (ref.current) {
+      // Radix UI Checkbox.Root renderiza <button role="checkbox"> mas expõe propriedade indeterminate
+      // via ref forwarding interno
       (ref.current as any).indeterminate = indeterminate ?? false;
     }
   }, [indeterminate]);
@@ -68,24 +70,23 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
         .then((result) => {
           if (result.success && result.data) {
             // Extract tribunal identifiers from the credential
-            // Prefer using tribunalConfig.id if available, otherwise normalize to lowercase
+            // Normalize IDs to formato padrão: codigo-sistema-grau (lowercase)
             const tribunalIds = result.data.tribunais.map((ct) => {
               const config = ct.tribunalConfig;
-              // Use config.id if available, otherwise construct and normalize
-              if (config.id) {
-                return config.id.toLowerCase();
-              }
-              return `${config.tribunal.codigo}-${config.sistema}-${config.grau}`.toLowerCase();
+              // Always construct ID from components to ensure consistency
+              const normalizedId = `${config.tribunal.codigo}-${config.sistema}-${config.grau}`.toLowerCase();
+              return normalizedId;
             });
             console.log('[TribunalSelector] Credential tribunal IDs:', tribunalIds);
+            console.log('[TribunalSelector] Available tribunal IDs:', tribunais.map(t => t.id.toLowerCase()).slice(0, 10));
             setCredentialTribunals(tribunalIds);
           } else {
-            console.error('Failed to load credential tribunals:', result.error);
+            console.error('[TribunalSelector] Failed to load credential tribunals:', result.error);
             setCredentialTribunals([]);
           }
         })
         .catch((error) => {
-          console.error('Error loading credential tribunals:', error);
+          console.error('[TribunalSelector] Error loading credential tribunals:', error);
           setCredentialTribunals([]);
         })
         .finally(() => {
@@ -95,7 +96,7 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
       // No credential selected - show all tribunals
       setCredentialTribunals([]);
     }
-  }, [credentialId]);
+  }, [credentialId, tribunais]);
 
   // Determina o tipo de tribunal baseado no código
   const getTipoTribunal = (codigo: string): 'TRT' | 'TJ' | 'TRF' | 'Superior' => {
@@ -286,12 +287,18 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
       )}
 
       {!loading && credentialId && credentialTribunals.length === 0 && (
-        <div className="flex items-center gap-2 p-4 border-2 border-amber-500/50 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-          <AlertCircle className="w-5 h-5 text-amber-600" />
-          <p className="text-sm text-amber-800 dark:text-amber-200">
-            A credencial selecionada não possui tribunais configurados.
-            Por favor, volte e selecione outra credencial ou adicione tribunais a esta credencial.
-          </p>
+        <div className="flex flex-col gap-3 p-4 border-2 border-amber-500/50 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">
+                A credencial selecionada não possui tribunais configurados.
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                Volte ao passo anterior e selecione outra credencial, ou edite esta credencial para adicionar tribunais.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 

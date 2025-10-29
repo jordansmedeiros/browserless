@@ -15,13 +15,13 @@ export function Header() {
           <h2 className="text-lg font-semibold">Dashboard</h2>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Notificações">
             <Bell className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Configurações">
             <Settings className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Perfil do usuário">
             <User className="h-5 w-5" />
           </Button>
         </div>

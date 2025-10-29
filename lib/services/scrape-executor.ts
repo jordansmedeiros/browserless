@@ -30,6 +30,12 @@ const MAX_LOG_LINES = 1000;
 const activeChildProcesses = new Set<any>();
 
 /**
+ * WeakMap para rastrear timers de escalação SIGKILL por processo
+ * Permite cancelar escalações pendentes durante cleanup ou shutdown
+ */
+const escalationTimers = new WeakMap<any, NodeJS.Timeout>();
+
+/**
  * Credenciais para login no PJE
  */
 export interface CredenciaisParaLogin {
@@ -273,6 +279,7 @@ export async function executeScriptWithRetry(
 /**
  * Limpa recursos de um processo filho de forma segura
  * Garante que timeouts são cancelados e processo é morto
+ * Idempotente - pode ser chamado múltiplas vezes com segurança
  * @param childProcess - Processo filho a limpar
  * @param timeoutId - ID do timeout principal (opcional)
  */
@@ -280,31 +287,49 @@ function cleanupChildProcess(
   childProcess: any,
   timeoutId: NodeJS.Timeout | null
 ): void {
-  // Cancela timeout se existir
+  // Cancela timeout principal se existir
   if (timeoutId) {
     clearTimeout(timeoutId);
+  }
+
+  // Cancela timer de escalação existente se houver
+  const existingEscalationTimer = escalationTimers.get(childProcess);
+  if (existingEscalationTimer) {
+    clearTimeout(existingEscalationTimer);
+    escalationTimers.delete(childProcess);
   }
 
   // Remove do tracking global
   activeChildProcesses.delete(childProcess);
 
+  // Se processo já terminou, não faz nada mais
+  if (!childProcess || childProcess.exitCode !== null) {
+    return;
+  }
+
   // Mata processo se ainda estiver vivo
   try {
     // Verifica se o processo realmente ainda está ativo usando exitCode
-    if (childProcess && childProcess.exitCode === null) {
+    if (childProcess.exitCode === null) {
       childProcess.kill('SIGTERM');
 
       // Escalona SIGKILL após 2s se não morrer
-      setTimeout(() => {
+      const escalationTimer = setTimeout(() => {
         // Verifica novamente se o processo ainda está ativo
-        if (childProcess.exitCode === null) {
+        // Checa também signalCode para maior precisão
+        if (childProcess.exitCode === null && childProcess.signalCode == null) {
           try {
             childProcess.kill('SIGKILL');
           } catch (killError) {
             // Processo já morreu - ignora erro
           }
         }
+        // Remove timer do map após execução
+        escalationTimers.delete(childProcess);
       }, 2000);
+
+      // Armazena timer para permitir cancelamento posterior
+      escalationTimers.set(childProcess, escalationTimer);
     }
   } catch (error) {
     // Processo já morreu - ignora erro
@@ -635,16 +660,34 @@ export function cleanupChildProcesses(signal: string) {
   // Mata todos os processos ativos
   for (const childProcess of activeChildProcesses) {
     try {
-      if (childProcess && !childProcess.killed) {
+      if (childProcess && childProcess.exitCode === null) {
         console.log(`[Executor] Killing child process PID ${childProcess.pid}`);
+
+        // Cancela timer de escalação existente se houver
+        const existingEscalationTimer = escalationTimers.get(childProcess);
+        if (existingEscalationTimer) {
+          clearTimeout(existingEscalationTimer);
+          escalationTimers.delete(childProcess);
+        }
+
         childProcess.kill('SIGTERM');
 
-        // Escalona SIGKILL após 2s
-        setTimeout(() => {
-          if (!childProcess.killed) {
-            childProcess.kill('SIGKILL');
+        // Escalona SIGKILL após 2s se processo ainda estiver ativo
+        const escalationTimer = setTimeout(() => {
+          // Verifica se processo ainda está ativo usando exitCode
+          if (childProcess.exitCode === null && childProcess.signalCode == null) {
+            try {
+              childProcess.kill('SIGKILL');
+            } catch (killError) {
+              // Processo já morreu - ignora erro
+            }
           }
+          // Remove timer do map após execução
+          escalationTimers.delete(childProcess);
         }, 2000);
+
+        // Armazena timer para permitir cancelamento posterior
+        escalationTimers.set(childProcess, escalationTimer);
       }
     } catch (error) {
       console.error(`[Executor] Error killing child process:`, error);

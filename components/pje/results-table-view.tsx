@@ -5,7 +5,8 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Table,
   TableBody,
@@ -60,6 +61,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const tableContainerRef = useRef<HTMLDivElement>(null);
 
   // Filter processes by search term
   const filteredProcesses = useMemo(() => {
@@ -98,6 +100,15 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
     const startIndex = (currentPage - 1) * pageSize;
     return sortedProcesses.slice(startIndex, startIndex + pageSize);
   }, [sortedProcesses, currentPage, pageSize]);
+
+  // Virtualizer para renderizar apenas linhas visíveis
+  const rowVirtualizer = useVirtualizer({
+    count: paginatedProcesses.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 48, // Altura estimada de cada linha em pixels
+    overscan: 5, // Renderizar 5 linhas extras acima/abaixo do viewport
+    enabled: paginatedProcesses.length > 50, // Só ativar virtualização se >50 linhas
+  });
 
   // Calculate pagination info
   const totalPages = Math.ceil(sortedProcesses.length / pageSize);
@@ -236,18 +247,31 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
       </div>
 
       {/* Table */}
-      <div className="rounded-md border overflow-x-auto">
+      <div
+        ref={tableContainerRef}
+        className="rounded-md border overflow-auto"
+        style={{ height: paginatedProcesses.length > 50 ? '600px' : 'auto' }}
+      >
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-12">
                 <Checkbox
+                  aria-label="Selecionar todos os processos da página"
                   checked={selectedRows.size === sortedProcesses.length && sortedProcesses.length > 0}
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
               {columns.map((column) => (
-                <TableHead key={column} className="whitespace-nowrap">
+                <TableHead
+                  key={column}
+                  className="whitespace-nowrap"
+                  aria-sort={
+                    sortColumn === column
+                      ? (sortDirection === 'asc' ? 'ascending' : 'descending')
+                      : 'none'
+                  }
+                >
                   <Button
                     variant="ghost"
                     size="sm"
@@ -261,14 +285,52 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
               ))}
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody style={paginatedProcesses.length > 50 ? { position: 'relative' } : undefined}>
             {paginatedProcesses.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length + 1} className="text-center h-24">
                   <p className="text-muted-foreground">Nenhum resultado encontrado.</p>
                 </TableCell>
               </TableRow>
+            ) : paginatedProcesses.length > 50 ? (
+              // Virtualização ativada para >50 linhas
+              <>
+                {/* Spacer para altura total */}
+                <tr style={{ height: `${rowVirtualizer.getTotalSize()}px` }} />
+
+                {/* Renderizar apenas linhas virtualizadas */}
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const process = paginatedProcesses[virtualRow.index];
+                  const globalIndex = (currentPage - 1) * pageSize + virtualRow.index;
+
+                  return (
+                    <TableRow
+                      key={globalIndex}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                    >
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedRows.has(globalIndex)}
+                          onCheckedChange={() => handleRowSelect(globalIndex)}
+                        />
+                      </TableCell>
+                      {columns.map((column) => (
+                        <TableCell key={column} className="max-w-md truncate">
+                          {formatCellValue(process[column])}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                })}
+              </>
             ) : (
+              // Renderização normal para ≤50 linhas
               paginatedProcesses.map((process, index) => {
                 const globalIndex = (currentPage - 1) * pageSize + index;
                 return (
@@ -294,7 +356,11 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
 
       {/* Pagination */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
+        <div
+          className="text-sm text-muted-foreground"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           Mostrando {startIndex} a {endIndex} de {sortedProcesses.length} processo{sortedProcesses.length !== 1 ? 's' : ''}
           {searchTerm && ` (filtrado de ${allProcesses.length} total)`}
         </div>
@@ -304,6 +370,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
             size="sm"
             onClick={() => setCurrentPage(1)}
             disabled={currentPage === 1}
+            aria-label="Ir para primeira página"
           >
             <ChevronsLeft className="h-4 w-4" />
           </Button>
@@ -312,6 +379,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
             size="sm"
             onClick={() => setCurrentPage(currentPage - 1)}
             disabled={currentPage === 1}
+            aria-label="Página anterior"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -323,6 +391,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
             size="sm"
             onClick={() => setCurrentPage(currentPage + 1)}
             disabled={currentPage === totalPages}
+            aria-label="Próxima página"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -331,6 +400,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
             size="sm"
             onClick={() => setCurrentPage(totalPages)}
             disabled={currentPage === totalPages}
+            aria-label="Ir para última página"
           >
             <ChevronsRight className="h-4 w-4" />
           </Button>

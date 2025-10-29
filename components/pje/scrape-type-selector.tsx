@@ -100,6 +100,7 @@ export function ScrapeTypeSelector({
 
             return (
               <div key={type.value}>
+                {/* RadioGroup com labels explícitos - WCAG 2.1 compliant */}
                 <label
                   htmlFor={`scrape-type-${type.value}`}
                   className={`flex cursor-pointer rounded-lg border-2 transition-colors ${

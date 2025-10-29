@@ -132,6 +132,40 @@ O sistema utiliza estratégias inteligentes de polling e caching para reduzir ca
 - **Updates instantâneos** para logs via SSE
 - **Carregamento rápido** da página inicial via ISR
 
+#### ♿ Acessibilidade (WCAG 2.1 Level AA)
+
+O JusBro foi desenvolvido seguindo as diretrizes WCAG 2.1 Level AA para garantir acessibilidade a todos os usuários.
+
+**Recursos de Acessibilidade**
+- **Navegação por Teclado**: Todos os componentes interativos são acessíveis via teclado (Tab, Enter, Space, Arrow keys)
+- **Screen Reader Support**: Atributos ARIA completos em navegação, formulários e tabelas
+- **Contraste de Cores**: Todas as combinações de cores passam WCAG AA (ratio mínimo 4.5:1 para texto normal)
+- **Labels Explícitos**: Todos os controles de formulário têm labels associados via `htmlFor` ou `aria-label`
+- **Estado de Navegação**: Links ativos indicados com `aria-current="page"` para orientação
+- **Feedback de Ações**: Mudanças de estado anunciadas via `aria-live` para usuários de screen readers
+
+**Virtualização de Tabelas**
+- Tabelas grandes (>50 linhas) usam virtualização para manter performance
+- Renderiza apenas linhas visíveis no viewport (+ overscan)
+- Mantém acessibilidade completa mesmo com virtualização ativa
+
+**Testes de Acessibilidade**
+
+Execute os testes automatizados:
+```bash
+npm run test:accessibility
+```
+
+**Ferramentas recomendadas**:
+- Lighthouse (Chrome DevTools) - Target: 100 score
+- axe DevTools - Target: 0 violations
+- NVDA/JAWS (Windows) ou VoiceOver (Mac) para testes manuais
+
+**Conformidade**
+- ✅ WCAG 2.1 Level AA
+- ✅ Section 508
+- ✅ EN 301 549
+
 ---
 
 ### 🌐 Plataforma Browserless

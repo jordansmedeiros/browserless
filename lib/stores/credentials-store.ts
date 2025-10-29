@@ -22,6 +22,7 @@ interface CredentialsState {
   setCredentials: (credentials: CredencialWithRelations[]) => void;
   fetchCredentials: () => Promise<void>;
   invalidate: () => void;
+  refresh: () => Promise<void>;
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
   reset: () => void;
@@ -107,6 +108,14 @@ export const useCredentialsStore = create<CredentialsState>()(
         set((state) => {
           state.lastFetch = 0; // Force refetch on next access
         });
+      },
+
+      refresh: async () => {
+        // Force immediate refetch by invalidating cache and fetching
+        set((state) => {
+          state.lastFetch = 0;
+        });
+        await get().fetchCredentials();
       },
 
       setLoading: (isLoading) => {

@@ -147,7 +147,7 @@ export function ScrapeConfigForm({ tribunais, onJobCreated, onReset, onFormChang
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Message */}
       {message && (
         <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>

@@ -74,12 +74,12 @@ export function CredentialSelector({
       <RadioGroup
         value={selectedCredentialId || ''}
         onValueChange={onSelect}
-        className="space-y-4 max-h-[50vh] overflow-y-auto pr-2"
+        className="space-y-4 max-h-[300px] md:max-h-[400px] overflow-y-auto pr-2"
       >
         {Object.entries(credentialsByFirmAndLawyer).map(([firmName, lawyers]) => (
           <div key={firmName} className="space-y-3">
             {/* Firm Header */}
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground sticky top-0 bg-background py-1 z-10">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground sticky top-0 bg-background py-1 z-10 border-b">
               <Building2 className="w-4 h-4" />
               <span>{firmName}</span>
             </div>

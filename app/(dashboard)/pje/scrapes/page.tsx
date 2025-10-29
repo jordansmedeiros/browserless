@@ -185,13 +185,13 @@ export default function ScrapesPage() {
 
       {/* New Scrape Job Dialog/Drawer */}
       <ConfigComponent open={showConfigDialog} onOpenChange={handleDialogClose}>
-        <ConfigTrigger className={isDesktop ? 'max-w-5xl max-h-[85vh] overflow-hidden flex flex-col' : ''}>
+        <ConfigTrigger className={isDesktop ? 'max-w-5xl max-h-[90vh] overflow-hidden flex flex-col' : ''}>
           {isDesktop ? (
             <>
               <DialogHeader className="flex-shrink-0">
                 <DialogTitle className="text-2xl font-bold">Nova Raspagem</DialogTitle>
               </DialogHeader>
-              <div className="flex-1 overflow-y-auto py-4">
+              <div className="flex-1 overflow-y-auto py-4 min-h-0">
                 {loadingTribunais ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -222,7 +222,7 @@ export default function ScrapesPage() {
               <DrawerHeader>
                 <DrawerTitle className="text-2xl font-bold">Nova Raspagem</DrawerTitle>
               </DrawerHeader>
-              <div className="px-4 overflow-y-auto max-h-[calc(90vh-200px)]">
+              <div className="px-4 overflow-y-auto max-h-[calc(90vh-180px)] min-h-0">
                 {loadingTribunais ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

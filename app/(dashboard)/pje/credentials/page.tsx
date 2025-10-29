@@ -19,6 +19,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -27,11 +37,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Plus, Building2, User, Eye, Search } from 'lucide-react';
+import { Loader2, Plus, Building2, User, Eye, Search, Pencil, Trash2 } from 'lucide-react';
 import {
   listEscritoriosAction,
   createEscritorioAction,
   createAdvogadoAction,
+  updateEscritorioAction,
+  deleteEscritorioAction,
+  deleteAdvogadoAction,
 } from '@/app/actions/pje';
 import type {
   EscritorioWithAdvogados,
@@ -54,9 +67,15 @@ export default function CredentialsPage() {
   // Dialogs
   const [escritorioDialog, setEscritorioDialog] = useState(false);
   const [advogadoDialog, setAdvogadoDialog] = useState(false);
+  const [editEscritorioDialog, setEditEscritorioDialog] = useState(false);
+  const [deleteEscritorioDialog, setDeleteEscritorioDialog] = useState(false);
+  const [deleteAdvogadoDialog, setDeleteAdvogadoDialog] = useState(false);
 
   // Forms
   const [escritorioForm, setEscritorioForm] = useState({ nome: '' });
+  const [editEscritorioForm, setEditEscritorioForm] = useState({ id: '', nome: '' });
+  const [escritorioToDelete, setEscritorioToDelete] = useState<string | null>(null);
+  const [advogadoToDelete, setAdvogadoToDelete] = useState<string | null>(null);
   const [advogadoForm, setAdvogadoForm] = useState({
     nome: '',
     oabNumero: '',
@@ -106,6 +125,74 @@ export default function CredentialsPage() {
     }
   }
 
+  // Helper para sanitizar CPF removendo formatação
+  function sanitizeCPF(cpf: string): string {
+    return cpf.replace(/\D/g, '').trim();
+  }
+
+  function handleEditEscritorio(id: string, nome: string) {
+    setEditEscritorioForm({ id, nome });
+    setEditEscritorioDialog(true);
+  }
+
+  async function handleSubmitEditEscritorio() {
+    if (!editEscritorioForm.nome.trim()) {
+      setMessage({ type: 'error', text: 'Nome do escritório é obrigatório' });
+      return;
+    }
+
+    const result = await updateEscritorioAction(editEscritorioForm.id, { nome: editEscritorioForm.nome });
+
+    if (result.success) {
+      setMessage({ type: 'success', text: 'Escritório atualizado com sucesso' });
+      setEditEscritorioDialog(false);
+      setEditEscritorioForm({ id: '', nome: '' });
+      loadData();
+    } else {
+      setMessage({ type: 'error', text: result.error || 'Erro ao atualizar escritório' });
+    }
+  }
+
+  function handleDeleteEscritorio(id: string) {
+    setEscritorioToDelete(id);
+    setDeleteEscritorioDialog(true);
+  }
+
+  async function confirmDeleteEscritorio() {
+    if (!escritorioToDelete) return;
+
+    const result = await deleteEscritorioAction(escritorioToDelete);
+
+    if (result.success) {
+      setMessage({ type: 'success', text: 'Escritório excluído com sucesso' });
+      setDeleteEscritorioDialog(false);
+      setEscritorioToDelete(null);
+      loadData();
+    } else {
+      setMessage({ type: 'error', text: result.error || 'Erro ao excluir escritório' });
+    }
+  }
+
+  function handleDeleteAdvogado(id: string) {
+    setAdvogadoToDelete(id);
+    setDeleteAdvogadoDialog(true);
+  }
+
+  async function confirmDeleteAdvogado() {
+    if (!advogadoToDelete) return;
+
+    const result = await deleteAdvogadoAction(advogadoToDelete);
+
+    if (result.success) {
+      setMessage({ type: 'success', text: 'Advogado excluído com sucesso' });
+      setDeleteAdvogadoDialog(false);
+      setAdvogadoToDelete(null);
+      loadData();
+    } else {
+      setMessage({ type: 'error', text: result.error || 'Erro ao excluir advogado' });
+    }
+  }
+
   async function handleCreateAdvogado() {
     // Validações
     if (!advogadoForm.nome.trim()) {
@@ -120,7 +207,8 @@ export default function CredentialsPage() {
       setMessage({ type: 'error', text: 'UF da OAB é obrigatório' });
       return;
     }
-    if (!advogadoForm.cpf.trim() || advogadoForm.cpf.length !== 11) {
+    const sanitizedCpf = sanitizeCPF(advogadoForm.cpf);
+    if (!sanitizedCpf || sanitizedCpf.length !== 11) {
       setMessage({ type: 'error', text: 'CPF inválido (deve ter 11 dígitos)' });
       return;
     }
@@ -155,7 +243,7 @@ export default function CredentialsPage() {
       nome: advogadoForm.nome,
       oabNumero: advogadoForm.oabNumero,
       oabUf: advogadoForm.oabUf,
-      cpf: advogadoForm.cpf,
+      cpf: sanitizedCpf,
       escritorioId,
     });
 
@@ -265,7 +353,7 @@ export default function CredentialsPage() {
                 value={escritorio.id}
                 className="border rounded-lg bg-card"
               >
-                <AccordionTrigger className="px-4 hover:bg-accent/50 rounded-t-lg">
+                <AccordionTrigger className="px-4 hover:bg-accent/50 rounded-t-lg group">
                   <div className="flex items-center gap-3 flex-1">
                     <Building2 className="w-5 h-5 text-muted-foreground" />
                     <span className="font-semibold">{escritorio.nome}</span>
@@ -277,6 +365,30 @@ export default function CredentialsPage() {
                     <Badge variant="secondary" className="text-xs ml-auto mr-2">
                       {escritorio.advogados.length} advogado{escritorio.advogados.length !== 1 ? 's' : ''}
                     </Badge>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditEscritorio(escritorio.id, escritorio.nome);
+                        }}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteEscritorio(escritorio.id);
+                        }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-4 pb-4">
@@ -290,10 +402,9 @@ export default function CredentialsPage() {
                   ) : (
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                       {escritorio.advogados.map((advogado) => (
-                        <button
+                        <div
                           key={advogado.id}
-                          onClick={() => setSelectedLawyerId(advogado.id)}
-                          className="p-4 rounded-lg border bg-background hover:bg-accent hover:border-primary transition-all text-left group"
+                          className="p-4 rounded-lg border bg-background hover:bg-accent hover:border-primary transition-all group relative"
                         >
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-2">
@@ -302,7 +413,23 @@ export default function CredentialsPage() {
                                 {advogado.nome}
                               </span>
                             </div>
-                            <Eye className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => setSelectedLawyerId(advogado.id)}
+                                className="p-1 hover:bg-accent rounded"
+                              >
+                                <Eye className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteAdvogado(advogado.id);
+                                }}
+                                className="p-1 hover:bg-destructive/10 rounded"
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </button>
+                            </div>
                           </div>
                           <div className="text-xs text-muted-foreground space-y-1">
                             <p>OAB/{advogado.oabUf} {advogado.oabNumero}</p>
@@ -313,7 +440,7 @@ export default function CredentialsPage() {
                               {advogado.credenciais?.length || 0} credenciais
                             </Badge>
                           </div>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -448,6 +575,85 @@ export default function CredentialsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog: Edit Escritório */}
+      <Dialog open={editEscritorioDialog} onOpenChange={setEditEscritorioDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Escritório</DialogTitle>
+            <DialogDescription>
+              Atualize as informações do escritório
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-escritorio-nome">Nome do Escritório</Label>
+              <Input
+                id="edit-escritorio-nome"
+                value={editEscritorioForm.nome}
+                onChange={(e) => setEditEscritorioForm({ ...editEscritorioForm, nome: e.target.value })}
+                placeholder="Ex: Silva & Associados"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditEscritorioDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSubmitEditEscritorio}>Salvar Alterações</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AlertDialog: Delete Escritório */}
+      <AlertDialog open={deleteEscritorioDialog} onOpenChange={setDeleteEscritorioDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Escritório</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este escritório? Esta ação não pode ser desfeita.
+              {escritorios.find(e => e.id === escritorioToDelete)?.advogados.length ? (
+                <span className="block mt-2 text-amber-600 font-medium">
+                  Atenção: Este escritório possui advogados vinculados e não pode ser excluído.
+                </span>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteEscritorio}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* AlertDialog: Delete Advogado */}
+      <AlertDialog open={deleteAdvogadoDialog} onOpenChange={setDeleteAdvogadoDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Advogado</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este advogado? Esta ação não pode ser desfeita.
+              <span className="block mt-2 text-amber-600 font-medium">
+                Todas as credenciais vinculadas a este advogado serão removidas.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteAdvogado}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Lawyer Detail Modal */}
       <LawyerDetailModal
