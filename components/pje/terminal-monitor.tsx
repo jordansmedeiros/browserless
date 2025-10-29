@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import { Terminal, AnimatedSpan, TypingAnimation } from '@/components/ui/shadcn-io/terminal';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -13,7 +13,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowDown, AlertCircle, CheckCircle2, Loader2, Clock, FileText, TrendingUp, XCircle, Download } from 'lucide-react';
 import { type LogEntry } from '@/lib/services/scrape-logger';
 import { useJobLogs } from '@/hooks';
-import { sanitizeLogEntry } from '@/lib/utils/sanitization';
 
 interface TerminalMonitorProps {
   /** Scrape job ID */
@@ -41,11 +40,8 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
   const jobSummary = stats;
   const jobStatus = stats?.status || 'running';
 
-  // Memoize sanitized logs for performance
-  const sanitizedLogs = useMemo(
-    () => displayLogs.map(sanitizeLogEntry),
-    [displayLogs]
-  );
+  // Derive actual running state from job status
+  const isJobRunning = jobStatus === 'pending' || jobStatus === 'running';
 
   // Detect manual scroll to disable auto-scroll
   const handleScroll = () => {
@@ -187,9 +183,9 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
             onScroll={handleScroll}
             className="max-h-[400px] overflow-y-auto"
           >
-            {sanitizedLogs.length === 0 && (
+            {displayLogs.length === 0 && (
               <div className="text-muted-foreground">
-                {isRunning ? (
+                {isJobRunning ? (
                   <TypingAnimation duration={60}>Aguardando logs...</TypingAnimation>
                 ) : (
                   'Nenhum log disponível'
@@ -197,7 +193,7 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
               </div>
             )}
 
-            {sanitizedLogs.map((log, index) => (
+            {displayLogs.map((log, index) => (
               <AnimatedSpan key={index} delay={index * 50} className="font-mono">
                 <span className={getLogColor(log.level)}>
                   [{formatTime(log.timestamp)}]
@@ -211,7 +207,7 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
               </AnimatedSpan>
             ))}
 
-            {isRunning && (
+            {isJobRunning && (
               <AnimatedSpan delay={displayLogs.length * 50}>
                 <TypingAnimation duration={60} className="text-primary">
                   ▊

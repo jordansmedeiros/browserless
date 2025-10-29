@@ -1,9 +1,7 @@
-JusBrowserless
+# JusBro
 
-> **Fork customizado do [Browserless](https://github.com/browserless/browserless)** com extensões para automação do **PJE (Processo Judicial Eletrônico)** do sistema judiciário brasileiro.
+> **Fork customizado do [Browserless](https://github.com/browserless/browserless)** com extensões para raspagem automatizadas de dados processuais. 
 >
-> **Novidade**: Agora com **interface web Next.js** para gerenciamento visual de processos!
-
 <div align="center">
   <img src="https://img.shields.io/badge/Node.js-v24-green" alt="Node.js v24" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-blue" alt="TypeScript 5.9" />
@@ -39,7 +37,7 @@ JusBrowserless
 
 Este projeto combina duas funcionalidades principais:
 
-### 1. 🏛️ Automação PJE (Processo Judicial Eletrônico)
+### 1. 🏛️ Raspagem automatizada de dados processuais
 
 Sistema completo de automação para **todos os 24 TRTs** (Tribunais Regionais do Trabalho) do Brasil com capacidades de:
 

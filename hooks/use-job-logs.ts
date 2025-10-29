@@ -45,9 +45,12 @@ export function useJobLogs(
     autoScrollRef.current = autoScroll;
   }, [autoScroll]);
 
+  // Use a memoized selector for log count
+  const logCount = useLogsStore((state) => state.logsByJob[jobId]?.length || 0);
+
   useEffect(() => {
-    lastLogIndexRef.current = logsStore.getLogCount(jobId);
-  }, [jobId, logsStore.getLogCount(jobId)]);
+    lastLogIndexRef.current = logCount;
+  }, [jobId, logCount]);
 
   // Format timestamp helper
   const formatTime = (timestamp: string) => {
@@ -243,7 +246,7 @@ export function useJobLogs(
     if (autoScrollRef.current && scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
-  }, [logsStore.getLogCount(jobId)]);
+  }, [logCount]);
 
   return {
     logs: logsStore.getLogsForJob(jobId),

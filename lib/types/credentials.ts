@@ -101,11 +101,3 @@ export interface UpdateCredencialInput {
   descricao?: string;
   tribunalConfigIds?: string[];
 }
-
-// Resultado de teste de credencial
-export interface TestCredencialResult {
-  success: boolean;
-  message: string;
-  advogadoNome?: string;
-  errorDetails?: string;
-}

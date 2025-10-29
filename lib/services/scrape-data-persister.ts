@@ -7,6 +7,13 @@ import { prisma } from '@/lib/db';
 import { ScrapeType, type ScrapingResult } from '@/lib/types/scraping';
 
 /**
+ * Tamanho do chunk para inserções em lote
+ * SQLite suporta ~999 parâmetros por query (SQLITE_MAX_VARIABLE_NUMBER)
+ * Com ~20 campos por registro, 500 registros = ~10000 parâmetros (seguro)
+ */
+const BATCH_SIZE = 500;
+
+/**
  * Salva os processos raspados nas tabelas específicas por tipo
  *
  * @param executionId - ID da execução
@@ -47,6 +54,42 @@ export async function persistProcessos(
     console.error(`[DataPersister] Erro ao salvar processos:`, error);
     throw new Error(`Falha ao persistir processos: ${error.message}`);
   }
+}
+
+/**
+ * Executa createMany em chunks para evitar timeout com volumes grandes
+ * @param model - Modelo Prisma (ex: prisma.pendentesManifestacao)
+ * @param data - Array de dados a inserir
+ * @returns Total de registros inseridos
+ */
+async function createManyInBatches<T>(
+  model: any,
+  data: T[]
+): Promise<number> {
+  if (data.length <= BATCH_SIZE) {
+    // Volume pequeno - inserção direta
+    const result = await model.createMany({
+      data,
+      skipDuplicates: true,
+    });
+    return result.count;
+  }
+
+  // Volume grande - processar em chunks
+  console.log(`[DataPersister] Processando ${data.length} registros em chunks de ${BATCH_SIZE}...`);
+  let totalInserted = 0;
+
+  for (let i = 0; i < data.length; i += BATCH_SIZE) {
+    const chunk = data.slice(i, i + BATCH_SIZE);
+    const result = await model.createMany({
+      data: chunk,
+      skipDuplicates: true,
+    });
+    totalInserted += result.count;
+    console.log(`[DataPersister] Chunk ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(data.length / BATCH_SIZE)}: ${result.count} registros inseridos`);
+  }
+
+  return totalInserted;
 }
 
 /**

@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import type { ScrapeJobWithRelations } from '@/lib/types/scraping';
+import { ScrapeJobStatus } from '@/lib/types/scraping';
 import { getActiveJobsStatusAction, cancelScrapeJobAction } from '@/app/actions/pje';
 
 interface JobsState {
@@ -21,7 +22,7 @@ interface JobsState {
   setActiveJobs: (jobs: ScrapeJobWithRelations[]) => void;
   addJob: (job: ScrapeJobWithRelations) => void;
   removeJob: (jobId: string) => void;
-  updateJobStatus: (jobId: string, status: string) => void;
+  updateJobStatus: (jobId: string, status: ScrapeJobStatus) => void;
   fetchActiveJobs: (jobIds?: string[]) => Promise<void>;
   cancelJob: (jobId: string) => Promise<void>;
   watchJob: (jobId: string) => void;
@@ -74,7 +75,7 @@ export const useJobsStore = create<JobsState>()(
         set((state) => {
           const job = state.activeJobs.find((j) => j.id === jobId);
           if (job) {
-            job.status = status;
+            job.status = status as string;
           }
         });
       },
@@ -90,7 +91,10 @@ export const useJobsStore = create<JobsState>()(
 
           if (result.success && result.data) {
             set((state) => {
-              state.activeJobs = result.data!;
+              // Filter to keep only pending or running jobs
+              state.activeJobs = result.data!.filter(
+                (job) => job.status === ScrapeJobStatus.PENDING || job.status === ScrapeJobStatus.RUNNING
+              );
               state.lastFetch = Date.now();
               state.isPolling = false;
             });
@@ -116,7 +120,7 @@ export const useJobsStore = create<JobsState>()(
         set((state) => {
           const job = state.activeJobs.find((j) => j.id === jobId);
           if (job) {
-            job.status = 'canceled';
+            job.status = ScrapeJobStatus.CANCELED as string;
           }
         });
 
@@ -186,11 +190,11 @@ export const useJobsStore = create<JobsState>()(
       },
 
       getRunningJobs: () => {
-        return get().activeJobs.filter((j) => j.status === 'running');
+        return get().activeJobs.filter((j) => j.status === ScrapeJobStatus.RUNNING);
       },
 
       getPendingJobs: () => {
-        return get().activeJobs.filter((j) => j.status === 'pending');
+        return get().activeJobs.filter((j) => j.status === ScrapeJobStatus.PENDING);
       },
     })),
     { name: 'JobsStore' }

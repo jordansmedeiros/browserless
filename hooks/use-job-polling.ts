@@ -51,6 +51,7 @@ export function useJobPolling(options: UseJobPollingOptions = {}): UseJobPolling
     if (!enabledRef.current) return;
 
     let intervalId: NodeJS.Timeout;
+    let emptyJobsCount = 0;
 
     const poll = async () => {
       // Get job IDs to monitor
@@ -61,8 +62,16 @@ export function useJobPolling(options: UseJobPollingOptions = {}): UseJobPolling
 
       // Skip if no jobs to monitor
       if (ids.length === 0 && !jobIdsRef.current) {
+        emptyJobsCount++;
+        // Stop polling after 3 consecutive empty polls
+        if (emptyJobsCount >= 3 && intervalId) {
+          clearInterval(intervalId);
+        }
         return;
       }
+
+      // Reset counter if we have jobs
+      emptyJobsCount = 0;
 
       // Fetch jobs from server
       await jobsStore.fetchActiveJobs(ids);
@@ -72,7 +81,7 @@ export function useJobPolling(options: UseJobPollingOptions = {}): UseJobPolling
         (j) => j.status === 'pending' || j.status === 'running'
       );
 
-      // Only stop if monitoring specific IDs and they're all done
+      // Stop if monitoring specific IDs and they're all done
       if (!hasActiveJobs && jobIdsRef.current && intervalId) {
         clearInterval(intervalId);
       }

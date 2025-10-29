@@ -25,7 +25,6 @@ import type {
   EscritorioWithAdvogados,
   AdvogadoWithCredenciais,
   CredencialWithRelations,
-  TestCredencialResult,
   TRTCode,
   Grau,
   CreateScrapeJobInput,
@@ -1144,124 +1143,6 @@ export async function toggleCredencialAction(id: string) {
 // CREDENTIAL TESTING
 // ============================================================================
 
-// Rate limiting - track last test time per credential
-const lastTestTimes = new Map<string, number>();
-const RATE_LIMIT_MS = 10000; // 10 seconds
-
-/**
- * Testa credencial executando login no PJE
- * Atualiza o timestamp de validação se bem-sucedido
- *
- * @param credencialId ID da credencial
- * @param tribunalConfigId ID do tribunal config para testar
- * @returns Resultado do teste
- */
-export async function testCredencialAction(
-  credencialId: string,
-  tribunalConfigId: string
-): Promise<TestCredencialResult> {
-  try {
-    // Rate limiting
-    const now = Date.now();
-    const lastTest = lastTestTimes.get(credencialId) || 0;
-    const timeSinceLastTest = now - lastTest;
-
-    if (timeSinceLastTest < RATE_LIMIT_MS) {
-      const waitTime = Math.ceil((RATE_LIMIT_MS - timeSinceLastTest) / 1000);
-      return {
-        success: false,
-        message: `Aguarde ${waitTime} segundos antes de testar novamente (proteção anti-bot)`,
-      };
-    }
-
-    const prisma = await getPrisma();
-
-    // Busca credencial com advogado
-    const credencial = await prisma.credencial.findUnique({
-      where: { id: credencialId },
-      include: {
-        advogado: true,
-        tribunais: {
-          where: {
-            tribunalConfigId,
-          },
-        },
-      },
-    });
-
-    if (!credencial) {
-      return {
-        success: false,
-        message: 'Credencial não encontrada',
-      };
-    }
-
-    if (credencial.tribunais.length === 0) {
-      return {
-        success: false,
-        message: 'Esta credencial não está associada ao tribunal selecionado',
-      };
-    }
-
-    // Busca configuração do tribunal
-    const tribunalConfig = await prisma.tribunalConfig.findUnique({
-      where: { id: tribunalConfigId },
-      include: {
-        tribunal: true,
-      },
-    });
-
-    if (!tribunalConfig) {
-      return {
-        success: false,
-        message: 'Configuração de tribunal não encontrada',
-      };
-    }
-
-    // Atualiza rate limit
-    lastTestTimes.set(credencialId, now);
-
-    // Executa login
-    console.log(`[testCredencialAction] Testando credencial para ${credencial.advogado.nome} (CPF: ${maskCPF(credencial.advogado.cpf)}) em ${tribunalConfig.tribunal.codigo}-${tribunalConfig.grau}`);
-
-    const resultado = await executarLoginPJE(
-      credencial.advogado.cpf,
-      credencial.senha,
-      tribunalConfig.tribunal.codigo as TRTCode,
-      tribunalConfig.grau as Grau
-    );
-
-    if (resultado.success) {
-      // Atualiza timestamp de validação
-      await prisma.credencialTribunal.updateMany({
-        where: {
-          credencialId,
-          tribunalConfigId,
-        },
-        data: {
-          validadoEm: new Date(),
-        },
-      });
-
-      return {
-        success: true,
-        message: `Login realizado com sucesso!`,
-        advogadoNome: resultado.perfil?.nome || credencial.advogado.nome,
-      };
-    } else {
-      return {
-        success: false,
-        message: resultado.message || 'Falha no login',
-      };
-    }
-  } catch (error) {
-    console.error('[testCredencialAction] Erro:', sanitizeError(error));
-    return {
-      success: false,
-      message: 'Erro ao testar credencial',
-    };
-  }
-}
 
 // ============================================================================
 // SCRAPING JOB MANAGEMENT SERVER ACTIONS

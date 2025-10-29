@@ -33,7 +33,6 @@ import {
   updateEscritorioAction,
   deleteCredencialAction,
   toggleCredencialAction,
-  testCredencialAction,
   createCredencialAction,
   updateCredencialAction,
   listTribunalConfigsAction,
@@ -218,23 +217,6 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
     setCredentialToDelete(null);
   }
 
-  async function handleTestCredencial(credencialId: string) {
-    // Encontrar a credencial e pegar o primeiro tribunal configurado
-    const credencial = advogado?.credenciais.find(c => c.id === credencialId);
-    if (!credencial || credencial.tribunais.length === 0) {
-      setMessage({ type: 'error', text: 'Credencial não possui tribunais configurados' });
-      return;
-    }
-
-    const tribunalConfigId = credencial.tribunais[0].tribunalConfig.id;
-    const result = await testCredencialAction(credencialId, tribunalConfigId);
-    if (result.success) {
-      setMessage({ type: 'success', text: `Teste realizado: ${result.message || 'Sucesso'}` });
-      await loadAdvogado();
-    } else {
-      setMessage({ type: 'error', text: result.message || 'Erro ao testar credencial' });
-    }
-  }
 
   function togglePasswordVisibility(credencialId: string) {
     setVisiblePasswords((prev) => {
@@ -563,13 +545,6 @@ export function LawyerDetailModal({ lawyerId, onClose, onUpdate }: LawyerDetailM
                               onClick={() => handleEditCredencial(credencial.id)}
                             >
                               Editar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleTestCredencial(credencial.id)}
-                            >
-                              Testar
                             </Button>
                             <Button
                               size="sm"

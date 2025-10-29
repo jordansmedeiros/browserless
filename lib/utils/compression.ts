@@ -3,21 +3,26 @@
  * Utilitários para compressão e descompressão de dados JSON
  */
 
-import { gzipSync, gunzipSync } from 'zlib';
+import { gzip, gunzip } from 'zlib';
+import { promisify } from 'util';
+
+const gzipAsync = promisify(gzip);
+const gunzipAsync = promisify(gunzip);
 
 /**
  * Comprime dados JSON usando gzip
+ * @async Esta função é assíncrona e libera o event loop durante compressão
  *
  * @param data - Dados a serem comprimidos
  * @returns String base64 dos dados comprimidos
  * @throws Error se a compressão falhar
  */
-export function compressJSON(data: any): string {
+export async function compressJSON(data: any): Promise<string> {
   try {
     const jsonString = JSON.stringify(data);
     const originalSize = Buffer.byteLength(jsonString, 'utf8');
 
-    const compressed = gzipSync(jsonString);
+    const compressed = await gzipAsync(jsonString);
     const compressedSize = compressed.length;
 
     // Log da taxa de compressão
@@ -38,15 +43,16 @@ export function compressJSON(data: any): string {
 
 /**
  * Descomprime dados JSON de uma string base64
+ * @async Esta função é assíncrona e libera o event loop durante descompressão
  *
  * @param compressedData - String base64 dos dados comprimidos
  * @returns Dados descomprimidos
  * @throws Error se a descompressão falhar
  */
-export function decompressJSON<T = any>(compressedData: string): T {
+export async function decompressJSON<T = any>(compressedData: string): Promise<T> {
   try {
     const buffer = Buffer.from(compressedData, 'base64');
-    const decompressed = gunzipSync(buffer);
+    const decompressed = await gunzipAsync(buffer);
     const jsonString = decompressed.toString('utf8');
 
     return JSON.parse(jsonString) as T;
@@ -74,14 +80,15 @@ export function isCompressedData(data: string): boolean {
 
 /**
  * Estima o tamanho descomprimido de dados comprimidos
+ * @async Esta função é assíncrona e libera o event loop durante descompressão
  *
  * @param compressedData - String base64 dos dados comprimidos
  * @returns Tamanho estimado em bytes
  */
-export function estimateDecompressedSize(compressedData: string): number {
+export async function estimateDecompressedSize(compressedData: string): Promise<number> {
   try {
     const buffer = Buffer.from(compressedData, 'base64');
-    const decompressed = gunzipSync(buffer);
+    const decompressed = await gunzipAsync(buffer);
     return decompressed.length;
   } catch {
     return 0;

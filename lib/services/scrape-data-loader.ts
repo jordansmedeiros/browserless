@@ -42,7 +42,7 @@ export async function loadProcessosFromExecution(
   // Estratégia 2: Fallback para resultData comprimido
   if (resultData) {
     try {
-      const decompressed = decompressJSON(resultData);
+      const decompressed = await decompressJSON(resultData);
 
       if (decompressed?.processos && Array.isArray(decompressed.processos)) {
         console.log(`[DataLoader] ✓ Carregados ${decompressed.processos.length} processos do resultData (fallback)`);
@@ -240,17 +240,21 @@ export async function loadAllProcessosFromJob(
   executions: Array<{ id: string; resultData?: string | null }>,
   scrapeType: ScrapeType
 ): Promise<any[]> {
-  const allProcesses: any[] = [];
+  // Carrega todas as execuções em paralelo
+  const processArrays = await Promise.all(
+    executions.map(execution =>
+      loadProcessosFromExecution(
+        execution.id,
+        scrapeType,
+        execution.resultData
+      )
+    )
+  );
 
-  for (const execution of executions) {
-    const processes = await loadProcessosFromExecution(
-      execution.id,
-      scrapeType,
-      execution.resultData
-    );
-    allProcesses.push(...processes);
-  }
+  // Consolida resultados mantendo ordem
+  const allProcesses = processArrays.flat();
 
   console.log(`[DataLoader] Total de ${allProcesses.length} processos carregados de ${executions.length} execuções`);
+  console.log(`[DataLoader] Carregamento paralelo concluído`);
   return allProcesses;
 }
