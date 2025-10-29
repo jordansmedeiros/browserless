@@ -108,7 +108,8 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
   // Agrupa tribunais: tipo → código → sistema → configs[]
   const tribunaisAgrupadosPorTipo = useMemo(() => {
     // Filter tribunals based on credential if provided
-    const filteredTribunals = credentialId && credentialTribunals.length > 0
+    // Don't filter while loading credential tribunals to avoid empty state
+    const filteredTribunals = credentialId && credentialTribunals.length > 0 && !loading
       ? tribunais.filter(t => credentialTribunals.includes(t.id.toLowerCase()))
       : tribunais;
 
@@ -163,7 +164,7 @@ export function TribunalSelector({ tribunais, selectedIds, onChange, credentialI
     });
 
     return tipos;
-  }, [tribunais, credentialId, credentialTribunals]);
+  }, [tribunais, credentialId, credentialTribunals, loading]);
 
   // Filtro por busca e região - aplica filtros em cada tipo
   const tribunaisFiltrados = useMemo(() => {
