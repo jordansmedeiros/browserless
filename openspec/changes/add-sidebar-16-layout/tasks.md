@@ -20,15 +20,16 @@
 
 ## 2. Refactor Dashboard Layout
 - [x] 2.1 Update `app/(dashboard)/layout.tsx` to use SidebarProvider
-  - [x] Import `SidebarProvider`, `AppSidebar`, `SidebarInset`
-  - [x] Wrap entire layout with `SidebarProvider` component
-  - [x] Replace old `<Sidebar />` component with `<AppSidebar />`
-  - [x] Wrap main content area with `<SidebarInset>` component
-- [x] 2.2 Integrate Header component within new layout structure
-  - [x] Move `<Header />` inside `<SidebarInset>` before main content
-  - [x] Add `<SidebarTrigger />` button to Header component
-  - [x] Ensure Header styling works correctly within SidebarInset
-  - [ ] Test Header responsiveness with sidebar toggled (requires manual testing)
+  - [x] Wrap layout in container with `[--header-height:calc(--spacing(14))]`
+  - [x] Add `className="flex flex-col"` to `SidebarProvider`
+  - [x] Render `SiteHeader` above the sidebar/content row
+  - [x] Wrap `AppSidebar` and `SidebarInset` in `div` with `className="flex flex-1"`
+  - [x] Remove legacy `Header` component from `SidebarInset`
+- [ ] 2.2 (N/A) Legacy Header component integration
+  - [ ] N/A — Legacy `<Header />` replaced by `<SiteHeader />` ahead of sidebar/content row
+  - [ ] N/A — `<SidebarTrigger />` provided within `SiteHeader`
+  - [ ] N/A — Styling responsibilities handled by `SiteHeader`
+  - [ ] N/A — Responsiveness covered by `SiteHeader` behavior (manual testing deferred)
 - [x] 2.3 Update main content area styling
   - [x] Ensure main content scrolling works independently
   - [x] Verify padding and spacing around content
@@ -162,9 +163,12 @@
 - ✅ Changed branding from "Acme Inc" to "JusBrowserless"
 - ✅ Implemented active route detection with usePathname
 - ✅ Refactored dashboard layout to use SidebarProvider, AppSidebar, and SidebarInset
-- ✅ Integrated Header component with SidebarTrigger
+- ✅ Integrated SiteHeader component with SidebarTrigger
 - ✅ Updated NavMain and NavSecondary to use Next.js Link components
 - ✅ Fixed import path for useIsMobile hook in sidebar.tsx
+- ✅ Refactored dashboard layout to follow official sidebar-16 structure with wrapper div, flex-col provider, SiteHeader above content, and flex row for sidebar/content
+- ✅ Replaced old Header component with SiteHeader component
+- ✅ Implemented proper CSS variable for header height
 
 ### Remaining (Testing & Validation)
 - ⏳ Manual testing of all navigation links and active states (Sections 3.3, 4, 5, 6, 7, 8)
@@ -177,3 +181,4 @@
 - User authentication integration is deferred for future implementation
 - Old `components/layout/sidebar.tsx` is preserved for reference (can be deleted after verification)
 - The Sidebar-16 block is fully integrated and ready for testing
+

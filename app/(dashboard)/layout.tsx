@@ -1,5 +1,5 @@
 import { AppSidebar } from '@/components/app-sidebar';
-import { Header } from '@/components/layout/header';
+import { SiteHeader } from '@/components/site-header';
 import {
   SidebarProvider,
   SidebarInset,
@@ -11,14 +11,16 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <Header />
-        <main className="flex-1 overflow-y-auto p-6">
-          {children}
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+    <div className="[--header-height:calc(--spacing(14))]">
+      <SidebarProvider className="flex flex-col">
+        <SiteHeader />
+        <div className="flex flex-1">
+          <AppSidebar />
+          <SidebarInset className="overflow-y-auto p-6">
+            {children}
+          </SidebarInset>
+        </div>
+      </SidebarProvider>
+    </div>
   );
 }

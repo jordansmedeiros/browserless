@@ -59,7 +59,10 @@
       "Bash(timeout 30 bash:*)",
       "Bash(npm run test:stores:*)",
       "Bash(npm run test:sanitization:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(ping:*)",
+      "Bash(powershell -Command \"Test-NetConnection apps-postgres.platform.sinesys.app -Port 15432 | Select-Object ComputerName, RemoteAddress, RemotePort, TcpTestSucceeded\")",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []

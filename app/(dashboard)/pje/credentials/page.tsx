@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -371,28 +372,44 @@ export default function CredentialsPage() {
                       {escritorio.advogados.length} advogado{escritorio.advogados.length !== 1 ? 's' : ''}
                     </Badge>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Edit"
+                        className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-7 w-7 cursor-pointer")}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleEditEscritorio(escritorio.id, escritorio.nome);
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleEditEscritorio(escritorio.id, escritorio.nome);
+                          }
+                        }}
                       >
                         <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
+                      </div>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Delete"
+                        className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-7 w-7 text-destructive hover:text-destructive cursor-pointer")}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteEscritorio(escritorio.id);
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDeleteEscritorio(escritorio.id);
+                          }
+                        }}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      </div>
                     </div>
                   </div>
                 </AccordionTrigger>
