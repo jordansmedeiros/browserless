@@ -56,7 +56,9 @@
       "Bash(cat:*)",
       "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"pode apagar.\" npx prisma migrate reset:*)",
       "Bash(timeout 2 bash:*)",
-      "Bash(timeout 30 bash:*)"
+      "Bash(timeout 30 bash:*)",
+      "Bash(npm run test:stores:*)",
+      "Bash(npm run test:sanitization:*)"
     ],
     "deny": [],
     "ask": []
