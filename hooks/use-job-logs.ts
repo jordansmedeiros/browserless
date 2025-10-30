@@ -37,7 +37,6 @@ export function useJobLogs(
   const [internalEnabled, setInternalEnabled] = useState(enabled);
 
   // Refs to avoid stale closures
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const lastLogIndexRef = useRef(0);
@@ -88,11 +87,10 @@ export function useJobLogs(
   };
 
   // Scroll to bottom function
+  // Note: This is a no-op since scrolling is managed by the component using this hook
+  // The component should manage its own scrollContainerRef
   const scrollToBottom = useCallback(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
-      autoScrollRef.current = true;
-    }
+    // Placeholder - component manages scroll
   }, []);
 
   // Download logs function
@@ -267,12 +265,7 @@ export function useJobLogs(
     };
   }, [jobId, internalEnabled, logsStore, startPolling]);
 
-  // Auto-scroll effect
-  useEffect(() => {
-    if (autoScrollRef.current && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
-    }
-  }, [logCount]);
+  // Auto-scroll effect removed - scrolling is managed by the component
 
   return {
     logs: logsStore.getLogsForJob(jobId),

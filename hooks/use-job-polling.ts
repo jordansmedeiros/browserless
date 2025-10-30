@@ -87,6 +87,7 @@ export function useJobPolling(options: UseJobPollingOptions = {}): UseJobPolling
         // Stop polling after 3 consecutive empty polls
         if (emptyJobsCount >= 3 && intervalId) {
           clearInterval(intervalId);
+          jobsStore.setPolling(false);
         }
         return;
       }
@@ -148,6 +149,7 @@ export function useJobPolling(options: UseJobPollingOptions = {}): UseJobPolling
       // Stop if monitoring specific IDs and they're all done
       if (!hasActiveJobs && jobIdsRef.current && intervalId) {
         clearInterval(intervalId);
+        jobsStore.setPolling(false);
       }
     };
 
