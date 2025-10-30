@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * useJobLogs Hook
  * Custom hook for managing SSE + fallback polling for job logs

@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * useJobPolling Hook
  * Custom hook for managing polling of active scrape jobs

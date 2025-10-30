@@ -21,6 +21,52 @@ const ROUTE_LABELS: Record<string, string> = {
   analytics: 'Análises',
 };
 
+/**
+ * Checks if a segment looks like an ID or UUID
+ */
+function isIdOrUuid(segment: string): boolean {
+  // Check for UUID pattern
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidPattern.test(segment)) return true;
+
+  // Check for numeric ID
+  if (/^\d+$/.test(segment)) return true;
+
+  // Check for short alphanumeric ID (less than 6 chars, all lowercase or uppercase)
+  if (segment.length <= 6 && /^[a-z0-9]+$/i.test(segment) && segment === segment.toLowerCase()) return true;
+
+  return false;
+}
+
+/**
+ * Converts a string to title case
+ */
+function toTitleCase(str: string): string {
+  return str
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/**
+ * Formats a segment into a readable label
+ */
+function formatSegmentLabel(segment: string): string {
+  // Check if it's an ID or UUID
+  if (isIdOrUuid(segment)) {
+    return 'Detalhes';
+  }
+
+  // Decode URI component
+  const decoded = decodeURIComponent(segment);
+
+  // Replace hyphens and underscores with spaces
+  const withSpaces = decoded.replace(/[-_]/g, ' ');
+
+  // Apply title case
+  return toTitleCase(withSpaces);
+}
+
 export function useBreadcrumbs(): BreadcrumbItem[] {
   const pathname = usePathname();
 
@@ -56,10 +102,8 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
       cumulativePath += `/${segment}`;
       const isLast = index === segments.length - 1;
 
-      // Get label from mapping or use segment as fallback (capitalize first letter)
-      const label =
-        ROUTE_LABELS[segment] ||
-        segment.charAt(0).toUpperCase() + segment.slice(1);
+      // Get label from mapping or use formatted segment
+      const label = ROUTE_LABELS[segment] || formatSegmentLabel(segment);
 
       breadcrumbs.push({
         label,

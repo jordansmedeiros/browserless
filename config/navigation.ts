@@ -11,7 +11,7 @@ import {
 export interface NavItem {
   title: string
   url: string
-  icon?: LucideIcon
+  icon: LucideIcon
   description?: string
   isActive?: boolean
 }

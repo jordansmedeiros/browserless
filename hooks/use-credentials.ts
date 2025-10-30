@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * useCredentials Hook
  * Custom hook for loading and caching credentials

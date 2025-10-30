@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * useTribunalCache Hook
  * Custom hook for fetching and managing tribunal data
