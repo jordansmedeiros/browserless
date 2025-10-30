@@ -22,7 +22,8 @@ const ROUTE_LABELS: Record<string, string> = {
 };
 
 /**
- * Checks if a segment looks like an ID or UUID
+ * Checks if a segment looks like an ID or UUID.
+ * This is now more restrictive to avoid misinterpreting valid path segments.
  */
 function isIdOrUuid(segment: string): boolean {
   // Check for UUID pattern
@@ -31,9 +32,6 @@ function isIdOrUuid(segment: string): boolean {
 
   // Check for numeric ID
   if (/^\d+$/.test(segment)) return true;
-
-  // Check for short alphanumeric ID (less than 6 chars, all lowercase or uppercase)
-  if (segment.length <= 6 && /^[a-z0-9]+$/i.test(segment) && segment === segment.toLowerCase()) return true;
 
   return false;
 }
@@ -52,16 +50,20 @@ function toTitleCase(str: string): string {
  * Formats a segment into a readable label
  */
 function formatSegmentLabel(segment: string): string {
-  // Check if it's an ID or UUID
   if (isIdOrUuid(segment)) {
     return 'Detalhes';
   }
 
-  // Decode URI component
-  const decoded = decodeURIComponent(segment);
+  let decodedSegment = segment;
+  try {
+    // Decode URI component, falling back to original segment on error
+    decodedSegment = decodeURIComponent(segment);
+  } catch (error) {
+    // Malformed URI segment, use as-is.
+  }
 
   // Replace hyphens and underscores with spaces
-  const withSpaces = decoded.replace(/[-_]/g, ' ');
+  const withSpaces = decodedSegment.replace(/[-_]/g, ' ');
 
   // Apply title case
   return toTitleCase(withSpaces);
@@ -74,7 +76,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
     // Normalize pathname by removing trailing slashes
     const normalizedPath = pathname.replace(/\/$/, '') || '/';
 
-    // Handle root or empty path
+    // Handle root or dashboard path, which are treated as the same
     if (normalizedPath === '/' || normalizedPath === '/dashboard') {
       return [
         {
@@ -85,10 +87,8 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
       ];
     }
 
-    // Split pathname into segments and filter out empty strings
-    const segments = normalizedPath.split('/').filter(Boolean);
+    const allSegments = normalizedPath.split('/').filter(Boolean);
 
-    // Build breadcrumb items
     const breadcrumbs: BreadcrumbItem[] = [
       {
         label: 'Dashboard',
@@ -96,13 +96,18 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
         isCurrentPage: false,
       },
     ];
-    let cumulativePath = '';
 
-    segments.forEach((segment, index) => {
+    // If the path starts with /dashboard, we skip that segment in our loop
+    // and start building the cumulative path from there.
+    const segmentsToProcess =
+      allSegments[0] === 'dashboard' ? allSegments.slice(1) : allSegments;
+    let cumulativePath =
+      allSegments[0] === 'dashboard' ? '/dashboard' : '';
+
+    segmentsToProcess.forEach((segment, index) => {
       cumulativePath += `/${segment}`;
-      const isLast = index === segments.length - 1;
+      const isLast = index === segmentsToProcess.length - 1;
 
-      // Get label from mapping or use formatted segment
       const label = ROUTE_LABELS[segment] || formatSegmentLabel(segment);
 
       breadcrumbs.push({

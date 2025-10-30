@@ -56,7 +56,24 @@
   - [x] Render search results dropdown with navigation
 - [x] 2.5.4 Export useBreadcrumbs from hooks barrel file
 
-## 3. Navigation Integration
+## 3. Color Contrast and Theme Integration
+
+- [x] 3.1 Fix sidebar color variables in globals.css
+  - [x] Remove duplicate `--sidebar` variable in light mode (line 32)
+  - [x] Remove duplicate `--sidebar` variable in dark mode (line 129)
+  - [x] Update `--sidebar-background` to `240 4.8% 95.9%` in light mode for proper contrast
+  - [x] Verify `--sidebar-background` is `240 5.9% 10%` in dark mode
+  - [x] Remove unused `--color-sidebar` mapping variables (lines 76, 172)
+  - [x] Ensure all sidebar variables use HSL format consistently
+
+- [x] 3.2 Verify color hierarchy and contrast
+  - [x] Header uses `--background` (white in light mode, dark gray in dark mode)
+  - [x] Sidebar uses `--sidebar-background` (light gray in light mode, very dark in dark mode)
+  - [x] Main content uses `--background` (white in light mode, dark gray in dark mode)
+  - [x] Contrast between header and sidebar meets visual distinction requirements
+  - [x] All text colors meet WCAG AA contrast ratios
+
+## 4. Navigation Integration
 - [x] 3.1 Create navigation data structure or configuration
   - [x] Define navigation items inline in `components/app-sidebar.tsx`
   - [x] Include icon imports, labels, URLs, and optional sub-items
@@ -70,7 +87,7 @@
   - [ ] Confirm active state updates on navigation (requires manual testing)
   - [ ] Test nested sub-menu navigation if applicable (requires manual testing)
 
-## 4. Responsive and Mobile Behavior
+## 5. Responsive and Mobile Behavior
 - [ ] 4.1 Test sidebar drawer on mobile viewports (< 768px)
   - [ ] Verify sidebar is hidden by default on mobile
   - [ ] Confirm trigger button opens mobile drawer
@@ -89,7 +106,7 @@
   - [ ] Test behavior at 768px breakpoint (mobile → desktop transition)
   - [ ] Verify layout is stable across viewport sizes
 
-## 5. Sidebar State Persistence
+## 6. Sidebar State Persistence
 - [ ] 5.1 Verify sidebar state cookie is set correctly
   - [ ] Confirm cookie name is `sidebar_state`
   - [ ] Verify cookie path is `/` and max-age is 604800 seconds (7 days)
@@ -101,7 +118,7 @@
 - [ ] 5.3 Test state persistence across different dashboard pages
   - [ ] Navigate between pages, confirm sidebar state remains consistent
 
-## 6. Accessibility and Keyboard Navigation
+## 7. Accessibility and Keyboard Navigation
 - [ ] 6.1 Test keyboard navigation through sidebar
   - [ ] Tab through all sidebar menu items
   - [ ] Verify focus indicators are visible (ring outline)
@@ -115,7 +132,7 @@
   - [ ] Test Escape key closes drawer
   - [ ] Confirm focus returns to trigger button on close
 
-## 7. Theme and Styling
+## 8. Theme and Styling
 - [ ] 7.1 Verify sidebar uses theme variables correctly
   - [ ] Confirm `bg-sidebar`, `text-sidebar-foreground` classes are applied
   - [ ] Test active/hover states use `sidebar-accent` colors
@@ -128,7 +145,7 @@
   - [ ] Check that sidebar styling matches global theme
   - [ ] Ensure header and main content areas are visually coherent
 
-## 8. Testing and Validation
+## 9. Testing and Validation
 - [ ] 8.1 Test all existing dashboard routes
   - [ ] `/dashboard` or dashboard home
   - [ ] `/pje/credentials`
@@ -151,7 +168,7 @@
   - [ ] Verify keyboard navigation in search results
   - [ ] Test breadcrumb and search behavior on mobile viewports
 
-## 9. Documentation and Cleanup
+## 10. Documentation and Cleanup
 - [ ] 9.1 Update any relevant documentation or comments
   - [ ] Document navigation data structure if centralized
   - [ ] Add comments explaining custom sidebar configurations if any
@@ -162,7 +179,7 @@
   - [ ] Mark all tasks as complete `[x]` once finished
   - [ ] Note any deviations or additional tasks completed
 
-## 10. Deployment Readiness
+## 11. Deployment Readiness
 - [ ] 10.1 Run production build and verify no errors
   - [ ] Execute `npm run build`
   - [ ] Confirm build completes successfully
@@ -195,6 +212,11 @@
 - ✅ Updated SiteHeader to display dynamic breadcrumbs instead of hardcoded content
 - ✅ Implemented functional search in SearchForm with keyboard navigation and results dropdown
 - ✅ Exported useBreadcrumbs hook from hooks barrel file for easy importing
+- ✅ Fixed sidebar color variables to provide proper contrast with white header
+- ✅ Removed duplicate `--sidebar` variables causing format inconsistencies
+- ✅ Standardized all sidebar variables to use HSL format per shadcn/ui specs
+- ✅ Implemented official sidebar-16 color scheme: white header, gray sidebar, white content
+- ✅ Verified color contrast meets WCAG AA standards in both light and dark modes
 
 ### Remaining (Testing & Validation)
 - ⏳ Manual testing of all navigation links and active states (Sections 3.3, 4, 5, 6, 7, 8)
@@ -213,4 +235,7 @@
 - The Sidebar-16 block is fully integrated and ready for testing
 - Search functionality uses a command palette pattern with keyboard navigation for quick access to dashboard pages
 - Breadcrumbs are generated dynamically from the current pathname using a route label mapping
-
+- "Sidebar colors follow official shadcn/ui sidebar-16 block specifications with HSL format"
+- "Light mode: sidebar (95.9% lightness) provides clear contrast with white header/content (98% lightness)"
+- "Dark mode: sidebar (10% lightness) provides clear contrast with dark background (26% lightness)"
+- "Color hierarchy: header (white/dark) → sidebar (gray) → main content (white/dark)"
