@@ -87,26 +87,45 @@ async function fazerLogin(page) {
 
   // Clicar em Entrar
   console.error('⏳ Clicando em Entrar...');
-  await Promise.all([
-    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }),
-    ssoFrame.click('#kc-login'),
-  ]);
 
-  await delay(3000);
+  try {
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'load', timeout: 60000 }),
+      ssoFrame.click('#kc-login'),
+    ]);
+    console.error('✅ Navegação pós-login concluída');
+  } catch (error) {
+    console.error(`⚠️  Timeout/erro na navegação: ${error.message}`);
+    console.error(`📍 URL atual: ${page.url()}`);
+
+    // Continuar mesmo com timeout - página pode ter carregado parcialmente
+    // A verificação de Bad Request ou sucesso será feita a seguir
+  }
+
+  await delay(5000);
 
   // ⚠️ COMPORTAMENTO ESPECÍFICO DO TJMG: Bad Request
+  console.error(`📍 URL pós-login: ${page.url()}`);
   const pageContent = await page.content();
+
   if (pageContent.toLowerCase().includes('bad request') || page.url().includes('400')) {
     console.error('⚠️  Detectado "Bad Request" (esperado no TJMG)');
     console.error('🔄 Fazendo refresh da página...');
 
-    await page.reload({ waitUntil: 'networkidle2', timeout: 60000 });
+    await page.reload({ waitUntil: 'load', timeout: 60000 });
     await delay(3000);
 
     console.error('✅ Página recarregada com sucesso!');
+    console.error(`📍 URL após refresh: ${page.url()}`);
   }
 
-  console.error('✅ Login realizado!\n');
+  // Verificar se login foi bem-sucedido
+  const currentUrl = page.url();
+  if (currentUrl.includes('login') || currentUrl.includes('sso')) {
+    throw new Error('Login falhou - ainda na página de login. Verifique as credenciais.');
+  }
+
+  console.error('✅ Login realizado com sucesso!\n');
 }
 
 /**

@@ -39,6 +39,23 @@
   - [ ] Verify no other files import the old sidebar component (requires search/verification)
   - [ ] Archive or delete `components/layout/sidebar.tsx` file (deferred - may be needed for reference)
 
+## 2.5. Implement SiteHeader Component
+- [x] 2.5.1 Create useBreadcrumbs hook for dynamic breadcrumb generation
+  - [x] Define route label mapping for all dashboard routes
+  - [x] Implement pathname parsing and breadcrumb item generation
+  - [x] Handle special cases (dynamic routes, root path, trailing slashes)
+- [x] 2.5.2 Update SiteHeader to use dynamic breadcrumbs
+  - [x] Replace hardcoded breadcrumb content with useBreadcrumbs hook
+  - [x] Map breadcrumb items to Breadcrumb UI components
+  - [x] Preserve responsive behavior (hidden on mobile)
+- [x] 2.5.3 Implement search functionality in SearchForm
+  - [x] Add search state management (query, results, selection)
+  - [x] Create searchable navigation items data source
+  - [x] Implement search filtering logic
+  - [x] Add keyboard navigation (Arrow keys, Enter, Escape)
+  - [x] Render search results dropdown with navigation
+- [x] 2.5.4 Export useBreadcrumbs from hooks barrel file
+
 ## 3. Navigation Integration
 - [x] 3.1 Create navigation data structure or configuration
   - [x] Define navigation items inline in `components/app-sidebar.tsx`
@@ -128,6 +145,11 @@
   - [ ] Test on iOS Safari (iPhone)
   - [ ] Test on Android Chrome
   - [ ] Verify touch interactions and drawer behavior
+- [ ] 8.5 Test SiteHeader features
+  - [ ] Test breadcrumb generation for all dashboard routes
+  - [ ] Test search functionality with various queries
+  - [ ] Verify keyboard navigation in search results
+  - [ ] Test breadcrumb and search behavior on mobile viewports
 
 ## 9. Documentation and Cleanup
 - [ ] 9.1 Update any relevant documentation or comments
@@ -169,16 +191,26 @@
 - ✅ Refactored dashboard layout to follow official sidebar-16 structure with wrapper div, flex-col provider, SiteHeader above content, and flex row for sidebar/content
 - ✅ Replaced old Header component with SiteHeader component
 - ✅ Implemented proper CSS variable for header height
+- ✅ Created useBreadcrumbs hook for dynamic breadcrumb generation based on current pathname
+- ✅ Updated SiteHeader to display dynamic breadcrumbs instead of hardcoded content
+- ✅ Implemented functional search in SearchForm with keyboard navigation and results dropdown
+- ✅ Exported useBreadcrumbs hook from hooks barrel file for easy importing
 
 ### Remaining (Testing & Validation)
 - ⏳ Manual testing of all navigation links and active states (Sections 3.3, 4, 5, 6, 7, 8)
 - ⏳ Verification of old sidebar removal from other files (Section 2.4)
 - ⏳ Cross-browser and mobile device testing (Section 8)
 - ⏳ Production build testing (Section 10)
+- ⏳ Test breadcrumb generation for all dashboard routes
+- ⏳ Test search functionality with various queries
+- ⏳ Verify keyboard navigation in search results
+- ⏳ Test breadcrumb and search behavior on mobile viewports
 
 ### Notes
 - Navigation data is currently defined inline in `components/app-sidebar.tsx` for simplicity
 - User authentication integration is deferred for future implementation
 - Old `components/layout/sidebar.tsx` is preserved for reference (can be deleted after verification)
 - The Sidebar-16 block is fully integrated and ready for testing
+- Search functionality uses a command palette pattern with keyboard navigation for quick access to dashboard pages
+- Breadcrumbs are generated dynamically from the current pathname using a route label mapping
 

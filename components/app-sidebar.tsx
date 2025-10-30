@@ -2,17 +2,9 @@
 
 import * as React from "react"
 import { usePathname } from "next/navigation"
-import {
-  Gavel,
-  Key,
-  FileText,
-  List,
-  Home,
-  Settings2,
-  HelpCircle,
-  Github,
-} from "lucide-react"
+import { Gavel } from "lucide-react"
 
+import { mainNavItems, secondaryNavItems } from "@/config/navigation"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
@@ -32,51 +24,13 @@ const data = {
     email: "usuario@example.com",
     avatar: "/avatars/user.jpg",
   },
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: Home,
-      isActive: false,
-    },
-    {
-      title: "Credenciais",
-      url: "/pje/credentials",
-      icon: Key,
-      isActive: false,
-    },
-    {
-      title: "Raspagens",
-      url: "/pje/scrapes",
-      icon: List,
-      isActive: false,
-    },
-    {
-      title: "Processos",
-      url: "/pje/processos",
-      icon: FileText,
-      isActive: false,
-    },   
-  ],
-  navSecondary: [
-    {
-      title: "Ajuda",
-      url: "/help",
-      icon: HelpCircle,
-    },
-    {
-      title: "GitHub",
-      url: "https://github.com/SinesysTech/JusBro",
-      icon: Github,
-    },
-  ],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
 
   // Update active state based on current pathname
-  const navMainWithActive = data.navMain.map((item) => ({
+  const navMainWithActive = mainNavItems.map((item) => ({
     ...item,
     isActive: pathname === item.url || pathname.startsWith(item.url + '/'),
   }))
@@ -101,7 +55,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={navMainWithActive} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavSecondary items={secondaryNavItems} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />
