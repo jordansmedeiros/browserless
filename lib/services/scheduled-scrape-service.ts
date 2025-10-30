@@ -5,7 +5,8 @@
 
 import cron from 'node-cron';
 import { prisma } from '@/lib/db';
-import { getNextRunTime } from '@/lib/utils/cron-helpers';
+import { getNextRunTime } from '@/lib/utils/cron-helpers.server';
+import { isSupportedTimezone, SCHEDULED_SCRAPES_CONFIG } from '@/config/scraping';
 import type { ScheduledScrape } from '@prisma/client';
 
 /**
@@ -73,19 +74,25 @@ export async function initializeScheduler(): Promise<void> {
  */
 export function scheduleJob(schedule: ScheduledScrape): void {
   try {
-    // Validar timezone antes de registrar
-    // Importação dinâmica para evitar erro de importação circular
+    // Validar timezone antes de registrar usando helpers de config
     let validatedTimezone = schedule.timezone;
 
-    // Validação simples de timezone (node-cron aceita timezones IANA)
+    // Primeiro, usar validação via isSupportedTimezone
+    if (!isSupportedTimezone(validatedTimezone)) {
+      console.warn(
+        `[ScheduledScrapeService] Timezone não suportado '${validatedTimezone}' para job ${schedule.id}, usando padrão ${SCHEDULED_SCRAPES_CONFIG.defaultTimezone}`
+      );
+      validatedTimezone = SCHEDULED_SCRAPES_CONFIG.defaultTimezone;
+    }
+
+    // Segundo nível de validação: verificar se node-cron aceita (safety net)
     try {
-      // Tenta criar uma data com timezone para validar
       new Date().toLocaleString('en-US', { timeZone: validatedTimezone });
     } catch (tzError) {
       console.warn(
-        `[ScheduledScrapeService] Timezone inválido '${validatedTimezone}' para job ${schedule.id}, usando fallback 'America/Sao_Paulo'`
+        `[ScheduledScrapeService] Timezone inválido para node-cron '${validatedTimezone}' para job ${schedule.id}, usando fallback ${SCHEDULED_SCRAPES_CONFIG.defaultTimezone}`
       );
-      validatedTimezone = 'America/Sao_Paulo';
+      validatedTimezone = SCHEDULED_SCRAPES_CONFIG.defaultTimezone;
     }
 
     // Criar cron task

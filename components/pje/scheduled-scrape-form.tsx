@@ -154,29 +154,44 @@ export function ScheduledScrapeForm({ tribunais, scheduleId, onSuccess, onCancel
         active: activeImmediately,
       };
 
-      let result;
       if (isEditMode && scheduleId) {
-        result = await updateScheduledScrapeAction(scheduleId, input);
-      } else {
-        result = await createScheduledScrapeAction(input);
-      }
+        const result = await updateScheduledScrapeAction(scheduleId, input);
+        if (result.success) {
+          setMessage({
+            type: 'success',
+            text: 'Agendamento atualizado com sucesso!',
+          });
 
-      if (result.success) {
-        setMessage({
-          type: 'success',
-          text: isEditMode ? 'Agendamento atualizado com sucesso!' : 'Agendamento criado com sucesso!',
-        });
-
-        // Reset form after success
-        setTimeout(() => {
-          handleReset();
-          onSuccess?.(isEditMode ? scheduleId : result.data?.scheduleId || '');
-        }, 1500);
+          // Reset form after success
+          setTimeout(() => {
+            handleReset();
+            onSuccess?.(scheduleId);
+          }, 1500);
+        } else {
+          setMessage({
+            type: 'error',
+            text: result.error || 'Erro ao atualizar agendamento',
+          });
+        }
       } else {
-        setMessage({
-          type: 'error',
-          text: result.error || 'Erro ao salvar agendamento',
-        });
+        const result = await createScheduledScrapeAction(input);
+        if (result.success) {
+          setMessage({
+            type: 'success',
+            text: 'Agendamento criado com sucesso!',
+          });
+
+          // Reset form after success
+          setTimeout(() => {
+            handleReset();
+            onSuccess?.(result.data?.scheduleId || '');
+          }, 1500);
+        } else {
+          setMessage({
+            type: 'error',
+            text: result.error || 'Erro ao criar agendamento',
+          });
+        }
       }
     } catch (error) {
       console.error('[ScheduledScrapeForm] Error:', error);
@@ -216,9 +231,14 @@ export function ScheduledScrapeForm({ tribunais, scheduleId, onSuccess, onCancel
   }
 
   return (
-    <WizardContainer>
+    <WizardContainer
+      currentStep={currentStep}
+      totalSteps={4}
+      onStepChange={setCurrentStep}
+      stepValidation={stepValidation}
+    >
       {/* Step 1: Basic Information */}
-      <WizardStep stepNumber={1} currentStep={currentStep} title="Informações Básicas">
+      <WizardStep step={1} title="Informações Básicas">
         <div className="space-y-4">
           <div>
             <Label htmlFor="schedule-name">
@@ -256,7 +276,7 @@ export function ScheduledScrapeForm({ tribunais, scheduleId, onSuccess, onCancel
       </WizardStep>
 
       {/* Step 2: Credential Selection */}
-      <WizardStep stepNumber={2} currentStep={currentStep} title="Credencial">
+      <WizardStep step={2} title="Credencial">
         {loadingCredentials ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -273,21 +293,21 @@ export function ScheduledScrapeForm({ tribunais, scheduleId, onSuccess, onCancel
           <CredentialSelector
             credentials={credentials}
             selectedCredentialId={selectedCredentialId}
-            onSelectCredential={setSelectedCredentialId}
+            onSelect={setSelectedCredentialId}
           />
         )}
       </WizardStep>
 
       {/* Step 3: Tribunals and Type */}
-      <WizardStep stepNumber={3} currentStep={currentStep} title="Tribunais e Tipo">
+      <WizardStep step={3} title="Tribunais e Tipo">
         <div className="space-y-6">
           <div>
             <h3 className="text-sm font-medium mb-3">Tribunais</h3>
             <TribunalSelector
               tribunais={tribunais}
-              selectedCredentialId={selectedCredentialId}
-              selectedTribunalIds={selectedTribunalIds}
-              onSelectionChange={setSelectedTribunalIds}
+              credentialId={selectedCredentialId}
+              selectedIds={selectedTribunalIds}
+              onChange={setSelectedTribunalIds}
             />
           </div>
 
@@ -304,7 +324,7 @@ export function ScheduledScrapeForm({ tribunais, scheduleId, onSuccess, onCancel
       </WizardStep>
 
       {/* Step 4: Frequency */}
-      <WizardStep stepNumber={4} currentStep={currentStep} title="Frequência">
+      <WizardStep step={4} title="Frequência">
         <div className="space-y-6">
           <div>
             <h3 className="text-sm font-medium mb-3">Quando executar</h3>
@@ -338,17 +358,7 @@ export function ScheduledScrapeForm({ tribunais, scheduleId, onSuccess, onCancel
 
       {/* Navigation */}
       <WizardNavigation
-        currentStep={currentStep}
-        totalSteps={4}
-        onNext={() => setCurrentStep((prev) => Math.min(prev + 1, 4))}
-        onPrevious={() => setCurrentStep((prev) => Math.max(prev - 1, 1))}
         onSubmit={handleSubmit}
-        onCancel={() => {
-          handleReset();
-          onCancel?.();
-        }}
-        isNextDisabled={!stepValidation[currentStep as keyof typeof stepValidation]}
-        isSubmitDisabled={!isValid || isSubmitting}
         isSubmitting={isSubmitting}
         submitLabel={isEditMode ? 'Salvar Alterações' : 'Criar Agendamento'}
       />

@@ -42,8 +42,9 @@ import { z } from 'zod';
 import { decompressJSON } from '@/lib/utils/compression';
 import { parseTribunalConfigId, getTipoTribunal } from '@/lib/types/tribunal';
 import { sanitizeError, maskCPF } from '@/lib/utils/sanitization';
-import { validateCronExpression, getNextRunTime } from '@/lib/utils/cron-helpers';
+import { validateCronExpression, getNextRunTime } from '@/lib/utils/cron-helpers.server';
 import { addSchedule, updateSchedule, removeSchedule, pauseSchedule, resumeSchedule } from '@/lib/services/scheduled-scrape-service';
+import { SCHEDULED_SCRAPES_CONFIG, isSupportedTimezone } from '@/config/scraping';
 
 // Lazy load Prisma to avoid edge runtime issues
 async function getPrisma() {
@@ -1951,8 +1952,15 @@ export async function createScheduledScrapeAction(
     if (!validation.success) {
       return {
         success: false,
-        error: validation.error.errors[0]?.message || 'Dados inválidos',
+        error: validation.error.issues[0]?.message || 'Dados inválidos',
       };
+    }
+
+    // Normalizar timezone: se ausente ou não suportado, usar default
+    let tz = input.timezone || SCHEDULED_SCRAPES_CONFIG.defaultTimezone;
+    if (!isSupportedTimezone(tz)) {
+      console.warn(`[createScheduledScrapeAction] Timezone não suportado: ${tz}, usando padrão ${SCHEDULED_SCRAPES_CONFIG.defaultTimezone}`);
+      tz = SCHEDULED_SCRAPES_CONFIG.defaultTimezone;
     }
 
     // Validar cron expression
@@ -1965,6 +1973,51 @@ export async function createScheduledScrapeAction(
     }
 
     const prisma = await getPrisma();
+
+    // Validar maxSchedulesPerCredential
+    if (SCHEDULED_SCRAPES_CONFIG.maxSchedulesPerCredential > 0) {
+      const existingSchedulesCount = await prisma.scheduledScrape.count({
+        where: { credencialId: input.credencialId },
+      });
+
+      if (existingSchedulesCount >= SCHEDULED_SCRAPES_CONFIG.maxSchedulesPerCredential) {
+        return {
+          success: false,
+          error: `Limite de agendamentos por credencial atingido (máximo: ${SCHEDULED_SCRAPES_CONFIG.maxSchedulesPerCredential})`,
+        };
+      }
+    }
+
+    // Validar minIntervalMinutes usando cron-parser
+    if (SCHEDULED_SCRAPES_CONFIG.minIntervalMinutes > 0) {
+      try {
+        const parser = require('cron-parser');
+        const interval = parser.parseExpression(input.cronExpression, {
+          currentDate: new Date(),
+          tz,
+        });
+
+        // Obter próximas duas execuções
+        const firstRun = interval.next().toDate();
+        const secondRun = interval.next().toDate();
+
+        // Calcular diferença em minutos
+        const diffMinutes = (secondRun.getTime() - firstRun.getTime()) / (1000 * 60);
+
+        if (diffMinutes < SCHEDULED_SCRAPES_CONFIG.minIntervalMinutes) {
+          return {
+            success: false,
+            error: `O intervalo entre execuções (${Math.round(diffMinutes)} minutos) é menor que o mínimo permitido (${SCHEDULED_SCRAPES_CONFIG.minIntervalMinutes} minutos)`,
+          };
+        }
+      } catch (error) {
+        console.error('[createScheduledScrapeAction] Erro ao validar intervalo:', error);
+        return {
+          success: false,
+          error: 'Erro ao validar intervalo da expressão cron',
+        };
+      }
+    }
 
     // Validar que credencial existe e está ativa
     const credencial = await prisma.credencial.findUnique({
@@ -2041,8 +2094,8 @@ export async function createScheduledScrapeAction(
       };
     }
 
-    // Calcular próxima execução
-    const nextRunAt = getNextRunTime(input.cronExpression, input.timezone || 'America/Sao_Paulo');
+    // Calcular próxima execução usando timezone normalizado
+    const nextRunAt = getNextRunTime(input.cronExpression, tz);
 
     // Criar agendamento
     const schedule = await prisma.scheduledScrape.create({
@@ -2054,7 +2107,7 @@ export async function createScheduledScrapeAction(
         scrapeSubType: input.scrapeSubType,
         tribunalConfigIds: input.tribunalConfigIds,
         cronExpression: input.cronExpression,
-        timezone: input.timezone || 'America/Sao_Paulo',
+        timezone: tz,
         active: input.active ?? true,
         nextRunAt,
       },
@@ -2203,19 +2256,8 @@ export async function updateScheduledScrapeAction(
     if (!validation.success) {
       return {
         success: false,
-        error: validation.error.errors[0]?.message || 'Dados inválidos',
+        error: validation.error.issues[0]?.message || 'Dados inválidos',
       };
-    }
-
-    // Se cronExpression mudou, validar
-    if (input.cronExpression) {
-      const cronValidation = validateCronExpression(input.cronExpression);
-      if (!cronValidation.valid) {
-        return {
-          success: false,
-          error: cronValidation.error,
-        };
-      }
     }
 
     const prisma = await getPrisma();
@@ -2230,6 +2272,61 @@ export async function updateScheduledScrapeAction(
         success: false,
         error: 'Agendamento não encontrado',
       };
+    }
+
+    // Normalizar timezone se fornecido
+    let tz: string | undefined;
+    if (input.timezone !== undefined) {
+      tz = input.timezone || SCHEDULED_SCRAPES_CONFIG.defaultTimezone;
+      if (!isSupportedTimezone(tz)) {
+        console.warn(`[updateScheduledScrapeAction] Timezone não suportado: ${tz}, usando padrão ${SCHEDULED_SCRAPES_CONFIG.defaultTimezone}`);
+        tz = SCHEDULED_SCRAPES_CONFIG.defaultTimezone;
+      }
+    }
+
+    // Determinar timezone efetivo para validações
+    const effectiveTimezone = tz || existingSchedule.timezone;
+
+    // Se cronExpression mudou, validar
+    if (input.cronExpression) {
+      const cronValidation = validateCronExpression(input.cronExpression);
+      if (!cronValidation.valid) {
+        return {
+          success: false,
+          error: cronValidation.error,
+        };
+      }
+
+      // Validar minIntervalMinutes usando cron-parser
+      if (SCHEDULED_SCRAPES_CONFIG.minIntervalMinutes > 0) {
+        try {
+          const parser = require('cron-parser');
+          const interval = parser.parseExpression(input.cronExpression, {
+            currentDate: new Date(),
+            tz: effectiveTimezone,
+          });
+
+          // Obter próximas duas execuções
+          const firstRun = interval.next().toDate();
+          const secondRun = interval.next().toDate();
+
+          // Calcular diferença em minutos
+          const diffMinutes = (secondRun.getTime() - firstRun.getTime()) / (1000 * 60);
+
+          if (diffMinutes < SCHEDULED_SCRAPES_CONFIG.minIntervalMinutes) {
+            return {
+              success: false,
+              error: `O intervalo entre execuções (${Math.round(diffMinutes)} minutos) é menor que o mínimo permitido (${SCHEDULED_SCRAPES_CONFIG.minIntervalMinutes} minutos)`,
+            };
+          }
+        } catch (error) {
+          console.error('[updateScheduledScrapeAction] Erro ao validar intervalo:', error);
+          return {
+            success: false,
+            error: 'Erro ao validar intervalo da expressão cron',
+          };
+        }
+      }
     }
 
     // Se credencial mudou, validar
@@ -2254,22 +2351,32 @@ export async function updateScheduledScrapeAction(
       }
     }
 
-    // Calcular novo nextRunAt se cron mudou
+    // Calcular novo nextRunAt se cron ou timezone mudou
     let nextRunAt: Date | undefined;
-    if (input.cronExpression) {
-      nextRunAt = getNextRunTime(
-        input.cronExpression,
-        input.timezone || existingSchedule.timezone
-      );
+    if (input.cronExpression || tz !== undefined) {
+      const cronToUse = input.cronExpression || existingSchedule.cronExpression;
+      nextRunAt = getNextRunTime(cronToUse, effectiveTimezone);
+    }
+
+    // Preparar dados de atualização
+    const updateData: any = {
+      ...input,
+    };
+
+    // Sobrescrever timezone com valor normalizado se foi fornecido
+    if (tz !== undefined) {
+      updateData.timezone = tz;
+    }
+
+    // Adicionar nextRunAt se foi calculado
+    if (nextRunAt) {
+      updateData.nextRunAt = nextRunAt;
     }
 
     // Atualizar no banco
     const updatedSchedule = await prisma.scheduledScrape.update({
       where: { id: scheduleId },
-      data: {
-        ...input,
-        ...(nextRunAt && { nextRunAt }),
-      },
+      data: updateData,
     });
 
     // Atualizar cron job se ativo

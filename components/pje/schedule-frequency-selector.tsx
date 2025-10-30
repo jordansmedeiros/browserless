@@ -7,17 +7,14 @@
 
 import { useState, useEffect } from 'react';
 import { ScheduleFrequencyType, ScheduleFrequencyConfig } from '@/lib/types/scraping';
-import { validateCronExpression, formatCronDescription, getNextRunTime, frequencyConfigToCron } from '@/lib/utils/cron-helpers';
+import { formatCronDescription, frequencyConfigToCron } from '@/lib/utils/cron-helpers';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Clock, Calendar, AlertCircle } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { Clock } from 'lucide-react';
 
 interface ScheduleFrequencySelectorProps {
   value: ScheduleFrequencyConfig;
@@ -37,26 +34,16 @@ const WEEKDAY_NAMES = [
 ];
 
 export function ScheduleFrequencySelector({ value, onChange }: ScheduleFrequencySelectorProps) {
-  const [cronError, setCronError] = useState<string | null>(null);
-  const [nextRun, setNextRun] = useState<Date | null>(null);
+  const [cronDescription, setCronDescription] = useState<string>('');
 
-  // Calcular próxima execução
+  // Calcular descrição do cron
   useEffect(() => {
     try {
       const cron = frequencyConfigToCron(value);
-      const validation = validateCronExpression(cron);
-
-      if (validation.valid) {
-        const next = getNextRunTime(cron, 'America/Sao_Paulo');
-        setNextRun(next);
-        setCronError(null);
-      } else {
-        setCronError(validation.error || 'Configuração inválida');
-        setNextRun(null);
-      }
+      const description = formatCronDescription(cron);
+      setCronDescription(description);
     } catch (error) {
-      setCronError(error instanceof Error ? error.message : 'Erro ao processar configuração');
-      setNextRun(null);
+      setCronDescription('Configuração inválida');
     }
   }, [value]);
 
@@ -302,9 +289,9 @@ export function ScheduleFrequencySelector({ value, onChange }: ScheduleFrequency
                       Ver documentação
                     </a>
                   </p>
-                  {value.customCron && (
+                  {value.customCron && cronDescription && (
                     <Badge variant="outline" className="font-mono text-xs">
-                      {formatCronDescription(value.customCron)}
+                      {cronDescription}
                     </Badge>
                   )}
                 </div>
@@ -314,27 +301,19 @@ export function ScheduleFrequencySelector({ value, onChange }: ScheduleFrequency
         </div>
       </RadioGroup>
 
-      {/* Preview da próxima execução */}
-      {nextRun && (
+      {/* Preview da configuração */}
+      {cronDescription && (
         <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-          <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+          <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
           <div>
             <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-              Próxima execução
+              Frequência
             </p>
             <p className="text-sm text-blue-700 dark:text-blue-300">
-              {format(nextRun, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              {cronDescription}
             </p>
           </div>
         </div>
-      )}
-
-      {/* Erro de validação */}
-      {cronError && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{cronError}</AlertDescription>
-        </Alert>
       )}
     </div>
   );

@@ -1,6 +1,14 @@
 import { BadgeProps } from '@/components/ui/badge'
 import { CheckCircle2, XCircle, Loader2, Clock, Ban } from 'lucide-react'
 import type { ScrapeJobTribunal } from '@/lib/types/scraping'
+import type { TribunalConfig, Tribunal } from '@prisma/client'
+
+// Type for ScrapeJobTribunal with relations
+type ScrapeJobTribunalWithRelations = ScrapeJobTribunal & {
+  tribunalConfig: TribunalConfig & {
+    tribunal: Tribunal
+  }
+}
 
 /**
  * Converts grau code to friendly format
@@ -40,12 +48,12 @@ export function formatGrauShort(grau: string): string {
 
 /**
  * Returns a summary string of tribunal codes
- * @param tribunals - Array of ScrapeJobTribunal
+ * @param tribunals - Array of ScrapeJobTribunal with relations
  * @param maxDisplay - Maximum number of tribunals to display before truncating
  * @returns Summary string (e.g., "TRT3, TRT15, TRT2" or "TRT3, TRT15 +2 mais")
  */
 export function getTribunalSummary(
-  tribunals: ScrapeJobTribunal[],
+  tribunals: ScrapeJobTribunalWithRelations[],
   maxDisplay: number = 3
 ): string {
   // Filter out items without tribunalConfig.tribunal
@@ -109,10 +117,10 @@ export function getStatusIcon(status: string) {
 
 /**
  * Formats tribunal display string for badges
- * @param tribunal - ScrapeJobTribunal object
+ * @param tribunal - ScrapeJobTribunal object with relations
  * @returns Formatted string (e.g., "TRT3 - 1º Grau")
  */
-export function formatTribunalDisplay(tribunal: ScrapeJobTribunal): string {
+export function formatTribunalDisplay(tribunal: ScrapeJobTribunalWithRelations): string {
   const codigo = tribunal.tribunalConfig.tribunal.codigo
   const grau = formatGrau(tribunal.tribunalConfig.grau)
   return `${codigo} - ${grau}`
