@@ -422,48 +422,50 @@ export default function CredentialsPage() {
                       </p>
                     </div>
                   ) : (
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                      {escritorio.advogados.map((advogado) => (
-                        <div
-                          key={advogado.id}
-                          className="p-4 rounded-lg border bg-background hover:bg-accent hover:border-primary transition-all group relative"
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <User className="w-4 h-4 text-muted-foreground" />
-                              <span className="font-semibold text-sm group-hover:text-primary">
-                                {advogado.nome}
-                              </span>
+                    <div className="bg-muted/50 p-2 rounded-lg">
+                      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        {escritorio.advogados.map((advogado) => (
+                          <div
+                            key={advogado.id}
+                            className="p-4 rounded-lg border bg-card hover:bg-accent hover:border-primary transition-all group relative"
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4 text-muted-foreground" />
+                                <span className="font-semibold text-sm group-hover:text-primary">
+                                  {advogado.nome}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => setSelectedLawyerId(advogado.id)}
+                                  className="p-1 hover:bg-accent rounded"
+                                >
+                                  <Eye className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteAdvogado(advogado.id);
+                                  }}
+                                  className="p-1 hover:bg-destructive/10 rounded"
+                                >
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => setSelectedLawyerId(advogado.id)}
-                                className="p-1 hover:bg-accent rounded"
-                              >
-                                <Eye className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteAdvogado(advogado.id);
-                                }}
-                                className="p-1 hover:bg-destructive/10 rounded"
-                              >
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </button>
+                            <div className="text-xs text-muted-foreground space-y-1">
+                              <p>OAB/{advogado.oabUf} {advogado.oabNumero}</p>
+                              <p>CPF: {advogado.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '***.$2.$3-**')}</p>
+                            </div>
+                            <div className="mt-2">
+                              <Badge variant="outline" className="text-xs">
+                                {advogado.credenciais?.length || 0} credenciais
+                              </Badge>
                             </div>
                           </div>
-                          <div className="text-xs text-muted-foreground space-y-1">
-                            <p>OAB/{advogado.oabUf} {advogado.oabNumero}</p>
-                            <p>CPF: {advogado.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '***.$2.$3-**')}</p>
-                          </div>
-                          <div className="mt-2">
-                            <Badge variant="outline" className="text-xs">
-                              {advogado.credenciais?.length || 0} credenciais
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   )}
                 </AccordionContent>

@@ -1,27 +1,40 @@
----
-name: OpenSpec: Archive
-description: Archive a deployed OpenSpec change and update specs.
-category: OpenSpec
-tags: [openspec, archive]
----
-<!-- OPENSPEC:START -->
-**Guardrails**
-- Favor straightforward, minimal implementations first and add complexity only when it is requested or clearly required.
-- Keep changes tightly scoped to the requested outcome.
-- Refer to `openspec/AGENTS.md` (located inside the `openspec/` directory—run `ls openspec` or `openspec update` if you don't see it) if you need additional OpenSpec conventions or clarifications.
+## Command
 
-**Steps**
-1. Determine the change ID to archive:
-   - If this prompt already includes a specific change ID (for example inside a `<ChangeId>` block populated by slash-command arguments), use that value after trimming whitespace.
-   - If the conversation references a change loosely (for example by title or summary), run `openspec list` to surface likely IDs, share the relevant candidates, and confirm which one the user intends.
-   - Otherwise, review the conversation, run `openspec list`, and ask the user which change to archive; wait for a confirmed change ID before proceeding.
-   - If you still cannot identify a single change ID, stop and tell the user you cannot archive anything yet.
-2. Validate the change ID by running `openspec list` (or `openspec show <id>`) and stop if the change is missing, already archived, or otherwise not ready to archive.
-3. Run `openspec archive <id> --yes` so the CLI moves the change and applies spec updates without prompts (use `--skip-specs` only for tooling-only work).
-4. Review the command output to confirm the target specs were updated and the change landed in `changes/archive/`.
-5. Validate with `openspec validate --strict` and inspect with `openspec show <id>` if anything looks off.
+`openspec archive add-sidebar-16-layout --yes`
 
-**Reference**
-- Use `openspec list` to confirm change IDs before archiving.
-- Inspect refreshed specs with `openspec list --specs` and address any validation issues before handing off.
-<!-- OPENSPEC:END -->
+## Purpose
+
+Archive the completed change proposal by:
+- Moving `openspec/changes/add-sidebar-16-layout/` to `openspec/changes/archive/2025-10-30-add-sidebar-16-layout/` (using current date)
+- Updating `openspec/specs/dashboard-layout/` with the delta changes from the proposal
+- Merging ADDED requirements into the spec, applying MODIFIED changes, removing REMOVED requirements
+- Preserving the complete change history in the archive
+
+## Flags explained
+
+- `--yes` or `-y`: Skip confirmation prompts for non-interactive execution (required for automation)
+- `--skip-specs`: Use this flag ONLY for tooling-only changes that don't affect capabilities (NOT applicable for this change)
+
+## Expected outcome
+
+- Directory `openspec/changes/add-sidebar-16-layout/` no longer exists
+- New directory `openspec/changes/archive/2025-10-30-add-sidebar-16-layout/` contains all proposal files
+- File `openspec/specs/dashboard-layout/spec.md` updated with the new requirements (if this spec exists; if not, it may be created)
+- Success message confirming the archive operation
+
+## Verification steps
+
+- Check that `openspec/changes/add-sidebar-16-layout/` directory is gone
+- Verify `openspec/changes/archive/2025-10-30-add-sidebar-16-layout/` exists with all files (proposal.md, tasks.md, specs/)
+- Run `openspec list` to confirm the change no longer appears in active changes
+- Run `openspec validate --strict` to ensure the archived change and updated specs pass validation
+
+## Troubleshooting
+
+- If archive fails with "Change not found": Verify the change-id is correct (must be exact: `add-sidebar-16-layout`)
+- If spec merge fails: Check that delta files have proper format and matching requirement headers
+- If validation fails after archive: Review the updated spec file for formatting issues
+
+## Note
+
+This is a documentation file to guide the archiving process. The actual command execution will be done by the user or CI/CD pipeline. According to OpenSpec workflow, archiving should be done in a separate PR after deployment.
