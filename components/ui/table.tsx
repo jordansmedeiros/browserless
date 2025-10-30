@@ -2,18 +2,32 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+interface TableProps extends React.HTMLAttributes<HTMLTableElement> {
+  noWrapper?: boolean;
+}
+
 const Table = React.forwardRef<
   HTMLTableElement,
-  React.HTMLAttributes<HTMLTableElement>
->(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-auto">
+  TableProps
+>(({ className, noWrapper, ...props }, ref) => {
+  const table = (
     <table
       ref={ref}
       className={cn("w-full caption-bottom text-sm", className)}
       {...props}
     />
-  </div>
-))
+  );
+
+  if (noWrapper) {
+    return table;
+  }
+
+  return (
+    <div className="relative w-full overflow-auto">
+      {table}
+    </div>
+  );
+})
 Table.displayName = "Table"
 
 const TableHeader = React.forwardRef<
@@ -51,14 +65,19 @@ const TableFooter = React.forwardRef<
 ))
 TableFooter.displayName = "TableFooter"
 
+interface TableRowProps extends React.HTMLAttributes<HTMLTableRowElement> {
+  noHover?: boolean;
+}
+
 const TableRow = React.forwardRef<
   HTMLTableRowElement,
-  React.HTMLAttributes<HTMLTableRowElement>
->(({ className, ...props }, ref) => (
+  TableRowProps
+>(({ className, noHover, ...props }, ref) => (
   <tr
     ref={ref}
     className={cn(
-      "border-b transition-colors hover:bg-muted data-[state=selected]:bg-muted",
+      "border-b transition-colors data-[state=selected]:bg-muted",
+      !noHover && "hover:bg-muted/50",
       className
     )}
     {...props}

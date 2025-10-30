@@ -13,6 +13,12 @@ export async function register() {
 
     initializeOrchestrator();
 
+    // Import and initialize the scheduled scrape service
+    const { initializeScheduler } = await import('@/lib/services/scheduled-scrape-service');
+
+    await initializeScheduler();
+
+    console.log('[Instrumentation] Scheduled scrape service initialized');
     console.log('[Instrumentation] Server services initialized');
   }
 }
@@ -25,6 +31,14 @@ export async function unregister() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     console.log('[Instrumentation] Shutting down server services...');
 
+    // Stop scheduler first (stops creating new jobs)
+    const { stopScheduler } = await import('@/lib/services/scheduled-scrape-service');
+
+    stopScheduler();
+
+    console.log('[Instrumentation] Scheduled scrape service stopped');
+
+    // Stop orchestrator (finishes running jobs)
     const { stopOrchestrator } = await import('@/lib/services/scrape-orchestrator');
 
     stopOrchestrator();

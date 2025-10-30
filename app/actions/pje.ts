@@ -33,11 +33,17 @@ import type {
   PaginatedScrapeJobs,
   ScrapeExecutionDetails,
   ScrapeJobProgress,
+  CreateScheduledScrapeInput,
+  UpdateScheduledScrapeInput,
+  ScheduledScrapeWithRelations,
+  PaginatedScheduledScrapes,
 } from '@/lib/types';
 import { z } from 'zod';
 import { decompressJSON } from '@/lib/utils/compression';
 import { parseTribunalConfigId, getTipoTribunal } from '@/lib/types/tribunal';
 import { sanitizeError, maskCPF } from '@/lib/utils/sanitization';
+import { validateCronExpression, getNextRunTime } from '@/lib/utils/cron-helpers';
+import { addSchedule, updateSchedule, removeSchedule, pauseSchedule, resumeSchedule } from '@/lib/services/scheduled-scrape-service';
 
 // Lazy load Prisma to avoid edge runtime issues
 async function getPrisma() {
@@ -1908,6 +1914,429 @@ export async function getActiveJobsStatusAction(jobIds: string[]) {
       success: false,
       error: 'Erro ao buscar status',
       data: [],
+    };
+  }
+}
+
+// ============================================================================
+// SCHEDULED SCRAPES MANAGEMENT SERVER ACTIONS
+// ============================================================================
+
+// Schema de validação para criação de raspagem programada
+const createScheduledScrapeSchema = z.object({
+  name: z.string().min(3, 'Nome deve ter ao menos 3 caracteres').max(100),
+  description: z.string().max(500).optional(),
+  credencialId: z.string().uuid('ID de credencial inválido'),
+  tribunalConfigIds: z.array(z.string()).min(1, 'Selecione ao menos um tribunal'),
+  scrapeType: z.enum(['acervo_geral', 'pendentes', 'arquivados', 'minha_pauta']),
+  scrapeSubType: z.enum(['com_dado_ciencia', 'sem_prazo']).optional(),
+  cronExpression: z.string().min(9, 'Expressão cron inválida'),
+  timezone: z.string().default('America/Sao_Paulo'),
+  active: z.boolean().default(true),
+});
+
+const updateScheduledScrapeSchema = createScheduledScrapeSchema.partial();
+
+/**
+ * Cria um agendamento de raspagem
+ */
+export async function createScheduledScrapeAction(
+  input: CreateScheduledScrapeInput
+): Promise<{ success: boolean; data?: { scheduleId: string }; error?: string }> {
+  try {
+    console.log('[createScheduledScrapeAction] Criando agendamento:', input.name);
+
+    // Validar input
+    const validation = createScheduledScrapeSchema.safeParse(input);
+    if (!validation.success) {
+      return {
+        success: false,
+        error: validation.error.errors[0]?.message || 'Dados inválidos',
+      };
+    }
+
+    // Validar cron expression
+    const cronValidation = validateCronExpression(input.cronExpression);
+    if (!cronValidation.valid) {
+      return {
+        success: false,
+        error: cronValidation.error,
+      };
+    }
+
+    const prisma = await getPrisma();
+
+    // Validar que credencial existe e está ativa
+    const credencial = await prisma.credencial.findUnique({
+      where: { id: input.credencialId },
+      include: {
+        tribunais: true,
+      },
+    });
+
+    if (!credencial) {
+      return {
+        success: false,
+        error: 'Credencial não encontrada',
+      };
+    }
+
+    if (!credencial.ativa) {
+      return {
+        success: false,
+        error: 'Credencial está inativa',
+      };
+    }
+
+    // Validar que tribunais estão associados à credencial
+    const credencialTribunalIds = credencial.tribunais.map(t => t.tipoTribunal);
+    const invalidTribunals = input.tribunalConfigIds.filter(
+      id => !credencialTribunalIds.includes(id)
+    );
+
+    if (invalidTribunals.length > 0) {
+      return {
+        success: false,
+        error: `Tribunais não associados à credencial: ${invalidTribunals.join(', ')}`,
+      };
+    }
+
+    // Calcular próxima execução
+    const nextRunAt = getNextRunTime(input.cronExpression, input.timezone || 'America/Sao_Paulo');
+
+    // Criar agendamento
+    const schedule = await prisma.scheduledScrape.create({
+      data: {
+        name: input.name,
+        description: input.description,
+        credencialId: input.credencialId,
+        scrapeType: input.scrapeType,
+        scrapeSubType: input.scrapeSubType,
+        tribunalConfigIds: input.tribunalConfigIds,
+        cronExpression: input.cronExpression,
+        timezone: input.timezone || 'America/Sao_Paulo',
+        active: input.active ?? true,
+        nextRunAt,
+      },
+    });
+
+    // Registrar cron job se ativo
+    if (schedule.active) {
+      try {
+        addSchedule(schedule);
+      } catch (error) {
+        console.error('[createScheduledScrapeAction] Erro ao registrar cron job:', error);
+        // Não falhar a criação se o scheduler falhar
+      }
+    }
+
+    console.log('[createScheduledScrapeAction] Agendamento criado:', schedule.id);
+
+    return {
+      success: true,
+      data: { scheduleId: schedule.id },
+    };
+  } catch (error) {
+    console.error('[createScheduledScrapeAction] Erro:', error);
+    return {
+      success: false,
+      error: sanitizeError(error),
+    };
+  }
+}
+
+/**
+ * Lista agendamentos de raspagem com paginação
+ */
+export async function listScheduledScrapesAction(
+  filters?: { active?: boolean; page?: number; pageSize?: number }
+): Promise<{ success: boolean; data?: PaginatedScheduledScrapes; error?: string }> {
+  try {
+    const prisma = await getPrisma();
+
+    const page = filters?.page || 1;
+    const pageSize = filters?.pageSize || 20;
+    const skip = (page - 1) * pageSize;
+
+    const where = filters?.active !== undefined ? { active: filters.active } : {};
+
+    const [schedules, total] = await Promise.all([
+      prisma.scheduledScrape.findMany({
+        where,
+        include: {
+          credencial: {
+            include: {
+              advogado: {
+                select: {
+                  nome: true,
+                  oabNumero: true,
+                  oabUf: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { nextRunAt: 'asc' },
+        skip,
+        take: pageSize,
+      }),
+      prisma.scheduledScrape.count({ where }),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        schedules: schedules as ScheduledScrapeWithRelations[],
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
+  } catch (error) {
+    console.error('[listScheduledScrapesAction] Erro:', error);
+    return {
+      success: false,
+      error: sanitizeError(error),
+    };
+  }
+}
+
+/**
+ * Busca um agendamento por ID
+ */
+export async function getScheduledScrapeAction(
+  scheduleId: string
+): Promise<{ success: boolean; data?: ScheduledScrapeWithRelations; error?: string }> {
+  try {
+    const prisma = await getPrisma();
+
+    const schedule = await prisma.scheduledScrape.findUnique({
+      where: { id: scheduleId },
+      include: {
+        credencial: {
+          include: {
+            advogado: {
+              select: {
+                nome: true,
+                oabNumero: true,
+                oabUf: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!schedule) {
+      return {
+        success: false,
+        error: 'Agendamento não encontrado',
+      };
+    }
+
+    return {
+      success: true,
+      data: schedule as ScheduledScrapeWithRelations,
+    };
+  } catch (error) {
+    console.error('[getScheduledScrapeAction] Erro:', error);
+    return {
+      success: false,
+      error: sanitizeError(error),
+    };
+  }
+}
+
+/**
+ * Atualiza um agendamento
+ */
+export async function updateScheduledScrapeAction(
+  scheduleId: string,
+  input: UpdateScheduledScrapeInput
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('[updateScheduledScrapeAction] Atualizando agendamento:', scheduleId);
+
+    // Validar input
+    const validation = updateScheduledScrapeSchema.safeParse(input);
+    if (!validation.success) {
+      return {
+        success: false,
+        error: validation.error.errors[0]?.message || 'Dados inválidos',
+      };
+    }
+
+    // Se cronExpression mudou, validar
+    if (input.cronExpression) {
+      const cronValidation = validateCronExpression(input.cronExpression);
+      if (!cronValidation.valid) {
+        return {
+          success: false,
+          error: cronValidation.error,
+        };
+      }
+    }
+
+    const prisma = await getPrisma();
+
+    // Buscar agendamento existente
+    const existingSchedule = await prisma.scheduledScrape.findUnique({
+      where: { id: scheduleId },
+    });
+
+    if (!existingSchedule) {
+      return {
+        success: false,
+        error: 'Agendamento não encontrado',
+      };
+    }
+
+    // Se credencial mudou, validar
+    if (input.credencialId && input.credencialId !== existingSchedule.credencialId) {
+      const credencial = await prisma.credencial.findUnique({
+        where: { id: input.credencialId },
+        include: { tribunais: true },
+      });
+
+      if (!credencial) {
+        return {
+          success: false,
+          error: 'Credencial não encontrada',
+        };
+      }
+
+      if (!credencial.ativa) {
+        return {
+          success: false,
+          error: 'Credencial está inativa',
+        };
+      }
+    }
+
+    // Calcular novo nextRunAt se cron mudou
+    let nextRunAt: Date | undefined;
+    if (input.cronExpression) {
+      nextRunAt = getNextRunTime(
+        input.cronExpression,
+        input.timezone || existingSchedule.timezone
+      );
+    }
+
+    // Atualizar no banco
+    const updatedSchedule = await prisma.scheduledScrape.update({
+      where: { id: scheduleId },
+      data: {
+        ...input,
+        ...(nextRunAt && { nextRunAt }),
+      },
+    });
+
+    // Atualizar cron job se ativo
+    if (updatedSchedule.active) {
+      try {
+        updateSchedule(scheduleId, updatedSchedule);
+      } catch (error) {
+        console.error('[updateScheduledScrapeAction] Erro ao atualizar cron job:', error);
+      }
+    }
+
+    console.log('[updateScheduledScrapeAction] Agendamento atualizado:', scheduleId);
+
+    return { success: true };
+  } catch (error) {
+    console.error('[updateScheduledScrapeAction] Erro:', error);
+    return {
+      success: false,
+      error: sanitizeError(error),
+    };
+  }
+}
+
+/**
+ * Deleta um agendamento
+ */
+export async function deleteScheduledScrapeAction(
+  scheduleId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('[deleteScheduledScrapeAction] Deletando agendamento:', scheduleId);
+
+    const prisma = await getPrisma();
+
+    // Verificar se existe
+    const schedule = await prisma.scheduledScrape.findUnique({
+      where: { id: scheduleId },
+    });
+
+    if (!schedule) {
+      return {
+        success: false,
+        error: 'Agendamento não encontrado',
+      };
+    }
+
+    // Parar cron job
+    try {
+      removeSchedule(scheduleId);
+    } catch (error) {
+      console.error('[deleteScheduledScrapeAction] Erro ao remover cron job:', error);
+    }
+
+    // Deletar do banco
+    await prisma.scheduledScrape.delete({
+      where: { id: scheduleId },
+    });
+
+    console.log('[deleteScheduledScrapeAction] Agendamento deletado:', scheduleId);
+
+    return { success: true };
+  } catch (error) {
+    console.error('[deleteScheduledScrapeAction] Erro:', error);
+    return {
+      success: false,
+      error: sanitizeError(error),
+    };
+  }
+}
+
+/**
+ * Ativa ou pausa um agendamento
+ */
+export async function toggleScheduledScrapeAction(
+  scheduleId: string,
+  active: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('[toggleScheduledScrapeAction] Alterando status:', scheduleId, active);
+
+    const prisma = await getPrisma();
+
+    // Atualizar no banco
+    await prisma.scheduledScrape.update({
+      where: { id: scheduleId },
+      data: { active },
+    });
+
+    // Atualizar cron job
+    try {
+      if (active) {
+        await resumeSchedule(scheduleId);
+      } else {
+        await pauseSchedule(scheduleId);
+      }
+    } catch (error) {
+      console.error('[toggleScheduledScrapeAction] Erro ao alterar cron job:', error);
+    }
+
+    console.log('[toggleScheduledScrapeAction] Status alterado:', scheduleId, active);
+
+    return { success: true };
+  } catch (error) {
+    console.error('[toggleScheduledScrapeAction] Erro:', error);
+    return {
+      success: false,
+      error: sanitizeError(error),
     };
   }
 }

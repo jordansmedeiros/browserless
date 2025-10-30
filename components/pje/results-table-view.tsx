@@ -277,7 +277,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
         className="rounded-md border overflow-auto bg-card"
         style={{ height: paginatedProcesses.length > 50 ? '600px' : 'auto' }}
       >
-        <Table>
+        <Table noWrapper>
           <TableHeader>
             <TableRow>
               <TableHead className="w-12">
@@ -349,6 +349,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
                   return (
                     <TableRow
                       key={globalIndex}
+                      className="hover:bg-muted"
                       style={{
                         position: 'absolute',
                         top: 0,
@@ -364,7 +365,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
                         />
                       </TableCell>
                       {columns.map((column) => (
-                        <TableCell key={column} className="max-w-md truncate">
+                        <TableCell key={column} className="max-w-md truncate" title={formatCellValue(process[column])}>
                           {formatCellValue(process[column])}
                         </TableCell>
                       ))}
@@ -377,7 +378,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
               paginatedProcesses.map((process, index) => {
                 const globalIndex = (currentPage - 1) * pageSize + index;
                 return (
-                  <TableRow key={globalIndex}>
+                  <TableRow key={globalIndex} className="hover:bg-muted">
                     <TableCell>
                       <Checkbox
                         checked={selectedRows.has(globalIndex)}
@@ -385,7 +386,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
                       />
                     </TableCell>
                     {columns.map((column) => (
-                      <TableCell key={column} className="max-w-md truncate">
+                      <TableCell key={column} className="max-w-md truncate" title={formatCellValue(process[column])}>
                         {formatCellValue(process[column])}
                       </TableCell>
                     ))}

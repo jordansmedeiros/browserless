@@ -4,10 +4,10 @@
  */
 
 import type { ProcessoPJE } from './pje';
-import type { TribunalConfig, ScrapeJob, ScrapeJobTribunal, ScrapeExecution, Tribunal } from '@prisma/client';
+import type { TribunalConfig, ScrapeJob, ScrapeJobTribunal, ScrapeExecution, Tribunal, ScheduledScrape } from '@prisma/client';
 
 // Re-export Prisma types (TribunalConfig already exported from ./tribunal)
-export type { ScrapeExecution, ScrapeJob, ScrapeJobTribunal, Tribunal } from '@prisma/client';
+export type { ScrapeExecution, ScrapeJob, ScrapeJobTribunal, Tribunal, ScheduledScrape } from '@prisma/client';
 
 /**
  * TribunalConfig with Tribunal relation
@@ -190,3 +190,84 @@ export const SCRAPE_STATUS_LABELS: Record<ScrapeJobStatus, string> = {
   [ScrapeJobStatus.FAILED]: 'Falhou',
   [ScrapeJobStatus.CANCELED]: 'Cancelado',
 };
+
+/**
+ * ScheduledScrape com relações incluídas
+ */
+export interface ScheduledScrapeWithRelations extends ScheduledScrape {
+  credencial: {
+    id: string;
+    advogado: {
+      nome: string;
+      oabNumero: string;
+      oabUf: string;
+    };
+  };
+}
+
+/**
+ * Entrada para criação de raspagem programada
+ */
+export interface CreateScheduledScrapeInput {
+  name: string;
+  description?: string;
+  credencialId: string;
+  tribunalConfigIds: string[]; // Formato: ["TRT3-PJE-1g", "TRT15-PJE-2g"]
+  scrapeType: ScrapeType;
+  scrapeSubType?: ScrapeSubType;
+  cronExpression: string;
+  timezone?: string;
+  active?: boolean;
+}
+
+/**
+ * Entrada para atualização de raspagem programada
+ */
+export interface UpdateScheduledScrapeInput {
+  name?: string;
+  description?: string;
+  credencialId?: string;
+  tribunalConfigIds?: string[];
+  scrapeType?: ScrapeType;
+  scrapeSubType?: ScrapeSubType;
+  cronExpression?: string;
+  timezone?: string;
+  active?: boolean;
+}
+
+/**
+ * Tipo de frequência para UI (convertido para cron)
+ */
+export enum ScheduleFrequencyType {
+  DAILY = 'daily',           // Todo dia em horário específico
+  WEEKLY = 'weekly',         // Dias da semana específicos
+  INTERVAL = 'interval',     // A cada X horas
+  CUSTOM = 'custom',         // Cron expression customizada
+}
+
+/**
+ * Configuração de frequência para UI
+ */
+export interface ScheduleFrequencyConfig {
+  type: ScheduleFrequencyType;
+  // Para DAILY
+  dailyTime?: string; // Formato: "09:00"
+  // Para WEEKLY
+  weekDays?: number[]; // 0-6 (domingo-sábado)
+  weeklyTime?: string; // Formato: "09:00"
+  // Para INTERVAL
+  intervalHours?: number; // 1-24
+  // Para CUSTOM
+  customCron?: string;
+}
+
+/**
+ * Resultado paginado de raspagens programadas
+ */
+export interface PaginatedScheduledScrapes {
+  schedules: ScheduledScrapeWithRelations[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}

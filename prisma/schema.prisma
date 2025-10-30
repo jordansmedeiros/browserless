@@ -133,15 +133,16 @@ model Advogado {
 }
 
 model Credencial {
-  id         String               @id @default(uuid())
-  senha      String
-  descricao  String?
-  ativa      Boolean              @default(true)
-  createdAt  DateTime             @default(now())
-  updatedAt  DateTime             @updatedAt
-  advogadoId String
-  advogado   Advogado             @relation(fields: [advogadoId], references: [id], onDelete: Cascade)
-  tribunais  CredencialTribunal[]
+  id               String               @id @default(uuid())
+  senha            String
+  descricao        String?
+  ativa            Boolean              @default(true)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  advogadoId       String
+  advogado         Advogado             @relation(fields: [advogadoId], references: [id], onDelete: Cascade)
+  tribunais        CredencialTribunal[]
+  scheduledScrapes ScheduledScrape[]
 
   @@unique([advogadoId, senha])
 }
@@ -363,4 +364,43 @@ model TribunalPerformanceMetrics {
   @@index([tribunalConfigId, createdAt])
   @@index([duracao])
   @@index([sucesso])
+}
+
+model ScheduledScrape {
+  id               String    @id @default(uuid())
+  name             String    // Nome descritivo do agendamento
+  description      String?   // Descrição opcional
+
+  // Configuração da raspagem
+  credencialId     String
+  scrapeType       String    // acervo_geral, pendentes, arquivados, minha_pauta
+  scrapeSubType    String?   // com_dado_ciencia, sem_prazo (para pendentes)
+
+  // Tribunais a serem raspados
+  tribunalConfigIds Json     // Array de IDs no formato ["TRT3-PJE-1g", "TRT15-PJE-2g"]
+
+  // Configuração de agendamento
+  cronExpression   String    // Expressão cron (ex: "0 9 * * 1-5" = 9h seg-sex)
+  timezone         String    @default("America/Sao_Paulo")
+
+  // Status e controle
+  active           Boolean   @default(true)
+
+  // Rastreamento de execuções
+  lastRunAt        DateTime?
+  nextRunAt        DateTime?
+  lastJobId        String?   // ID do último job criado
+  runCount         Int       @default(0) // Contador de execuções
+
+  // Metadados
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdBy        String?   // Futuro: ID do usuário que criou
+
+  // Relações
+  credencial       Credencial @relation(fields: [credencialId], references: [id], onDelete: Cascade)
+
+  @@index([active])
+  @@index([credencialId])
+  @@index([nextRunAt])
 }

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Calendar, Clock, CheckCircle2, XCircle, Loader2, FileDown, RotateCcw } from 'lucide-react';
 import type { ScrapeJobWithRelations } from '@/lib/types/scraping';
-import { formatGrau, getTribunalBadgeVariant, formatTribunalDisplay } from '@/lib/utils/format-helpers';
+import { formatGrau, formatGrauShort, getTribunalBadgeVariant, formatTribunalDisplay } from '@/lib/utils/format-helpers';
 
 interface ScrapeJobHeaderProps {
   job: ScrapeJobWithRelations;
@@ -103,7 +103,7 @@ export function ScrapeJobHeader({ job, onExportCSV, onExportJSON, onExportExcel,
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-start justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="space-y-1">
             <CardTitle className="text-2xl">{getScrapeTypeLabel()}</CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -159,18 +159,18 @@ export function ScrapeJobHeader({ job, onExportCSV, onExportJSON, onExportExcel,
         {job.tribunals && job.tribunals.length > 0 && (
           <div className="space-y-2 pt-4 border-t">
             <p className="text-sm font-medium">Tribunais Raspados</p>
-            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-              {job.tribunals.map((tribunal) => {
-                const badgeConfig = getTribunalBadgeVariant(tribunal.status);
-                return (
-                  <TooltipProvider key={tribunal.id}>
-                    <Tooltip>
+            <TooltipProvider>
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                {job.tribunals.filter(t => t.tribunalConfig?.tribunal).map((tribunal) => {
+                  const badgeConfig = getTribunalBadgeVariant(tribunal.status);
+                  return (
+                    <Tooltip key={tribunal.id}>
                       <TooltipTrigger asChild>
                         <Badge
                           variant={badgeConfig.variant}
                           className={badgeConfig.className}
                         >
-                          {tribunal.tribunalConfig.tribunal.codigo} - {tribunal.tribunalConfig.grau}
+                          {tribunal.tribunalConfig.tribunal.codigo} - {formatGrauShort(tribunal.tribunalConfig.grau)}
                         </Badge>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -182,10 +182,10 @@ export function ScrapeJobHeader({ job, onExportCSV, onExportJSON, onExportExcel,
                         </div>
                       </TooltipContent>
                     </Tooltip>
-                  </TooltipProvider>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </TooltipProvider>
           </div>
         )}
 

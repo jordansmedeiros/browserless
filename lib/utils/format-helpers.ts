@@ -48,7 +48,9 @@ export function getTribunalSummary(
   tribunals: ScrapeJobTribunal[],
   maxDisplay: number = 3
 ): string {
-  const codes = tribunals.map((t) => t.tribunalConfig.tribunal.codigo)
+  // Filter out items without tribunalConfig.tribunal
+  const validTribunals = tribunals.filter((t) => t.tribunalConfig?.tribunal)
+  const codes = validTribunals.map((t) => t.tribunalConfig.tribunal.codigo)
 
   if (codes.length <= maxDisplay) {
     return codes.join(', ')
