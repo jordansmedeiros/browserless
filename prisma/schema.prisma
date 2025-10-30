@@ -213,6 +213,7 @@ model ScrapeExecution {
   processosAcervoGeral Processos[]
   processosArquivados  ProcessosArquivados[]
   processosMinhaPauta  MinhaPauta[]
+  processosTJMG        ProcessosTJMG[]
   performanceMetrics   TribunalPerformanceMetrics?
 
   @@index([status])
@@ -403,4 +404,27 @@ model ScheduledScrape {
   @@index([active])
   @@index([credencialId])
   @@index([nextRunAt])
+}
+
+// TJMG-specific process model - stores data scraped from TJMG HTML (no REST API available)
+// Unlike TRT tribunals, TJMG data is text-based and includes region information
+model ProcessosTJMG {
+  id                String          @id @default(uuid())
+  scrapeExecutionId String
+  numero            String          // e.g., "ProceComCiv 1234567-89.2023.8.13.0024"
+  regiao            String          // e.g., "Belo Horizonte" - unique to TJMG
+  tipo              String?         // Process type (currently not populated by script)
+  partes            String?         // e.g., "Author X Defendant"
+  vara              String?         // e.g., "1ª Vara Cível da Comarca de BH"
+  dataDistribuicao  String?         // e.g., "Distribuído em 31/08/2023" (stored as text, not parsed)
+  ultimoMovimento   String?         // e.g., "Último movimento: Petição recebida"
+  textoCompleto     String?         // Full extracted HTML text for this process
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  scrapeExecution   ScrapeExecution @relation(fields: [scrapeExecutionId], references: [id], onDelete: Cascade)
+
+  @@unique([scrapeExecutionId, numero])
+  @@index([scrapeExecutionId])
+  @@index([numero])
+  @@index([regiao])
 }

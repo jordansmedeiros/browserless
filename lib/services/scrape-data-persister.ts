@@ -20,12 +20,14 @@ const BATCH_SIZE = 50;
  * @param executionId - ID da execução
  * @param scrapeType - Tipo de raspagem
  * @param result - Resultado da raspagem
+ * @param tribunalCodigo - Código do tribunal (ex: "TRT3-1g", "TJMG-1g") - opcional
  * @returns Número de processos salvos
  */
 export async function persistProcessos(
   executionId: string,
   scrapeType: ScrapeType,
-  result: ScrapingResult
+  result: ScrapingResult,
+  tribunalCodigo?: string
 ): Promise<number> {
   if (!result.success || !result.processos || result.processos.length === 0) {
     return 0;
@@ -34,6 +36,12 @@ export async function persistProcessos(
   console.log(`[DataPersister] Salvando ${result.processos.length} processos do tipo ${scrapeType} na execução ${executionId}`);
 
   try {
+    // Detecta TJMG e usa persister específico
+    if (tribunalCodigo && tribunalCodigo.startsWith('TJMG-')) {
+      console.log(`[DataPersister] Tribunal TJMG detectado, usando persister específico`);
+      return await persistAcervoGeralTJMG(executionId, result.processos);
+    }
+
     switch (scrapeType) {
       case ScrapeType.PENDENTES:
         return await persistPendentesManifestacao(executionId, result.processos);
@@ -265,5 +273,40 @@ async function persistMinhaPauta(
   );
 
   console.log(`[DataPersister] ${count} audiências/sessões salvas`);
+  return count;
+}
+
+/**
+ * Salva processos do acervo geral TJMG
+ * TJMG tem estrutura diferente de TRT (HTML parsing, sem API)
+ */
+async function persistAcervoGeralTJMG(
+  executionId: string,
+  processos: any[]
+): Promise<number> {
+  console.log(`[DataPersister] Processando ${processos.length} processos TJMG do acervo geral...`);
+
+  if (processos.length > BATCH_SIZE) {
+    console.log(`[DataPersister] Volume grande detectado (${processos.length} processos), usando batching...`);
+  }
+
+  const data = processos.map(p => ({
+    scrapeExecutionId: executionId,
+    numero: p.numero || '',  // Required field
+    regiao: p.regiao || '',  // Required field
+    tipo: p.tipo || null,
+    partes: p.partes || null,
+    vara: p.vara || null,
+    dataDistribuicao: p.dataDistribuicao || null,  // Stored as text, not parsed
+    ultimoMovimento: p.ultimoMovimento || null,
+    textoCompleto: p.textoCompleto || null,
+  }));
+
+  const count = await createManyInBatches(
+    prisma.processosTJMG,
+    data
+  );
+
+  console.log(`[DataPersister] ${count} processos TJMG salvos`);
   return count;
 }

@@ -126,8 +126,31 @@ async function loadPendentesManifestacao(executionId: string): Promise<any[]> {
 
 /**
  * Carrega processos do acervo geral
+ * Detecta automaticamente se é TJMG ou TRT baseado nos dados disponíveis
  */
 async function loadProcessosAcervoGeral(executionId: string): Promise<any[]> {
+  // Primeiro tenta carregar do TJMG (se houver dados)
+  const processosTJMG = await prisma.processosTJMG.findMany({
+    where: { scrapeExecutionId: executionId },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (processosTJMG.length > 0) {
+    console.log(`[DataLoader] Carregando ${processosTJMG.length} processos TJMG`);
+    return processosTJMG.map(p => ({
+      numero: p.numero,
+      regiao: p.regiao,
+      tipo: p.tipo,
+      partes: p.partes,
+      vara: p.vara,
+      dataDistribuicao: p.dataDistribuicao,
+      ultimoMovimento: p.ultimoMovimento,
+      textoCompleto: p.textoCompleto,
+      createdAt: p.createdAt.toISOString(),
+    }));
+  }
+
+  // Fallback para TRT (Processos normais)
   const processos = await prisma.processos.findMany({
     where: { scrapeExecutionId: executionId },
     orderBy: { dataAutuacao: 'desc' },

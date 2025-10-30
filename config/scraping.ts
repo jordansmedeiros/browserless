@@ -89,7 +89,7 @@ const SCRIPTS_BASE_DIR = path.join(process.cwd(), 'server', 'scripts');
  *
  * @param scrapeType - Tipo de raspagem
  * @param scrapeSubType - Sub-tipo de raspagem (opcional, usado para "pendentes")
- * @param tribunalCodigo - Código do tribunal (ex: "TRT3-1g") - opcional
+ * @param tribunalCodigo - Código do tribunal (ex: "TRT3-1g", "TJMG-1g") - opcional
  * @returns Caminho absoluto do script
  */
 export function resolveScriptPath(
@@ -124,7 +124,30 @@ export function resolveScriptPath(
       break;
   }
 
-  // Tenta path genérico: pje-trt/pendentes/script.js
+  // Detecta tribunais de justiça (TJ) vs tribunais regionais (TRT)
+  // TJMG usa estrutura: pje-tj/tjmg/1g/acervo/script.js
+  if (tribunalCodigo && tribunalCodigo.startsWith('TJ')) {
+    const [tribunal, grau] = tribunalCodigo.split('-');
+    const tribunalLower = tribunal.toLowerCase(); // tjmg, tjsp, etc
+
+    const tjPath = path.join(
+      SCRIPTS_BASE_DIR,
+      'pje-tj',
+      tribunalLower,
+      grau,
+      subfolder,
+      scriptName
+    );
+
+    // Verifica se existe
+    if (existsSync(tjPath)) {
+      return tjPath;
+    }
+
+    // Se não existir script específico para este TJ, tenta fallback genérico
+  }
+
+  // Tenta path genérico para TRT: pje-trt/pendentes/script.js
   const genericPath = path.join(
     SCRIPTS_BASE_DIR,
     'pje-trt',

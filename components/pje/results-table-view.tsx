@@ -128,8 +128,14 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
       Object.keys(process).forEach((key) => columnsSet.add(key));
     });
 
-    // Prioritize common columns
-    const priorityColumns = ['numeroProcesso', 'polo', 'natureza', 'assunto', 'movimentacao'];
+    // Detect if this is TJMG data (has 'numero' and 'regiao' fields)
+    const isTJMG = columnsSet.has('regiao');
+
+    // Prioritize common columns based on tribunal type
+    const priorityColumns = isTJMG
+      ? ['numero', 'regiao', 'tipo', 'partes', 'vara', 'dataDistribuicao', 'ultimoMovimento']
+      : ['numeroProcesso', 'polo', 'natureza', 'assunto', 'movimentacao'];
+
     const otherColumns = Array.from(columnsSet).filter((col) => !priorityColumns.includes(col));
 
     return [...priorityColumns.filter((col) => columnsSet.has(col)), ...otherColumns];

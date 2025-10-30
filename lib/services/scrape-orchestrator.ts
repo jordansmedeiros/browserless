@@ -369,7 +369,7 @@ async function executeTribunalScraping(
       logger.info(`Salvando ${result.result.processosCount} processos no banco...`);
       console.log(`[Orchestrator] Salvando ${result.result.processosCount} processos no banco...`);
 
-      const savedCount = await persistProcessos(execution.id, job.scrapeType, result.result);
+      const savedCount = await persistProcessos(execution.id, job.scrapeType, result.result, tribunalCodigo);
 
       logger.success(`${savedCount} processos salvos no banco com sucesso`);
       console.log(`[Orchestrator] ${savedCount} processos salvos no banco com sucesso`);

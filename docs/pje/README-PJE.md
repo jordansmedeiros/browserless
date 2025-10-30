@@ -271,5 +271,31 @@ Veja a [documentação completa](scripts/pje/README.md) para mais soluções.
 
 ---
 
-**Última atualização**: 26 de Outubro de 2025
-**Compatível com**: PJE TRT3, TRT (todos), TJ, TRF
+**Última atualização**: 30 de Outubro de 2025
+**Compatível com**: PJE TRT (todos), TJMG (1º Grau - Acervo), TJ, TRF
+
+## 🆕 Suporte TJMG
+
+O sistema agora suporta raspagem completa do TJMG (Tribunal de Justiça de Minas Gerais):
+
+### Características do TJMG:
+- ⚠️ **Sem API REST**: TJMG não fornece API - usa parsing de HTML
+- 🗺️ **Múltiplas regiões**: Suporta todas as 35+ regiões/comarcas do TJMG
+- 📋 **Campos específicos**:
+  - Número do processo
+  - Região/Comarca (único do TJMG)
+  - Tipo de processo
+  - Partes envolvidas
+  - Vara
+  - Data de distribuição (texto)
+  - Último movimento (texto)
+  - Texto completo extraído
+
+### Comportamento específico do TJMG:
+- Após login SSO, pode aparecer "Bad Request" - o sistema faz refresh automático
+- Navegação manual pelos menus (Menu → Painel → Acervo)
+- Processos extraídos região por região de forma sequencial
+- Campos de data armazenados como texto (não parseados) para maior robustez
+
+### Script disponível:
+- [server/scripts/pje-tj/tjmg/1g/acervo/raspar-acervo-geral.js](server/scripts/pje-tj/tjmg/1g/acervo/raspar-acervo-geral.js)

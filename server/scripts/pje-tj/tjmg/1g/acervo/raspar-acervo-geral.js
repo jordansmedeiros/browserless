@@ -432,12 +432,59 @@ async function rasparAcervoGeralTJMG() {
       console.error(`💾 Dados salvos em: ${outputFile}\n`);
     }
 
-    // Output para stdout (JSON puro)
-    console.log(JSON.stringify(todosProcessos));
+    // Saída JSON para stdout (para integração com sistema de fila)
+    const resultado = {
+      success: true,
+      processosCount: todosProcessos.length,
+      processos: todosProcessos,
+      timestamp: new Date().toISOString(),
+      advogado: {
+        cpf: CPF,
+        // TJMG não retorna ID do advogado via JWT/API (não tem API)
+      },
+    };
+    console.log(JSON.stringify(resultado));
 
   } catch (error) {
     console.error('\n❌ ERRO:', error.message);
     console.error(error.stack);
+
+    // Determina se é erro de login ou de execução
+    const isLoginPhaseError = error.message && (
+      error.message.includes('Iframe SSO') ||
+      error.message.includes('username') ||
+      error.message.includes('password') ||
+      error.message.includes('Bad Request')
+    );
+
+    // Determina tipo de erro e se é retryable
+    const isTimeoutError = error.message && (
+      error.message.includes('timeout') ||
+      error.message.includes('Timeout') ||
+      error.message.includes('TIMEOUT')
+    );
+
+    const errorType = isTimeoutError ? 'timeout' : 'script_error';
+    const retryable = isTimeoutError;
+
+    // Saída JSON de erro para stdout (compatível com sistema de fila)
+    const resultadoErro = {
+      success: false,
+      processosCount: 0,
+      processos: [],
+      timestamp: new Date().toISOString(),
+      error: {
+        type: errorType,
+        category: 'execution',
+        phase: isLoginPhaseError ? 'login' : 'data-fetch',
+        message: error.message,
+        technicalMessage: error.stack,
+        retryable: retryable,
+        loginStep: isLoginPhaseError ? error.message : undefined,
+        timestamp: new Date().toISOString()
+      }
+    };
+    console.log(JSON.stringify(resultadoErro));
     process.exit(1);
   } finally {
     await browser.close();
