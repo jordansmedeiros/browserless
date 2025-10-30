@@ -73,6 +73,21 @@ export async function initializeScheduler(): Promise<void> {
  */
 export function scheduleJob(schedule: ScheduledScrape): void {
   try {
+    // Validar timezone antes de registrar
+    // Importação dinâmica para evitar erro de importação circular
+    let validatedTimezone = schedule.timezone;
+
+    // Validação simples de timezone (node-cron aceita timezones IANA)
+    try {
+      // Tenta criar uma data com timezone para validar
+      new Date().toLocaleString('en-US', { timeZone: validatedTimezone });
+    } catch (tzError) {
+      console.warn(
+        `[ScheduledScrapeService] Timezone inválido '${validatedTimezone}' para job ${schedule.id}, usando fallback 'America/Sao_Paulo'`
+      );
+      validatedTimezone = 'America/Sao_Paulo';
+    }
+
     // Criar cron task
     const task = cron.schedule(
       schedule.cronExpression,
@@ -81,7 +96,7 @@ export function scheduleJob(schedule: ScheduledScrape): void {
       },
       {
         scheduled: true,
-        timezone: schedule.timezone,
+        timezone: validatedTimezone,
       }
     );
 
@@ -121,11 +136,28 @@ export async function executeScheduledScrape(scheduleId: string): Promise<void> 
     // Importação dinâmica para evitar dependência circular
     const { createScrapeJobAction } = await import('@/app/actions/pje');
 
-    const tribunalIds = schedule.tribunalConfigIds as string[];
+    // Validar que tribunalConfigIds é um array de strings
+    const tribunalConfigIds = schedule.tribunalConfigIds as unknown;
+
+    if (!Array.isArray(tribunalConfigIds)) {
+      console.error(
+        `[ScheduledScrapeService] tribunalConfigIds não é array para schedule ${scheduleId}:`,
+        tribunalConfigIds
+      );
+      return;
+    }
+
+    if (!tribunalConfigIds.every(id => typeof id === 'string')) {
+      console.error(
+        `[ScheduledScrapeService] tribunalConfigIds contém valores não-string para schedule ${scheduleId}:`,
+        tribunalConfigIds
+      );
+      return;
+    }
 
     const result = await createScrapeJobAction({
       credencialId: schedule.credencialId,
-      tribunalIds,
+      tribunalConfigIds,
       scrapeType: schedule.scrapeType as any,
       scrapeSubType: schedule.scrapeSubType as any,
     });

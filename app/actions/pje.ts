@@ -1989,15 +1989,55 @@ export async function createScheduledScrapeAction(
     }
 
     // Validar que tribunais estão associados à credencial
-    const credencialTribunalIds = credencial.tribunais.map(t => t.tipoTribunal);
-    const invalidTribunals = input.tribunalConfigIds.filter(
-      id => !credencialTribunalIds.includes(id)
-    );
+    // Usa mesma lógica de createScrapeJobAction: parse tribunalConfigIds formato "TRT3-PJE-1g"
+    const tribunalQueries = input.tribunalConfigIds.map(id => {
+      const parts = id.split('-');
+      if (parts.length !== 3) {
+        throw new Error(`ID de tribunal inválido: ${id}. Esperado formato: TRT3-PJE-1g`);
+      }
+      const [codigo, sistema, grau] = parts;
+      return { codigo, sistema, grau, originalId: id };
+    });
 
-    if (invalidTribunals.length > 0) {
+    // Buscar TribunalConfig correspondentes
+    const credentialTribunalConfigIds = credencial.tribunais.map(ct => ct.tribunalConfigId);
+
+    const whereClause = {
+      AND: [
+        {
+          id: {
+            in: credentialTribunalConfigIds,
+          },
+        },
+        {
+          OR: tribunalQueries.map(q => ({
+            AND: [
+              { tribunal: { codigo: q.codigo } },
+              { sistema: q.sistema },
+              { grau: q.grau },
+            ],
+          })),
+        },
+      ],
+    };
+
+    const matchedTribunals = await prisma.tribunalConfig.findMany({
+      where: whereClause,
+      include: {
+        tribunal: true,
+      },
+    });
+
+    // Validar que todos os tribunais foram encontrados e estão associados à credencial
+    if (matchedTribunals.length !== input.tribunalConfigIds.length) {
+      const foundIds = matchedTribunals.map(
+        t => `${t.tribunal.codigo}-${t.sistema}-${t.grau}`
+      );
+      const missing = input.tribunalConfigIds.filter(id => !foundIds.includes(id));
+
       return {
         success: false,
-        error: `Tribunais não associados à credencial: ${invalidTribunals.join(', ')}`,
+        error: `Os seguintes tribunais não estão associados à credencial selecionada: ${missing.join(', ')}`,
       };
     }
 

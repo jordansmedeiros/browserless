@@ -13,12 +13,19 @@ export async function register() {
 
     initializeOrchestrator();
 
-    // Import and initialize the scheduled scrape service
-    const { initializeScheduler } = await import('@/lib/services/scheduled-scrape-service');
+    // Import and initialize the scheduled scrape service (se habilitado)
+    const { SCHEDULED_SCRAPES_CONFIG } = await import('@/config/scraping');
 
-    await initializeScheduler();
+    if (SCHEDULED_SCRAPES_CONFIG.enabled) {
+      const { initializeScheduler } = await import('@/lib/services/scheduled-scrape-service');
 
-    console.log('[Instrumentation] Scheduled scrape service initialized');
+      await initializeScheduler();
+
+      console.log('[Instrumentation] Scheduled scrape service initialized');
+    } else {
+      console.log('[Instrumentation] Scheduled scrape service disabled');
+    }
+
     console.log('[Instrumentation] Server services initialized');
   }
 }

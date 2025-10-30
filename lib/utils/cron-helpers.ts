@@ -173,21 +173,22 @@ export function getNextRunTime(cronExpression: string, timezone: string = 'Ameri
     throw new Error(`Cron inválido: ${validation.error}`);
   }
 
-  // Para simplicidade, vamos calcular manualmente a próxima execução
-  // Em produção, considere usar biblioteca como cron-parser ou croner
-  const now = new Date();
-  const parts = cronExpression.trim().split(/\s+/);
-  const [minutePart, hourPart, dayPart, monthPart, dayOfWeekPart] = parts;
+  // Usar cron-parser para calcular próxima execução
+  try {
+    const parser = require('cron-parser');
 
-  // Implementação simplificada: adiciona 1 minuto e arredonda para o próximo minuto válido
-  // TODO: Implementar parsing completo de cron para calcular exatamente
-  // Por ora, retorna próximo minuto como estimativa
-  const next = new Date(now);
-  next.setMinutes(next.getMinutes() + 1);
-  next.setSeconds(0);
-  next.setMilliseconds(0);
+    // Parse cron expression com timezone
+    const interval = parser.parseExpression(cronExpression, {
+      currentDate: new Date(),
+      tz: timezone,
+    });
 
-  return next;
+    // Retorna próxima execução como Date em UTC
+    const nextDate = interval.next().toDate();
+    return nextDate;
+  } catch (error) {
+    throw new Error(`Erro ao calcular próxima execução: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 /**
