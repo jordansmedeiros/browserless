@@ -226,3 +226,36 @@ export function getRetryDelay(attemptNumber: number): number {
   }
   return SCRAPING_RETRY.retryDelays[attemptNumber];
 }
+
+/**
+ * Configuração de raspagens programadas
+ */
+export const SCHEDULED_SCRAPES_CONFIG = {
+  /** Habilitar/desabilitar serviço de agendamentos */
+  enabled: process.env.ENABLE_SCHEDULED_SCRAPES !== 'false',
+
+  /** Timezone padrão para agendamentos */
+  defaultTimezone: process.env.DEFAULT_SCHEDULE_TIMEZONE || 'America/Sao_Paulo',
+
+  /** Máximo de agendamentos por credencial */
+  maxSchedulesPerCredential: parseInt(process.env.MAX_SCHEDULES_PER_CREDENTIAL || '10', 10),
+
+  /** Intervalo mínimo entre execuções (em minutos) */
+  minIntervalMinutes: parseInt(process.env.MIN_SCHEDULE_INTERVAL_MINUTES || '60', 10),
+
+  /** Timezones suportados (para validação) */
+  supportedTimezones: [
+    'America/Sao_Paulo',
+    'America/Fortaleza',
+    'America/Manaus',
+    'America/Rio_Branco',
+    'America/Noronha',
+  ] as const,
+} as const;
+
+/**
+ * Valida se timezone é suportado
+ */
+export function isSupportedTimezone(timezone: string): boolean {
+  return SCHEDULED_SCRAPES_CONFIG.supportedTimezones.includes(timezone as any);
+}

@@ -36,12 +36,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Plus, Activity, History, X, RefreshCw, Terminal as TerminalIcon, Loader2 } from 'lucide-react';
+import { Plus, Activity, History, X, RefreshCw, Terminal as TerminalIcon, Loader2, CalendarClock } from 'lucide-react';
 import { ScrapeConfigForm } from '@/components/pje/scrape-config-form';
 import { ScrapeJobMonitor } from '@/components/pje/scrape-job-monitor';
 import { ScrapeHistory } from '@/components/pje/scrape-history';
 import { ScrapeExecutionDetail } from '@/components/pje/scrape-execution-detail';
 import { TerminalMonitor } from '@/components/pje/terminal-monitor';
+import { ScheduledScrapeForm } from '@/components/pje/scheduled-scrape-form';
+import { ScheduledScrapesList } from '@/components/pje/scheduled-scrapes-list';
 import { listTribunalConfigsAction } from '@/app/actions/pje';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useJobsStore } from '@/lib/stores';
@@ -50,6 +52,8 @@ import type { TribunalConfigConstant } from '@/lib/constants/tribunais';
 export default function ScrapesPage() {
   const router = useRouter();
   const [showConfigDialog, setShowConfigDialog] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
   const [terminalJobId, setTerminalJobId] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -147,6 +151,10 @@ export default function ScrapesPage() {
               <History className="h-4 w-4" />
               Histórico
             </TabsTrigger>
+            <TabsTrigger value="schedules" className="gap-2">
+              <CalendarClock className="h-4 w-4" />
+              Agendamentos
+            </TabsTrigger>
           </TabsList>
 
           <div className="flex items-center gap-4">
@@ -179,6 +187,24 @@ export default function ScrapesPage() {
         <TabsContent value="history" className="space-y-4">
           <ScrapeHistory
             onViewDetails={handleViewDetails}
+          />
+        </TabsContent>
+
+        <TabsContent value="schedules" className="space-y-4">
+          <div className="flex justify-end mb-4">
+            <Button onClick={() => setShowScheduleDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Agendamento
+            </Button>
+          </div>
+          <ScheduledScrapesList
+            onEdit={(scheduleId) => {
+              setEditingScheduleId(scheduleId);
+              setShowScheduleDialog(true);
+            }}
+            onViewJobs={(scheduleId) => {
+              // Futuro: filtrar histórico por scheduleId
+            }}
           />
         </TabsContent>
       </Tabs>
@@ -301,6 +327,72 @@ export default function ScrapesPage() {
               </DialogDescription>
             </DialogHeader>
             <TerminalMonitor jobId={terminalJobId} isRunning={isJobRunning} />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Scheduled Scrape Dialog */}
+      {showScheduleDialog && (
+        <Dialog open={showScheduleDialog} onOpenChange={(open) => {
+          if (!open) {
+            setShowScheduleDialog(false);
+            setEditingScheduleId(null);
+          }
+        }}>
+          <DialogContent className={isDesktop ? 'max-w-5xl max-h-[90vh] overflow-hidden flex flex-col' : ''}>
+            {isDesktop ? (
+              <>
+                <DialogHeader className="flex-shrink-0">
+                  <DialogTitle className="text-2xl font-bold">
+                    {editingScheduleId ? 'Editar Agendamento' : 'Novo Agendamento'}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Configure uma raspagem para ser executada automaticamente
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex-1 overflow-y-auto py-4 min-h-0">
+                  {loadingTribunais ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      <span className="ml-3 text-muted-foreground">Carregando tribunais...</span>
+                    </div>
+                  ) : tribunaisError ? (
+                    <div className="text-center py-12">
+                      <p className="text-destructive mb-2">{tribunaisError}</p>
+                      <Button variant="outline" onClick={() => window.location.reload()}>
+                        Tentar novamente
+                      </Button>
+                    </div>
+                  ) : (
+                    <ScheduledScrapeForm
+                      tribunais={tribunais}
+                      scheduleId={editingScheduleId || undefined}
+                      onSuccess={(scheduleId) => {
+                        setShowScheduleDialog(false);
+                        setEditingScheduleId(null);
+                      }}
+                      onCancel={() => {
+                        setShowScheduleDialog(false);
+                        setEditingScheduleId(null);
+                      }}
+                    />
+                  )}
+                </div>
+              </>
+            ) : (
+              <ScheduledScrapeForm
+                tribunais={tribunais}
+                scheduleId={editingScheduleId || undefined}
+                onSuccess={(scheduleId) => {
+                  setShowScheduleDialog(false);
+                  setEditingScheduleId(null);
+                }}
+                onCancel={() => {
+                  setShowScheduleDialog(false);
+                  setEditingScheduleId(null);
+                }}
+              />
+            )}
           </DialogContent>
         </Dialog>
       )}

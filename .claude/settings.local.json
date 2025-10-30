@@ -58,7 +58,8 @@
       "Bash(timeout 2 bash:*)",
       "Bash(timeout 30 bash:*)",
       "Bash(npm run test:stores:*)",
-      "Bash(npm run test:sanitization:*)"
+      "Bash(npm run test:sanitization:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []
