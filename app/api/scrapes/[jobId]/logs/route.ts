@@ -73,11 +73,15 @@ export async function GET(
     // Get logs from specified index
     const requestedLogs = sanitizedLogs.slice(fromIndex);
 
+    // Convert status to uppercase for comparison to handle both lowercase and uppercase variants
+    const status = (job.status || '').toUpperCase();
+    const hasMore = status === 'RUNNING' || status === 'PENDING';
+
     return NextResponse.json({
       logs: requestedLogs,
       lastIndex: sanitizedLogs.length,
       jobStatus: job.status,
-      hasMore: job.status === 'running' || job.status === 'pending',
+      hasMore,
     });
   } catch (error) {
     console.error('[GET /api/scrapes/[jobId]/logs] Error:', error);

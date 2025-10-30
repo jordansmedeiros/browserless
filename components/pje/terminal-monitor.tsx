@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Terminal, AnimatedSpan, TypingAnimation } from '@/components/ui/shadcn-io/terminal';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -14,6 +14,7 @@ import { ArrowDown, AlertCircle, CheckCircle2, Loader2, Clock, FileText, Trendin
 import { type LogEntry } from '@/lib/services/scrape-logger';
 import { useJobLogs } from '@/hooks';
 import { ScrapeJobStatus } from '@/lib/types/scraping';
+import { TerminalMonitorFallback } from './terminal-monitor-fallback';
 
 interface TerminalMonitorProps {
   /** Scrape job ID */
@@ -26,12 +27,17 @@ interface TerminalMonitorProps {
 
 export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: TerminalMonitorProps) {
   const [autoScroll, setAutoScroll] = useState(true);
+  const [hasReceivedLogs, setHasReceivedLogs] = useState(false);
+  const [showConnectionWarning, setShowConnectionWarning] = useState(false);
 
   const terminalRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Check if SSE is disabled via environment variable
+  const sseDisabled = process.env.NEXT_PUBLIC_DISABLE_SSE === 'true';
+
   // Hook usa endpoint consolidado para stats + SSE para logs em tempo real
-  const { logs, connectionStatus, stats, scrollToBottom: hookScrollToBottom, downloadLogs: hookDownloadLogs } = useJobLogs(jobId, {
+  const { logs, connectionStatus, stats, scrollToBottom: hookScrollToBottom, downloadLogs: hookDownloadLogs, reconnect } = useJobLogs(jobId, {
     enabled: isRunning,
     autoScroll,
   });
@@ -43,6 +49,34 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
 
   // Derive actual running state from job status
   const isJobRunning = jobStatus === ScrapeJobStatus.PENDING || jobStatus === ScrapeJobStatus.RUNNING;
+
+  // Determine if we should show fallback component
+  // Show fallback when: SSE is disabled OR (connection error AND no logs received AND job is running)
+  const shouldShowFallback = sseDisabled || (connectionStatus === 'error' && !hasReceivedLogs && isJobRunning);
+
+  // Track if logs have been received
+  useEffect(() => {
+    if (logs.length > 0) {
+      setHasReceivedLogs(true);
+      setShowConnectionWarning(false);
+    }
+  }, [logs.length]);
+
+  // Show warning if job is running but no logs after 10 seconds
+  useEffect(() => {
+    if (!isJobRunning || hasReceivedLogs) {
+      setShowConnectionWarning(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (!hasReceivedLogs && isJobRunning) {
+        setShowConnectionWarning(true);
+      }
+    }, 10000); // 10 seconds
+
+    return () => clearTimeout(timer);
+  }, [isJobRunning, hasReceivedLogs]);
 
   // Detect manual scroll to disable auto-scroll
   const handleScroll = () => {
@@ -167,17 +201,39 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
       )}
 
       {/* Connection Status */}
-      {connectionStatus === 'error' && (
+      {connectionStatus === 'error' && isJobRunning && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Erro ao conectar com o servidor de logs. Tentando reconectar...
+          <AlertDescription className="flex items-center justify-between">
+            <span>Erro ao conectar com o servidor de logs. Tentando reconectar...</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={reconnect}
+              className="ml-4"
+            >
+              Tentar Reconectar
+            </Button>
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Terminal */}
-      <div className="relative">
+      {/* Connection Warning - No logs after 10 seconds */}
+      {showConnectionWarning && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Aguardando logs do servidor... Se logs não aparecerem, verifique o console do navegador (F12) para mensagens de debug prefixadas com [useJobLogs].
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Fallback Component - Shown when SSE is disabled or connection failed */}
+      {shouldShowFallback && isJobRunning ? (
+        <TerminalMonitorFallback jobId={jobId} stats={jobSummary} />
+      ) : (
+        /* Terminal */
+        <div className="relative">
         <Terminal className="max-h-[500px] w-full max-w-full">
           <div
             ref={scrollContainerRef}
@@ -231,6 +287,7 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
           </Button>
         )}
       </div>
+      )}
 
       {/* Status Footer */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">

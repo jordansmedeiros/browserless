@@ -8,8 +8,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Calendar, Clock, CheckCircle2, XCircle, Loader2, FileDown, RotateCcw } from 'lucide-react';
 import type { ScrapeJobWithRelations } from '@/lib/types/scraping';
+import { formatGrau, getTribunalBadgeVariant, formatTribunalDisplay } from '@/lib/utils/format-helpers';
 
 interface ScrapeJobHeaderProps {
   job: ScrapeJobWithRelations;
@@ -153,8 +155,42 @@ export function ScrapeJobHeader({ job, onExportCSV, onExportJSON, onExportExcel,
           </div>
         </div>
 
+        {/* Tribunais Raspados */}
+        {job.tribunals && job.tribunals.length > 0 && (
+          <div className="space-y-2 pt-4 border-t">
+            <p className="text-sm font-medium">Tribunais Raspados</p>
+            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+              {job.tribunals.map((tribunal) => {
+                const badgeConfig = getTribunalBadgeVariant(tribunal.status);
+                return (
+                  <TooltipProvider key={tribunal.id}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge
+                          variant={badgeConfig.variant}
+                          className={badgeConfig.className}
+                        >
+                          {tribunal.tribunalConfig.tribunal.codigo} - {tribunal.tribunalConfig.grau}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="space-y-1">
+                          <p className="font-semibold">{tribunal.tribunalConfig.tribunal.nome}</p>
+                          <p className="text-xs">Região: {tribunal.tribunalConfig.tribunal.regiao} - {tribunal.tribunalConfig.tribunal.uf}</p>
+                          <p className="text-xs">Grau: {formatGrau(tribunal.tribunalConfig.grau)}</p>
+                          <p className="text-xs">Status: {tribunal.status}</p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2 pt-4 border-t">
+        <div className="flex flex-wrap gap-2 items-center pt-4 border-t">
           <Button variant="outline" size="sm" onClick={onExportCSV} disabled={totalProcesses === 0}>
             <FileDown className="mr-2 h-4 w-4" />
             Exportar CSV

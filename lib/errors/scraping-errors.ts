@@ -88,9 +88,12 @@ export class NetworkError extends ScrapingError {
  * Erro de timeout (retryable)
  */
 export class TimeoutError extends ScrapingError {
+  public readonly phase?: 'login' | 'data-fetch' | 'unknown';
+
   constructor(message: string, context?: Record<string, any>) {
     super(message, ScrapingErrorType.TIMEOUT, true, context);
     this.name = 'TimeoutError';
+    this.phase = context?.phase || 'unknown';
   }
 }
 
@@ -134,9 +137,13 @@ export function classifyError(error: Error | string): ScrapingError {
   const errorMessage = typeof error === 'string' ? error : error.message;
   const errorStack = typeof error === 'string' ? undefined : error.stack;
 
+  // Extract phase from error object if present (for login phase detection)
+  const errorPhase = (error as any).error?.phase;
+
   const context = {
     originalError: errorMessage,
     stack: errorStack,
+    phase: errorPhase, // Preserve phase for TimeoutError
   };
 
   // Erros de autenticação

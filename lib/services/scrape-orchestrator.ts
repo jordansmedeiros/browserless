@@ -298,6 +298,7 @@ async function executeTribunalScraping(
       urlLoginSeam: tribunalConfig.urlLoginSeam,
       urlApi: tribunalConfig.urlApi,
       codigo: tribunalCodigo,
+      customTimeouts: tribunalConfig.customTimeouts as Record<string, number> | undefined,
     };
 
     // Executa o script com retry

@@ -6,6 +6,15 @@
 import { spawn } from 'child_process';
 import { dirname } from 'path';
 import { resolveScriptPath, SCRAPING_RETRY } from '@/config/scraping';
+
+/**
+ * Debug log helper - only logs if DEBUG_LOG_STREAMING is enabled
+ */
+function debugLog(...args: any[]) {
+  if (process.env.DEBUG_LOG_STREAMING === 'true') {
+    console.log('[Executor]', ...args);
+  }
+}
 import {
   ScrapingResult,
   ScrapeType,
@@ -52,6 +61,7 @@ export interface TribunalConfigParaRaspagem {
   urlLoginSeam: string;
   urlApi: string;
   codigo?: string; // Ex: "TRT3-1g"
+  customTimeouts?: Record<string, number>; // Custom timeout configuration from DB
 }
 
 /**
@@ -102,9 +112,9 @@ export async function executeScript(
     addLogLine(logs, `[Executor] Script path: ${scriptPath}`);
     addLogLine(logs, `[Executor] Tribunal: ${options.tribunalConfig.codigo || options.tribunalConfig.urlBase}`);
 
-    // Log para terminal do servidor
-    console.log(`[Executor] Script path: ${scriptPath}`);
-    console.log(`[Executor] Tribunal: ${options.tribunalConfig.codigo || options.tribunalConfig.urlBase}`);
+    // Log para terminal do servidor (debug only)
+    debugLog(`Script path: ${scriptPath}`);
+    debugLog(`Tribunal: ${options.tribunalConfig.codigo || options.tribunalConfig.urlBase}`);
 
     // Prepara as variáveis de ambiente
     const env = {
@@ -117,6 +127,9 @@ export async function executeScript(
       PJE_API_URL: options.tribunalConfig.urlApi,
       // Desabilita output de arquivo (scripts devem apenas retornar JSON via stdout)
       PJE_OUTPUT_FILE: '',
+      // Pass custom timeouts if configured (for slow tribunals)
+      PJE_LOGIN_SELECTOR_TIMEOUT: options.tribunalConfig.customTimeouts?.loginSelectorTimeout?.toString() || '',
+      PJE_LOGIN_NAVIGATION_TIMEOUT: options.tribunalConfig.customTimeouts?.loginNavigationTimeout?.toString() || '',
     };
 
     addLogLine(logs, `[Executor] Starting script execution...`);
@@ -124,8 +137,8 @@ export async function executeScript(
     // Envia log inicial ao logger se presente
     options.logger?.info(`[Executor] Starting script execution...`);
 
-    // Log para terminal do servidor
-    console.log(`[Executor] Starting script execution...`);
+    // Log para terminal do servidor (debug only)
+    debugLog(`Starting script execution...`);
 
     // Executa o script com spawn para streaming em tempo real
     const timeout = options.timeout || SCRAPING_RETRY.scriptTimeout;
@@ -140,7 +153,7 @@ export async function executeScript(
     // Parse do resultado JSON do stdout
     addLogLine(logs, `[Executor] Parsing script output...`);
     options.logger?.info(`[Executor] Parsing script output...`);
-    console.log(`[Executor] Parsing script output...`);
+    debugLog(`Parsing script output...`);
 
     const result = parseScriptOutput(stdout);
 
@@ -152,9 +165,9 @@ export async function executeScript(
     options.logger?.info(`[Executor] Execution completed in ${duration}ms`);
     options.logger?.info(`[Executor] Processes scraped: ${result.processosCount}`);
 
-    // Log para terminal do servidor
-    console.log(`[Executor] Execution completed in ${duration}ms`);
-    console.log(`[Executor] Processes scraped: ${result.processosCount}`);
+    // Log para terminal do servidor (debug only)
+    debugLog(`Execution completed in ${duration}ms`);
+    debugLog(`Processes scraped: ${result.processosCount}`);
 
     return {
       result,
@@ -178,7 +191,7 @@ export async function executeScript(
     );
     options.logger?.error(scrapingError.message);
 
-    // Log para terminal do servidor
+    // Log para terminal do servidor (always show errors, not gated by debug flag)
     console.error(`[Executor] Execution failed after ${duration}ms`);
     console.error(`[Executor] Error classified as: ${scrapingError.type} (retryable: ${scrapingError.retryable})`);
     console.error(`[Executor] Error: ${scrapingError.message}`);
@@ -217,8 +230,8 @@ export async function executeScriptWithRetry(
         options.logger?.info(`Tentativa ${attempt + 1}/${maxAttempts}...`);
       }
 
-      // Log para terminal do servidor
-      console.log(attemptMsg);
+      // Log para terminal do servidor (debug only)
+      debugLog(attemptMsg);
 
       const result = await executeScript(options);
 
@@ -240,7 +253,7 @@ export async function executeScriptWithRetry(
       // Envia erro ao logger
       options.logger?.error(`Tentativa ${attempt + 1} falhou: ${lastError.message}`);
 
-      // Log para terminal do servidor
+      // Log para terminal do servidor (always show errors)
       console.error(failMsg);
 
       // Se não é retryable, falha imediatamente
@@ -267,7 +280,7 @@ export async function executeScriptWithRetry(
       const delay = SCRAPING_RETRY.retryDelays[attempt] || SCRAPING_RETRY.retryDelays[SCRAPING_RETRY.retryDelays.length - 1];
       addLogLine(allLogs, `[Retry] Waiting ${delay}ms before retry...`);
       options.logger?.info(`Aguardando ${Math.round(delay / 1000)}s antes de tentar novamente...`);
-      console.log(`[Retry] Waiting ${delay}ms before retry...`);
+      debugLog(`Waiting ${delay}ms before retry...`);
       await sleep(delay);
     }
   }
@@ -359,6 +372,7 @@ function executeScriptWithSpawn(
     let stderrBuffer = '';
     let timeoutId: NodeJS.Timeout | null = null;
     let killed = false;
+    let logCount = 0;
 
     // Configura timeout manual
     if (timeout) {
@@ -406,6 +420,12 @@ function executeScriptWithSpawn(
             } else {
               // Por padrão, logs do script são informativos (não erros)
               logger.info(trimmedLine);
+            }
+
+            // Debug log for first 5 logs only
+            logCount++;
+            if (logCount <= 5) {
+              debugLog(`Sent log to logger for job: ${trimmedLine.substring(0, 50)}`);
             }
           }
         }
@@ -463,6 +483,7 @@ function executeScriptWithSpawn(
       }
 
       if (code === 0) {
+        debugLog(`Total logs sent to logger: ${logCount}`);
         resolve({
           stdout: stdoutBuffer,
           stderr: stderrBuffer,

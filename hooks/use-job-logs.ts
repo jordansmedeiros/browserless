@@ -9,11 +9,22 @@ import type { LogEntry } from '@/lib/services/scrape-logger';
 import { sanitizeLogEntry } from '@/lib/utils/sanitization';
 import { ScrapeJobStatus } from '@/lib/types/scraping';
 
+/**
+ * Debug log helper - only logs if NEXT_PUBLIC_DEBUG_LOG_STREAMING is enabled
+ */
+function debugLog(...args: any[]) {
+  if (process.env.NEXT_PUBLIC_DEBUG_LOG_STREAMING === 'true') {
+    console.log('[useJobLogs]', ...args);
+  }
+}
+
 interface UseJobLogsOptions {
   /** Enable/disable log streaming (default: true) */
   enabled?: boolean;
   /** Auto-scroll to bottom when new logs arrive (default: true) */
   autoScroll?: boolean;
+  /** Force polling instead of SSE (default: false) */
+  forcePolling?: boolean;
 }
 
 interface UseJobLogsReturn {
@@ -22,13 +33,18 @@ interface UseJobLogsReturn {
   stats: JobSummary | null;
   scrollToBottom: () => void;
   downloadLogs: () => void;
+  reconnect: () => void;
 }
 
 export function useJobLogs(
   jobId: string,
   options: UseJobLogsOptions = {}
 ): UseJobLogsReturn {
-  const { enabled = true, autoScroll = true } = options;
+  const { enabled = true, autoScroll = true, forcePolling = false } = options;
+
+  // Check if SSE is disabled via environment variable
+  const sseDisabled = process.env.NEXT_PUBLIC_DISABLE_SSE === 'true';
+  const shouldUsePolling = forcePolling || sseDisabled;
 
   const logsStore = useLogsStore();
 
@@ -42,6 +58,7 @@ export function useJobLogs(
   const lastLogIndexRef = useRef(0);
   const stopPollingRef = useRef<(() => void) | null>(null);
   const autoScrollRef = useRef(autoScroll);
+  const connectSSERef = useRef<(() => void) | null>(null);
 
   // Update refs
   useEffect(() => {
@@ -71,6 +88,7 @@ export function useJobLogs(
 
       if (isTerminalState && internalEnabled) {
         // Job has reached terminal state, disable SSE/polling
+        debugLog(`Job ${jobId} reached terminal state: ${stats.status}, disabling SSE`);
         setInternalEnabled(false);
       }
     }
@@ -204,8 +222,22 @@ export function useJobLogs(
       return;
     }
 
+    // If polling is forced or SSE is disabled, skip EventSource and start polling
+    if (shouldUsePolling) {
+      debugLog(`SSE disabled, using polling for job ${jobId}`);
+      logsStore.setConnectionStatus(jobId, 'disconnected');
+      stopPollingRef.current = startPolling();
+
+      return () => {
+        stopPollingRef.current?.();
+        stopPollingRef.current = null;
+      };
+    }
+
+    // Define connectSSE function
     const connectSSE = () => {
       logsStore.setConnectionStatus(jobId, 'connecting');
+      debugLog(`Creating EventSource for job ${jobId}`);
 
       try {
         const eventSource = new EventSource(`/api/scrapes/${jobId}/logs/stream`);
@@ -214,12 +246,14 @@ export function useJobLogs(
         eventSource.onopen = () => {
           logsStore.setConnectionStatus(jobId, 'connected');
           reconnectAttemptsRef.current = 0;
+          debugLog(`SSE connection opened for job ${jobId}`);
         };
 
         eventSource.onmessage = (event) => {
           try {
             const log: LogEntry = JSON.parse(event.data);
             logsStore.addLog(jobId, log);
+            debugLog(`Received log for job ${jobId}:`, log.level, log.message.substring(0, 50));
           } catch (error) {
             console.error('[useJobLogs] Error parsing log:', error);
           }
@@ -228,6 +262,7 @@ export function useJobLogs(
         eventSource.onerror = () => {
           eventSource.close();
           logsStore.setConnectionStatus(jobId, 'error');
+          console.error(`[useJobLogs] SSE error for job ${jobId}`);
 
           // Retry connection with exponential backoff
           if (reconnectAttemptsRef.current < 3) {
@@ -238,6 +273,7 @@ export function useJobLogs(
             }, delay);
           } else {
             // Fall back to polling after 3 failed attempts
+            debugLog(`Falling back to polling for job ${jobId} after 3 SSE failures`);
             logsStore.setConnectionStatus(jobId, 'disconnected');
             // Stop any existing polling before starting new one
             stopPollingRef.current?.();
@@ -249,6 +285,9 @@ export function useJobLogs(
         logsStore.setConnectionStatus(jobId, 'error');
       }
     };
+
+    // Store connectSSE function in ref for manual reconnection
+    connectSSERef.current = connectSSE;
 
     connectSSE();
 
@@ -263,9 +302,38 @@ export function useJobLogs(
         eventSourceRef.current = null;
       }
     };
-  }, [jobId, internalEnabled, logsStore, startPolling]);
+  }, [jobId, internalEnabled, logsStore, startPolling, shouldUsePolling]);
 
   // Auto-scroll effect removed - scrolling is managed by the component
+
+  // Reconnect function - manually trigger reconnection
+  const reconnect = useCallback(() => {
+    debugLog(`Manual reconnect triggered for job ${jobId}`);
+
+    // Close existing EventSource if present
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
+    // Stop polling if active
+    if (stopPollingRef.current) {
+      stopPollingRef.current();
+      stopPollingRef.current = null;
+    }
+
+    // Reset reconnect attempts
+    reconnectAttemptsRef.current = 0;
+
+    // If SSE is available, reconnect
+    if (!shouldUsePolling && connectSSERef.current) {
+      connectSSERef.current();
+    } else {
+      // Otherwise start polling
+      logsStore.setConnectionStatus(jobId, 'disconnected');
+      stopPollingRef.current = startPolling();
+    }
+  }, [jobId, shouldUsePolling, logsStore, startPolling]);
 
   return {
     logs: logsStore.getLogsForJob(jobId),
@@ -273,5 +341,6 @@ export function useJobLogs(
     stats: logsStore.getStats(jobId) || null,
     scrollToBottom,
     downloadLogs,
+    reconnect,
   };
 }

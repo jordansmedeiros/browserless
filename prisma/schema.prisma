@@ -32,6 +32,7 @@ model TribunalConfig {
   urlBase            String
   urlLoginSeam       String
   urlApi             String? // Nullable - not all systems have APIs
+  customTimeouts     Json? // Custom timeout configuration for slow tribunals. Ex: {"loginSelectorTimeout": 30000, "loginNavigationTimeout": 90000}
   createdAt          DateTime                     @default(now())
   updatedAt          DateTime                     @updatedAt
   tribunalId         String

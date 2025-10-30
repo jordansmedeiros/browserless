@@ -37,6 +37,21 @@ export const SCRAPING_RETRY = {
 } as const;
 
 /**
+ * Configuração de timeouts padrão para seletores e navegação
+ * Pode ser sobrescrito por tribunal via TribunalConfig.customTimeouts
+ */
+export const SCRAPING_TIMEOUTS = {
+  /** Timeout padrão para seletores de login (campo username, password, etc) */
+  loginSelectorTimeout: 15_000, // 15 segundos
+
+  /** Timeout padrão para navegação durante login (após clicar em login) */
+  loginNavigationTimeout: 60_000, // 60 segundos
+
+  /** Tribunais conhecidos como lentos que precisam timeouts estendidos */
+  slowTribunals: ['TRT10-1g', 'TRT8-1g'] as const,
+} as const;
+
+/**
  * Configuração de polling para atualizações de status
  */
 export const SCRAPING_POLLING = {

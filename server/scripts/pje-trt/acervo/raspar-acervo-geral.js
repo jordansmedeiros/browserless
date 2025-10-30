@@ -32,6 +32,17 @@ const PJE_LOGIN_URL = process.env.PJE_LOGIN_URL || 'https://pje.trt3.jus.br/prim
 const PJE_BASE_URL = process.env.PJE_BASE_URL || 'https://pje.trt3.jus.br';
 const PJE_API_URL = process.env.PJE_API_URL || 'https://pje.trt3.jus.br/pje-comum-api/api';
 
+// Timeouts customizáveis por tribunal (lidos de env vars)
+const LOGIN_SELECTOR_TIMEOUT = process.env.PJE_LOGIN_SELECTOR_TIMEOUT
+  ? parseInt(process.env.PJE_LOGIN_SELECTOR_TIMEOUT, 10)
+  : 15000; // 15s padrão
+
+const LOGIN_NAVIGATION_TIMEOUT = process.env.PJE_LOGIN_NAVIGATION_TIMEOUT
+  ? parseInt(process.env.PJE_LOGIN_NAVIGATION_TIMEOUT, 10)
+  : 60000; // 60s padrão
+
+console.error(`⚙️  Timeouts configurados: Login=${LOGIN_SELECTOR_TIMEOUT}ms, Navigation=${LOGIN_NAVIGATION_TIMEOUT}ms\n`);
+
 const DATA_DIR = 'data/pje/acervo';
 const SKIP_FILE_OUTPUT = process.env.PJE_OUTPUT_FILE === '';
 
@@ -64,6 +75,7 @@ async function rasparAcervoGeral() {
     // PASSO 1: LOGIN NO PJE
     // ====================================================================
 
+    const loginStartTime = Date.now();
     console.error('🔐 Fazendo login no PJE...\n');
 
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
@@ -74,34 +86,66 @@ async function rasparAcervoGeral() {
     });
 
     await page.goto(PJE_LOGIN_URL, { waitUntil: 'networkidle2' });
+    console.error(`✅ Página inicial carregada em ${Date.now() - loginStartTime}ms`);
     await delay(1500);
 
     // Clica em "Entrar com PDPJ"
+    console.error('⏳ Aguardando botão SSO...');
     await page.waitForSelector('#btnSsoPdpj', { visible: true });
+    console.error(`✅ Botão SSO encontrado em ${Date.now() - loginStartTime}ms`);
+
+    const ssoClickTime = Date.now();
     await Promise.all([
       page.waitForNavigation({ waitUntil: 'networkidle2' }),
       page.click('#btnSsoPdpj'),
     ]);
+    console.error(`✅ Redirecionamento SSO completado em ${Date.now() - ssoClickTime}ms`);
 
-    // Preenche credenciais - aguarda até 15s para página SSO carregar
-    console.error('⏳ Aguardando página SSO carregar...');
-    await page.waitForSelector('#username', { visible: true, timeout: 15000 });
+    // Preenche credenciais - aguarda timeout configurável para página SSO carregar
+    console.error(`⏳ Aguardando página SSO carregar (timeout: ${LOGIN_SELECTOR_TIMEOUT}ms)...`);
+    const ssoPageLoadStart = Date.now();
+
+    try {
+      await page.waitForSelector('#username', { visible: true, timeout: LOGIN_SELECTOR_TIMEOUT });
+      console.error(`✅ Campo username encontrado após ${Date.now() - ssoPageLoadStart}ms`);
+    } catch (error) {
+      console.error(`❌ Timeout aguardando campo username após ${Date.now() - ssoPageLoadStart}ms`);
+      console.error(`   URL atual: ${page.url()}`);
+      console.error(`   Título: ${await page.title().catch(() => 'N/A')}`);
+      throw new Error(`Login timeout: username field not found after ${LOGIN_SELECTOR_TIMEOUT}ms`);
+    }
+
     await page.type('#username', CPF);
     console.error('✅ CPF preenchido');
     await delay(1000);
 
-    await page.waitForSelector('#password', { visible: true, timeout: 10000 });
+    try {
+      await page.waitForSelector('#password', { visible: true, timeout: LOGIN_SELECTOR_TIMEOUT });
+      console.error(`✅ Campo password encontrado`);
+    } catch (error) {
+      console.error(`❌ Timeout aguardando campo password`);
+      throw new Error(`Login timeout: password field not found after ${LOGIN_SELECTOR_TIMEOUT}ms`);
+    }
+
     await page.type('#password', SENHA);
     console.error('✅ Senha preenchida');
     await delay(1500);
 
-    // Clica em Entrar
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }),
-      page.click('#kc-login'),
-    ]);
+    // Clica em Entrar com timeout configurável
+    console.error(`⏳ Aguardando login completar (timeout: ${LOGIN_NAVIGATION_TIMEOUT}ms)...`);
+    const loginClickTime = Date.now();
+    try {
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: LOGIN_NAVIGATION_TIMEOUT }),
+        page.click('#kc-login'),
+      ]);
+      console.error(`✅ Login realizado em ${Date.now() - loginClickTime}ms!`);
+      console.error(`⏱️  Tempo total de login: ${Date.now() - loginStartTime}ms\n`);
+    } catch (error) {
+      console.error(`❌ Timeout aguardando navegação após login (${Date.now() - loginClickTime}ms)`);
+      throw new Error(`Login timeout: navigation after login failed after ${LOGIN_NAVIGATION_TIMEOUT}ms`);
+    }
 
-    console.error('✅ Login realizado!\n');
     await delay(5000);
 
     // ====================================================================
@@ -179,6 +223,24 @@ async function rasparAcervoGeral() {
     console.error('\n❌ Erro:', error.message);
     console.error(error.stack);
 
+    // Detect if error occurred during login phase (before ID_ADVOGADO was obtained)
+    const isLoginPhaseError = error.message && (
+      error.message.includes('Login timeout') ||
+      error.message.includes('username') ||
+      error.message.includes('password') ||
+      error.message.includes('SSO')
+    );
+
+    // Determine error type and retryability
+    const isTimeoutError = error.message && (
+      error.message.includes('timeout') ||
+      error.message.includes('Timeout') ||
+      error.message.includes('TIMEOUT')
+    );
+
+    const errorType = isTimeoutError ? 'timeout' : 'script_error';
+    const retryable = isTimeoutError;
+
     // Saída JSON de erro para stdout
     const resultadoErro = {
       success: false,
@@ -186,11 +248,13 @@ async function rasparAcervoGeral() {
       processos: [],
       timestamp: new Date().toISOString(),
       error: {
-        type: 'script_error',
+        type: errorType,
         category: 'execution',
+        phase: isLoginPhaseError ? 'login' : 'data-fetch', // IMPORTANT: Mark login phase errors
         message: error.message,
         technicalMessage: error.stack,
-        retryable: false,
+        retryable: retryable,
+        loginStep: isLoginPhaseError ? error.message : undefined,
         timestamp: new Date().toISOString()
       }
     };

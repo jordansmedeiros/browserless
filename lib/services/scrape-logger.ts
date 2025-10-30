@@ -7,6 +7,15 @@
 import { EventEmitter } from 'events';
 import { publishJobLog, isRedisEnabled } from '@/lib/redis';
 
+/**
+ * Debug log helper - only logs if DEBUG_LOG_STREAMING is enabled
+ */
+function debugLog(...args: any[]) {
+  if (process.env.DEBUG_LOG_STREAMING === 'true') {
+    console.log('[ScrapeLogger]', ...args);
+  }
+}
+
 export type LogLevel = 'info' | 'success' | 'warn' | 'error';
 
 export interface LogEntry {
@@ -90,6 +99,8 @@ class ScrapeLoggerService extends EventEmitter {
       if (buffer.length > 1000) {
         buffer.shift();
       }
+
+      debugLog(`Added log to buffer for job ${jobId}, total: ${buffer.length}`);
     }
 
     // Publish to Redis if enabled (for multi-instance support)
@@ -102,6 +113,8 @@ class ScrapeLoggerService extends EventEmitter {
     } else {
       // Use in-memory event emitter for single-instance deployments
       this.emit(`job-${jobId}-log`, logEntry);
+      const listenerCount = this.listenerCount(`job-${jobId}-log`);
+      debugLog(`Emitted event for job ${jobId}, listeners: ${listenerCount}`);
     }
   }
 
@@ -132,6 +145,8 @@ class ScrapeLoggerService extends EventEmitter {
    */
   attachLogListener(jobId: string, callback: (log: LogEntry) => void) {
     this.on(`job-${jobId}-log`, callback);
+    const listenerCount = this.listenerCount(`job-${jobId}-log`);
+    debugLog(`Attached listener for job ${jobId}, total listeners: ${listenerCount}`);
   }
 
   /**
@@ -139,6 +154,8 @@ class ScrapeLoggerService extends EventEmitter {
    */
   detachLogListener(jobId: string, callback: (log: LogEntry) => void) {
     this.off(`job-${jobId}-log`, callback);
+    const listenerCount = this.listenerCount(`job-${jobId}-log`);
+    debugLog(`Detached listener for job ${jobId}, remaining listeners: ${listenerCount}`);
   }
 }
 

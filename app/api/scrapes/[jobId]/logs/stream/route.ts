@@ -10,6 +10,15 @@ import { subscribeToJobLogs, isRedisEnabled } from '@/lib/redis';
 import { prisma } from '@/lib/db';
 import { sanitizeLogEntry } from '@/lib/utils/sanitization';
 
+/**
+ * Debug log helper - only logs if DEBUG_LOG_STREAMING is enabled
+ */
+function debugLog(...args: any[]) {
+  if (process.env.DEBUG_LOG_STREAMING === 'true') {
+    console.log('[Stream]', ...args);
+  }
+}
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +48,11 @@ export async function GET(
           }
         };
 
+        debugLog(`SSE connected for job ${jobId}`);
+
         // Backfill from database first (if job is completed/failed)
+        let dbLogCount = 0;
+        const dbLogKeys = new Set<string>();
         try {
           const job = await prisma.scrapeJob.findUnique({
             where: { id: jobId },
@@ -62,19 +75,49 @@ export async function GET(
               logsArray = [];
             }
 
-            // Send each log entry
+            // Send each log entry and build Set of keys for deduplication
             logsArray.forEach((log: any) => {
               sendLog(log as LogEntry);
+              // Create unique key: timestamp|level|message
+              if (log.timestamp && log.level && log.message) {
+                const key = `${log.timestamp}|${log.level}|${log.message}`;
+                dbLogKeys.add(key);
+              }
             });
+            dbLogCount = logsArray.length;
           }
         } catch (error) {
           console.error(`[Stream] Error loading logs from DB for job ${jobId}:`, error);
         }
 
+        // Send logs from memory buffer (fixes race condition)
+        // Filter using Set to avoid duplicates based on timestamp|level|message
+        const memoryLogs = scrapeLoggerService.getJobLogs(jobId);
+        const filteredMemoryLogs = memoryLogs.filter(log => {
+          const key = `${log.timestamp}|${log.level}|${log.message}`;
+          return !dbLogKeys.has(key);
+        });
+
+        // Sort filtered memory logs by timestamp to ensure correct ordering
+        const sortedMemoryLogs = [...filteredMemoryLogs].sort((a, b) => {
+          return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+        });
+
+        const memoryLogCount = sortedMemoryLogs.length;
+
+        if (memoryLogCount > 0) {
+          debugLog(`Sending ${memoryLogCount} logs from memory buffer for job ${jobId} (filtered from ${memoryLogs.length} total)`);
+          sortedMemoryLogs.forEach((log) => {
+            sendLog(log);
+          });
+        } else if (memoryLogs.length > 0 && dbLogKeys.size > 0) {
+          debugLog(`Skipped ${memoryLogs.length} duplicate logs from memory buffer for job ${jobId}`);
+        }
+
         // Subscribe to real-time logs
         if (isRedisEnabled()) {
           // Use Redis pub/sub for multi-instance deployments
-          console.log(`[Stream] Using Redis subscription for job ${jobId}`);
+          debugLog(`Using Redis subscription for job ${jobId}`);
 
           redisUnsubscribe = await subscribeToJobLogs(jobId, sendLog);
 
@@ -85,14 +128,9 @@ export async function GET(
           }
         } else {
           // Use in-memory EventEmitter for single-instance
-          console.log(`[Stream] Using in-memory subscription for job ${jobId}`);
+          debugLog(`Using in-memory subscription for job ${jobId}`);
           scrapeLoggerService.attachLogListener(jobId, sendLog);
-
-          // Send existing in-memory logs (not already in DB)
-          const existingLogs = scrapeLoggerService.getJobLogs(jobId);
-          existingLogs.forEach((log) => {
-            sendLog(log);
-          });
+          debugLog(`Listener attached for job ${jobId}`);
         }
 
         // Keep connection alive with heartbeat
@@ -107,7 +145,7 @@ export async function GET(
 
         // Cleanup on connection close
         request.signal.addEventListener('abort', () => {
-          console.log(`[Stream] Connection closed for job ${jobId}`);
+          debugLog(`Connection closed for job ${jobId}`);
 
           if (heartbeat) {
             clearInterval(heartbeat);

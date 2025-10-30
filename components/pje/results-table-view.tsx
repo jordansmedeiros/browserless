@@ -274,7 +274,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
       {/* Table */}
       <div
         ref={tableContainerRef}
-        className="rounded-md border overflow-auto"
+        className="rounded-md border overflow-auto bg-card"
         style={{ height: paginatedProcesses.length > 50 ? '600px' : 'auto' }}
       >
         <Table>

@@ -31,12 +31,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Loader2, Search, CalendarIcon, Eye, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Loader2, Search, CalendarIcon, Eye, ChevronLeft, ChevronRight, Trash2, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { listScrapeJobsAction, deleteScrapeJobAction } from '@/app/actions/pje';
 import { useJobsStore } from '@/lib/stores';
 import type { ScrapeJobWithRelations, ScrapeJobStatus, ScrapeType } from '@/lib/types/scraping';
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { getTribunalSummary, formatGrau, getStatusIcon } from '@/lib/utils/format-helpers';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -309,7 +311,47 @@ export function ScrapeHistory({ onViewDetails }: ScrapeHistoryProps) {
                       </TableCell>
                       <TableCell>{getScrapeTypeLabel(job.scrapeType as ScrapeType)}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{job.tribunals.length}</Badge>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex flex-wrap gap-1">
+                                {job.tribunals.slice(0, 3).map((t) => (
+                                  <Badge key={t.id} variant="secondary" className="text-xs">
+                                    {t.tribunalConfig.tribunal.codigo}
+                                  </Badge>
+                                ))}
+                                {job.tribunals.length > 3 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{job.tribunals.length - 3}
+                                  </Badge>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div className="space-y-1 max-w-sm">
+                                {job.tribunals.map((t) => {
+                                  const StatusIcon = getStatusIcon(t.status);
+                                  const iconColor =
+                                    t.status === 'completed'
+                                      ? 'text-green-500'
+                                      : t.status === 'failed'
+                                      ? 'text-red-500'
+                                      : 'text-muted-foreground';
+                                  return (
+                                    <div key={t.id} className="flex items-center gap-2 text-xs">
+                                      <StatusIcon className={`h-3 w-3 ${iconColor}`} />
+                                      <span className="font-medium">{t.tribunalConfig.tribunal.codigo}</span>
+                                      <span>-</span>
+                                      <span>{t.tribunalConfig.tribunal.nome}</span>
+                                      <span>-</span>
+                                      <span>{formatGrau(t.tribunalConfig.grau)}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </TableCell>
                       <TableCell>{getStatusBadge(job.status as ScrapeJobStatus)}</TableCell>
                       <TableCell>
