@@ -1,7 +1,8 @@
-# Dashboard Layout Spec - Delta
+# dashboard-layout Specification
 
-## ADDED Requirements
-
+## Purpose
+TBD - created by archiving change add-sidebar-16-layout. Update Purpose after archive.
+## Requirements
 ### Requirement: Sidebar Provider Wrapper
 
 The dashboard layout SHALL wrap all authenticated pages with a SidebarProvider component that manages sidebar state and context.
@@ -136,15 +137,31 @@ The dashboard layout SHALL display a user profile section in the sidebar footer 
 - **AND** menu includes "Configurações" menu item (optional)
 - **AND** menu includes "Sair" or "Log out" menu item
 
-#### Scenario: User selects logout from profile menu
+#### Scenario: User initiates logout from profile menu
 - **WHEN** user clicks "Sair" menu item
-- **THEN** user is logged out of the system
-- **AND** redirected to login page or landing page
-- **AND** session cookies are cleared
+- **THEN** a logout action is dispatched.
+- **AND** the application is responsible for handling session termination and redirection.
 
-### Requirement: Sidebar Inset for Page Content
+### Requirement: Site Header
+The dashboard layout SHALL feature a SiteHeader component rendered above the main content and sidebar area.
 
-The dashboard layout SHALL render page content within a SidebarInset component that adjusts to sidebar state.
+#### Scenario: SiteHeader is fixed at the top
+- **WHEN** any dashboard page is rendered
+- **THEN** the SiteHeader component is displayed at the top of the viewport.
+- **AND** it has a fixed height defined by `--header-height`.
+
+#### Scenario: SiteHeader contains sidebar trigger
+- **WHEN** the SiteHeader is rendered
+- **THEN** it contains the SidebarTrigger button.
+- **AND** this button is responsible for toggling the sidebar on mobile and desktop.
+
+### Requirement: Page Content Area
+The dashboard layout SHALL render page content in an area that adjusts to the sidebar's state.
+
+#### Scenario: Page content area is positioned correctly
+- **WHEN** a dashboard page is rendered
+- **THEN** the main content area is wrapped in a `SidebarInset` component.
+- **AND** `SidebarInset` is placed in a flex row next to the `AppSidebar`.
 
 #### Scenario: Page content adjusts to expanded sidebar
 - **WHEN** sidebar is in expanded state (default)
@@ -157,12 +174,6 @@ The dashboard layout SHALL render page content within a SidebarInset component t
 - **THEN** main content area starts at `var(--sidebar-width-icon)` offset (3rem)
 - **AND** content expands to use additional available width
 - **AND** transition is smooth (200ms ease-linear)
-
-#### Scenario: Header is rendered inside SidebarInset
-- **WHEN** dashboard layout renders
-- **THEN** existing Header component is placed inside SidebarInset before main content
-- **AND** Header includes SidebarTrigger button for toggling sidebar
-- **AND** Header scrolls with page content (not fixed)
 
 ### Requirement: Sidebar State Persistence
 
@@ -190,12 +201,6 @@ The dashboard layout SHALL use the standard sidebar variant without requiring in
 - **AND** sidebar is fixed positioned at left edge
 - **AND** sidebar has right border separator
 - **AND** sidebar background uses `bg-sidebar` theme variable
-
-#### Scenario: Sidebar uses offcanvas collapsible mode
-- **WHEN** sidebar collapsible prop is set
-- **THEN** collapsible mode is `offcanvas` (default)
-- **AND** collapsed sidebar slides completely off-screen (left: calc(var(--sidebar-width) * -1))
-- **AND** page content fills full width when collapsed (no reserved icon space)
 
 ### Requirement: Accessibility and Keyboard Navigation
 
@@ -255,9 +260,3 @@ The dashboard layout SHALL cleanly replace the existing custom sidebar without b
 - **AND** active route highlighting works for all pages
 - **AND** no 404 errors or broken links occur
 
-#### Scenario: Header component integrates smoothly
-- **WHEN** existing Header component is placed in new layout
-- **THEN** Header renders inside SidebarInset at top of content area
-- **AND** Header includes SidebarTrigger button (added or existing)
-- **AND** Header maintains its existing functionality (notifications, settings, user menu)
-- **AND** Header styling is compatible with new layout structure

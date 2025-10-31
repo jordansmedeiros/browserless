@@ -65,13 +65,25 @@ async function fazerLogin(page) {
   // Procurar iframe SSO
   console.error('🔍 Procurando iframe SSO...');
   const frames = page.frames();
+  console.error(`📊 Total de frames encontrados: ${frames.length}`);
+  frames.forEach((f, idx) => {
+    console.error(`   Frame ${idx}: ${f.url()}`);
+  });
+
   const ssoFrame = frames.find(f => f.url().includes('sso.cloud.pje.jus.br'));
 
   if (!ssoFrame) {
+    // Tentar screenshot para debug
+    try {
+      await page.screenshot({ path: 'debug-no-sso-iframe.png', fullPage: true });
+      console.error('📸 Screenshot salvo em: debug-no-sso-iframe.png');
+    } catch (e) {}
+
     throw new Error('Iframe SSO não encontrado!');
   }
 
   console.error('✅ Iframe SSO encontrado');
+  console.error(`📍 URL do iframe SSO: ${ssoFrame.url()}`);
 
   // Preencher CPF
   await ssoFrame.waitForSelector('input[name="username"]', { visible: true, timeout: 15000 });
@@ -88,40 +100,109 @@ async function fazerLogin(page) {
   // Clicar em Entrar
   console.error('⏳ Clicando em Entrar...');
 
+  // Verificar se botão existe antes de clicar
+  const loginButtonExists = await ssoFrame.evaluate(() => {
+    const button = document.querySelector('#kc-login');
+    return button ? { exists: true, disabled: button.disabled, visible: button.offsetParent !== null } : { exists: false };
+  });
+  console.error(`🔘 Botão de login: ${JSON.stringify(loginButtonExists)}`);
+
+  // Primeiro tentar com Promise.all
+  let navigationSucceeded = false;
   try {
     await Promise.all([
       page.waitForNavigation({ waitUntil: 'load', timeout: 60000 }),
       ssoFrame.click('#kc-login'),
     ]);
     console.error('✅ Navegação pós-login concluída');
+    navigationSucceeded = true;
   } catch (error) {
     console.error(`⚠️  Timeout/erro na navegação: ${error.message}`);
     console.error(`📍 URL atual: ${page.url()}`);
 
-    // Continuar mesmo com timeout - página pode ter carregado parcialmente
-    // A verificação de Bad Request ou sucesso será feita a seguir
+    // Se falhou, tentar abordagem alternativa: clicar e aguardar
+    if (page.url().includes('login')) {
+      console.error('🔄 Tentando abordagem alternativa: clicar e aguardar...');
+
+      try {
+        // Clicar no botão
+        await ssoFrame.click('#kc-login');
+        console.error('✅ Botão clicado');
+
+        // Aguardar navegação com timeout maior
+        await page.waitForNavigation({ waitUntil: 'load', timeout: 90000 });
+        console.error('✅ Navegação alternativa concluída');
+        navigationSucceeded = true;
+      } catch (altError) {
+        console.error(`⚠️  Abordagem alternativa também falhou: ${altError.message}`);
+      }
+    }
   }
 
   await delay(5000);
 
   // ⚠️ COMPORTAMENTO ESPECÍFICO DO TJMG: Bad Request
-  console.error(`📍 URL pós-login: ${page.url()}`);
-  const pageContent = await page.content();
+  // IMPORTANTE: Verificar Bad Request ANTES de validar login
+  console.error(`📍 URL pós-login inicial: ${page.url()}`);
+  let pageContent = await page.content();
 
   if (pageContent.toLowerCase().includes('bad request') || page.url().includes('400')) {
     console.error('⚠️  Detectado "Bad Request" (esperado no TJMG)');
     console.error('🔄 Fazendo refresh da página...');
 
     await page.reload({ waitUntil: 'load', timeout: 60000 });
-    await delay(3000);
+    await delay(5000); // Aumentar delay após reload
 
     console.error('✅ Página recarregada com sucesso!');
     console.error(`📍 URL após refresh: ${page.url()}`);
+
+    // Atualizar pageContent após reload
+    pageContent = await page.content();
   }
 
-  // Verificar se login foi bem-sucedido
+  // ⚠️ VERIFICAÇÃO FINAL: Login foi bem-sucedido?
+  // Verificar se ainda está na tela de login DEPOIS do tratamento de Bad Request
   const currentUrl = page.url();
-  if (currentUrl.includes('login') || currentUrl.includes('sso')) {
+  console.error(`📍 URL final para verificação: ${currentUrl}`);
+
+  // Verificar se há elementos da página logada (mais confiável que URL)
+  const isLoggedIn = await page.evaluate(() => {
+    // Procurar por indicadores de login bem-sucedido
+    const hasUserName = !!document.querySelector('.btn-info, .user-info, [class*="user"], [class*="usuario"]');
+    const hasMenu = !!document.querySelector('.botao-menu, [class*="menu"]');
+    const hasLoginForm = !!document.querySelector('input[name="username"], #ssoFrame');
+
+    return {
+      hasUserName,
+      hasMenu,
+      hasLoginForm,
+      isLoggedIn: (hasUserName || hasMenu) && !hasLoginForm
+    };
+  });
+
+  console.error(`🔍 Estado da página: ${JSON.stringify(isLoggedIn)}`);
+
+  if (!isLoggedIn.isLoggedIn && (currentUrl.includes('login') || currentUrl.includes('sso'))) {
+    // Capturar screenshot para debug
+    try {
+      await page.screenshot({ path: 'debug-login-failed.png', fullPage: true });
+      console.error('📸 Screenshot salvo em: debug-login-failed.png');
+    } catch (e) {}
+
+    // Verificar se há mensagem de erro no iframe SSO
+    const ssoFrames = page.frames().filter(f => f.url().includes('sso.cloud.pje.jus.br'));
+    if (ssoFrames.length > 0) {
+      const errorMessage = await ssoFrames[0].evaluate(() => {
+        const errorEl = document.querySelector('.alert-error, .kc-feedback-text, #input-error, .error');
+        return errorEl ? errorEl.textContent.trim() : null;
+      });
+
+      if (errorMessage) {
+        console.error(`🔴 Mensagem de erro na página: ${errorMessage}`);
+        throw new Error(`Login falhou: ${errorMessage}`);
+      }
+    }
+
     throw new Error('Login falhou - ainda na página de login. Verifique as credenciais.');
   }
 

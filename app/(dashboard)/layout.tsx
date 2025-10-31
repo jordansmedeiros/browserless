@@ -11,13 +11,15 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="[--header-height:calc(--spacing(14))]">
+    <div style={{ "--header-height": "3.5rem" } as React.CSSProperties}>
       <SidebarProvider className="flex flex-col">
         <SiteHeader />
         <div className="flex flex-1">
           <AppSidebar />
-          <SidebarInset className="overflow-y-auto p-6">
-            {children}
+          <SidebarInset>
+            <main className="flex-1 overflow-y-auto p-6">
+              {children}
+            </main>
           </SidebarInset>
         </div>
       </SidebarProvider>

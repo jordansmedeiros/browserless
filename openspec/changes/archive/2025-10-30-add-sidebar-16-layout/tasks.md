@@ -1,4 +1,5 @@
-# Implementation Tasks - Add Sidebar-16 Layout
+tasks.md
+
 
 ## 1. Update AppSidebar Component
 - [x] 1.1 Replace example navigation data in `components/app-sidebar.tsx` with real app navigation
@@ -78,6 +79,21 @@
   - [x] Fix lawyer cards in credentials page to use `bg-card` instead of `bg-background`
   - [x] Verify table hover states provide adequate contrast with new muted values
   - [x] Test color hierarchy across all dashboard pages (background → muted → card)
+- [x] 3.4 Fix critical layout and styling bugs
+  - [x] Replace invalid CSS variable syntax in dashboard layout wrapper
+    - Changed from `className="[--header-height:calc(--spacing(14))]"` to inline style
+    - Used `style={{ "--header-height": "3.5rem" } as React.CSSProperties}`
+    - Fixed header height not applying due to invalid Tailwind arbitrary value syntax
+  - [x] Add all 7 missing sidebar color variables to globals.css
+    - Added `--sidebar-foreground`, `--sidebar-primary`, `--sidebar-primary-foreground`
+    - Added `--sidebar-accent`, `--sidebar-accent-foreground`, `--sidebar-border`, `--sidebar-ring`
+    - Used official shadcn/ui HSL values for both light and dark modes
+    - Fixed sidebar appearing same color as header due to missing variables
+  - [x] Fix SidebarInset layout break
+    - Removed `className="overflow-y-auto p-6"` from SidebarInset
+    - Wrapped children in `<main className="flex-1 overflow-y-auto p-6">` element
+    - Restored proper flex layout and content scrolling
+  - [x] Verify header/sidebar/content hierarchy matches sidebar-16 block
 
 ## 4. Navigation Integration
 - [x] 3.1 Create navigation data structure or configuration
@@ -227,6 +243,17 @@
 - ✅ Fixed lawyer cards in credentials page to use `bg-card` for proper elevation hierarchy
 - ✅ Verified table hover states (`hover:bg-muted` and `hover:bg-muted/50`) provide adequate contrast
 - ✅ Established clear visual hierarchy: background (98%/26%) → muted surfaces (94%/24%) → elevated cards (100%/30%)
+- ✅ Fixed critical CSS variable syntax error preventing header height from working
+- ✅ Added all 7 missing sidebar color variables with official shadcn/ui HSL values
+- ✅ Fixed SidebarInset layout break by moving padding/overflow to inner main element
+- ✅ Verified header (white) → sidebar (gray) → content (white) color hierarchy working correctly
+- ✅ Confirmed layout structure matches official sidebar-16 block implementation
+
+### Bug Fixes (Post-Implementation)
+- 🐛 Fixed invalid Tailwind arbitrary value syntax causing header height to not apply
+- 🐛 Fixed missing sidebar color variables causing sidebar to appear white like header
+- 🐛 Fixed layout break where SidebarInset had incorrect className overriding flex layout
+- 🐛 Fixed content area not scrolling properly due to overflow on wrong element
 
 ### Completed (Testing & Validation)
 - ✅ All core implementation tasks completed and verified
@@ -258,3 +285,8 @@
 - "All color changes maintain WCAG AA contrast ratios for text and interactive elements"
 - "All implementation tasks completed; manual testing and QA deferred to separate testing phase"
 - "Change proposal ready for archiving per OpenSpec Stage 3 workflow"
+- "CSS custom properties in Tailwind arbitrary values require inline style syntax, not className"
+- "Sidebar component requires 8 color variables total; only --sidebar-background was initially defined"
+- "SidebarInset is a flex container wrapper; padding and overflow should be on inner main element"
+- "Header height of 3.5rem (56px) matches standard sidebar-16 block specification"
+- "All sidebar color variables now use official shadcn/ui HSL values for proper theming"
