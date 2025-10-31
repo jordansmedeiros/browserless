@@ -38,6 +38,11 @@
  * - Removida dependência de .env e dotenv
  * - Removida validação via validarCredenciais (credenciais vêm do banco)
  * - Removido PJE_ID_ADVOGADO (não usado no TJMG, apenas em TRT)
+ * 
+ * CORREÇÕES (Cookies):
+ * - Adicionado perfil Chrome persistente (userDataDir) para garantir cookies
+ * - Flags adicionadas para permitir cookies cross-origin e compartilhados
+ * - Essencial tanto em headless=true quanto headless=false
  */
 
 import puppeteer from 'puppeteer';
@@ -398,12 +403,18 @@ async function rasparAcervoGeralTJMG() {
 
   await fs.mkdir(DATA_DIR, { recursive: true });
 
+  // Configurar perfil persistente para garantir cookies funcionem
+  const userDataDir = `${DATA_DIR}/chrome-profile`;
+
   const browser = await puppeteer.launch({
     headless: true, // Modo produção - sem visualização do browser
+    userDataDir: userDataDir, // PERFIL PERSISTENTE para salvar cookies
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-blink-features=AutomationControlled',
+      '--disable-web-security', // Permite cookies cross-origin se necessário
+      '--disable-features=IsolateOrigins,site-per-process', // Permite cookies compartilhados
     ],
   });
 

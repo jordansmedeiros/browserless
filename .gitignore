@@ -42,3 +42,9 @@ data/
 prisma/migrations/
 
 /lib/generated/prisma
+
+# Debug Scripts (contain hardcoded credentials)
+server/scripts/pje-tj/tjmg/1g/acervo/debug-script/*.js
+debug-*.png
+debug-*.html
+debug-tjmg/
