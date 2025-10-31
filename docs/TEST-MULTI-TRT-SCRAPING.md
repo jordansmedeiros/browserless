@@ -23,12 +23,14 @@ Validar que a implementação multi-TRT funciona corretamente em **todos os 24 t
 
 ### Pré-requisitos
 
-1. **Credenciais PJE configuradas** no arquivo `.env`:
+1. **Credenciais PJE**: Este script usa `.env` para testes manuais:
    ```bash
    PJE_CPF=12345678901
    PJE_SENHA=sua_senha_aqui
-   PJE_ID_ADVOGADO=123456
+   PJE_ID_ADVOGADO=123456  # Opcional - descoberto automaticamente via JWT
    ```
+   
+   ⚠️ **Nota**: Para uso em produção, configure credenciais em `/pje/credentials`.
 
 2. **Banco de dados populado** com os 24 TRTs:
    ```bash
@@ -48,8 +50,9 @@ node --loader ts-node/esm scripts/test-all-trts-scraping.ts
 ## 📊 O Que o Script Faz
 
 ### 1. **Validação de Credenciais**
-- Verifica se `PJE_CPF`, `PJE_SENHA` e `PJE_ID_ADVOGADO` estão configurados
-- Exibe erro se alguma credencial estiver faltando
+- Verifica se `PJE_CPF` e `PJE_SENHA` estão configurados
+- `PJE_ID_ADVOGADO` é opcional (descoberto automaticamente via JWT)
+- Exibe erro se credenciais essenciais estiverem faltando
 
 ### 2. **Iteração por Todos os TRTs**
 Para cada um dos 24 TRTs, o script:

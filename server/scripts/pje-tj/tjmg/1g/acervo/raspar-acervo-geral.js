@@ -13,31 +13,40 @@
  * 2. Lidar com Bad Request (F5)
  * 3. Navegar: Menu sanduíche → Painel → Painel do Representante → ACERVO
  * 4. Para cada região na lista:
- *    a. Expandir região
- *    b. Clicar em "Caixa de entrada"
- *    c. Extrair processos da página (HTML parsing)
- *    d. Navegar pelas páginas (paginação)
+ * a. Expandir região
+ * b. Clicar em "Caixa de entrada"
+ * c. Extrair processos da página (HTML parsing)
+ * d. Navegar pelas páginas (paginação)
  * 5. Salvar todos os processos em JSON
  *
- * COMO USAR:
- * 1. Configure credenciais: PJE_CPF e PJE_SENHA no .env
- * 2. Execute: node server/scripts/pje-tj/tjmg/1g/acervo/raspar-acervo-geral.js
- * 3. Resultados em: data/pje/tjmg/acervo-geral.json
+ * INTEGRAÇÃO:
+ * Este script é executado pelo scrape-executor que fornece as credenciais via
+ * variáveis de ambiente (PJE_CPF, PJE_SENHA, etc.). Não deve ser executado
+ * diretamente em modo standalone.
+ *
+ * CORREÇÕES (31/10/2025):
+ * - Substituído `obterRegioes`, `rasparRegiao`, `extrairProcessosDaPagina`, `temProximaPagina`
+ * e `irParaProximaPagina` por uma nova função `rasparTodasAsRegioes`.
+ * - `rasparTodasAsRegioes` usa seletores de CSS/ID precisos para:
+ * 1. Iterar dinamicamente sobre os <li> da árvore de região.
+ * 2. Clicar no subitem "Caixa de Entrada" *específico* da região atual.
+ * 3. Extrair dados da tabela de processos usando classes (`.rich-table-row`, `.numero-processo-acervo`, etc).
+ * 4. Clicar no botão "next" da paginação (`[onclick*="\'page\': \'next\'"]`) em vez de
+ * calcular números de página.
+ *
+ * ATUALIZAÇÕES (Arquitetura):
+ * - Removida dependência de .env e dotenv
+ * - Removida validação via validarCredenciais (credenciais vêm do banco)
+ * - Removido PJE_ID_ADVOGADO (não usado no TJMG, apenas em TRT)
  */
 
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import puppeteer from 'puppeteer';
 import fs from 'fs/promises';
-import dotenv from 'dotenv';
-import { validarCredenciais } from '../../common/auth-helpers.js';
 
-// Carregar variáveis de ambiente do arquivo .env
-dotenv.config();
+// NÃO usar StealthPlugin pois pode interferir com cookies em headless
+// puppeteer.use(StealthPlugin());
 
-puppeteer.use(StealthPlugin());
-
-validarCredenciais(false);
-
+// Credenciais fornecidas via variáveis de ambiente pelo scrape-executor
 const CPF = process.env.PJE_CPF;
 const SENHA = process.env.PJE_SENHA;
 
@@ -60,11 +69,20 @@ async function fazerLogin(page) {
   await page.evaluateOnNewDocument(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
     window.chrome = { runtime: {} };
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => [1, 2, 3, 4, 5],
+    });
+    Object.defineProperty(navigator, 'languages', {
+      get: () => ['pt-BR', 'pt', 'en-US', 'en'],
+    });
   });
 
+  // Aguardar um pouco para garantir que tudo está carregado
+  await delay(2000);
+  
   await page.goto(PJE_LOGIN_URL, { waitUntil: 'networkidle2', timeout: 60000 });
   console.error('✅ Página inicial carregada');
-  await delay(2000);
+  await delay(3000);
 
   // Procurar iframe SSO
   console.error('🔍 Procurando iframe SSO...');
@@ -103,29 +121,43 @@ async function fazerLogin(page) {
 
   // Clicar em Entrar
   console.error('⏳ Clicando em Entrar...');
-
-  // Verificar se botão existe antes de clicar
-  const loginButtonExists = await ssoFrame.evaluate(() => {
-    const button = document.querySelector('#kc-login');
-    return button ? { exists: true, disabled: button.disabled, visible: button.offsetParent !== null } : { exists: false };
-  });
-  console.error(`🔘 Botão de login: ${JSON.stringify(loginButtonExists)}`);
-
-  // Clicar no botão
   await ssoFrame.click('#kc-login');
   console.error('✅ Botão clicado');
 
   // ⚠️ COMPORTAMENTO ESPECÍFICO DO TJMG:
-  // Após o clique, NÃO ocorre reload automático. O card de login desaparece,
-  // aparece "bad request", mas tudo fica na mesma URL sem refresh real.
-  // Solução: aguardar 3s e forçar reload manualmente.
-  console.error('⏳ Aguardando 3 segundos antes do reload...');
-  await delay(3000);
+  // Após clicar, NÃO há navegação. O componente de login desaparece
+  // e é substituído por "Bad Request". Precisamos aguardar isso
+  // acontecer e depois fazer refresh manual.
+  console.error('⏳ Aguardando 6 segundos para mudança de componente...');
+  await delay(6000);
 
-  console.error('🔄 Executando reload para completar autenticação...');
+  // Debug: verificar conteúdo e cookies antes do refresh
+  const contentBeforeRefresh = await page.content();
+  const hasBadRequest = contentBeforeRefresh.toLowerCase().includes('bad request');
+  const hasLoginForm = contentBeforeRefresh.toLowerCase().includes('username') || contentBeforeRefresh.toLowerCase().includes('password');
+  const cookies = await page.cookies();
+  console.error(`   Conteúdo antes do refresh: Bad Request=${hasBadRequest}, Login Form=${hasLoginForm}`);
+  console.error(`   Cookies existentes: ${cookies.length}`);
+
+  // Fazer refresh da página para carregar o conteúdo real
+  console.error('🔄 Fazendo refresh da página...');
   await page.reload({ waitUntil: 'networkidle2', timeout: 60000 });
   await delay(3000);
-  console.error('✅ Reload concluído!');
+  console.error('✅ Refresh concluído');
+
+  // Verificar se login foi bem-sucedido (verificar se componentes de navegação aparecem)
+  const pageContent = await page.content();
+  const currentUrl = page.url();
+  const hasNavigationElements = pageContent.includes('botao-menu') || pageContent.includes('Painel');
+
+  console.error(`📍 URL após refresh: ${currentUrl}`);
+  
+  if (!hasNavigationElements) {
+    console.error(`⚠️   Elementos de navegação não encontrados`);
+    throw new Error('Login falhou - elementos de navegação não encontrados após refresh');
+  }
+
+  console.error('✅ Login completado com sucesso!\n');
 }
 
 /**
@@ -134,272 +166,240 @@ async function fazerLogin(page) {
 async function navegarParaAcervo(page) {
   console.error('🧭 Navegando para Acervo...\n');
 
-  // Passo 1: Abrir menu sanduíche
-  console.error('📂 Abrindo menu sanduíche...');
-  await page.evaluate(() => {
-    const menuButton = document.querySelector('a.botao-menu');
-    if (menuButton) menuButton.click();
+  // Ir direto para o Painel do Advogado
+  console.error('📂 Navegando para o Painel do Advogado...');
+  await page.goto('https://pje.tjmg.jus.br/pje/Painel/painel_usuario/advogado.seam', {
+    waitUntil: 'networkidle2',
+    timeout: 60000
   });
-  await delay(1500);
-
-  // Passo 2: Clicar em "Painel"
-  console.error('📂 Clicando em Painel...');
-  await page.evaluate(() => {
-    const links = Array.from(document.querySelectorAll('a, li, button'));
-    const painelLink = links.find(el => el.textContent.trim() === 'Painel');
-    if (painelLink) painelLink.click();
-  });
-  await delay(1500);
-
-  // Passo 3: Clicar em "Painel do representante processual"
-  console.error('📂 Clicando em Painel do representante processual...');
-  await page.evaluate(() => {
-    const links = Array.from(document.querySelectorAll('a'));
-    const painelRepLink = links.find(el =>
-      el.textContent.toLowerCase().includes('painel do representante processual')
-    );
-    if (painelRepLink) painelRepLink.click();
-  });
-
-  // Aguardar carregamento (sem waitForNavigation pois pode ser navegação AJAX)
-  await delay(5000);
+  await delay(3000);
 
   console.error('✅ Painel do Advogado carregado');
 
-  // Passo 4: Clicar no botão "ACERVO"
-  console.error('📂 Clicando no botão ACERVO...');
-  await page.evaluate(() => {
-    const acervoElements = Array.from(document.querySelectorAll('*'));
-    const acervoBtn = acervoElements.find(el => el.textContent.trim() === 'Acervo');
-    if (acervoBtn) acervoBtn.click();
+  // Verificar se tab Acervo já está ativa
+  const acervoStatus = await page.evaluate(() => {
+    const acervoTab = document.querySelector('#tabAcervo_lbl'); // Seletor correto
+    return {
+      found: !!acervoTab,
+      isActive: acervoTab?.classList.contains('rich-tab-active')
+    };
   });
+  console.error(`📊 Status da tab Acervo: encontrada=${acervoStatus.found}, ativa=${acervoStatus.isActive}`);
+  
+  if (!acervoStatus.isActive) {
+    // Passo 4: Clicar no botão "ACERVO" apenas se não estiver ativo
+    console.error('📂 Clicando no botão ACERVO...');
+    // CORREÇÃO: Usar seletor de ID preciso
+    const acervoSelector = 'td[id="tabAcervo_lbl"]';
+    await page.waitForSelector(acervoSelector);
 
-  await delay(3000);
-  console.error('✅ Acervo carregado!\n');
-}
-
-/**
- * Obtém lista de todas as regiões/jurisdições disponíveis
- */
-async function obterRegioes(page) {
-  console.error('🗺️  Obtendo lista de regiões...\n');
-
-  const regioes = await page.evaluate(() => {
-    const regioesList = [];
-    const pageText = document.body.innerText;
-    const linhas = pageText.split('\n');
-
-    // Procurar por padrões de região com número de processos
-    for (const linha of linhas) {
-      // Padrão: "Nome da Região" seguido de número
-      const match = linha.match(/^([A-Za-zÀ-ÿ\s\-]+?)\s+(\d+)$/);
-      if (match) {
-        const nome = match[1].trim();
-        const quantidade = parseInt(match[2], 10);
-
-        // Filtrar apenas regiões com processos
-        if (quantidade > 0 && !nome.includes('Caixa de entrada')) {
-          regioesList.push({ nome, quantidade });
-        }
-      }
-    }
-
-    return regioesList;
-  });
-
-  console.error(`✅ Encontradas ${regioes.length} regiões com processos\n`);
-  return regioes;
-}
-
-/**
- * Extrai processos da página atual
- */
-async function extrairProcessosDaPagina(page, regiao) {
-  return await page.evaluate((nomeRegiao) => {
-    const processos = [];
-    const pageText = document.body.innerText;
-
-    // Encontrar números de processo
-    const regex = /(ProceComCiv|ExTEx|PAP|MSCiv|ExFis)\s+([\d\-\.]+)/g;
-    let match;
-
-    const linhas = pageText.split('\n');
-    let processoAtual = null;
-
-    for (const linha of linhas) {
-      const linhaLimpa = linha.trim();
-
-      // Detectar início de novo processo
-      const matchNumero = linhaLimpa.match(/(ProceComCiv|ExTEx|PAP|MSCiv|ExFis)\s+([\d\-\.]+)/);
-      if (matchNumero) {
-        // Salvar processo anterior se existir
-        if (processoAtual) {
-          processos.push(processoAtual);
-        }
-
-        // Iniciar novo processo
-        processoAtual = {
-          numero: matchNumero[0],
-          regiao: nomeRegiao,
-          tipo: '',
-          partes: '',
-          vara: '',
-          dataDistribuicao: '',
-          ultimoMovimento: '',
-          textoCompleto: []
-        };
-      }
-
-      // Acumular linhas do processo atual
-      if (processoAtual && linhaLimpa.length > 0) {
-        processoAtual.textoCompleto.push(linhaLimpa);
-
-        // Detectar campos específicos
-        if (linhaLimpa.includes('Vara') || linhaLimpa.includes('Comarca')) {
-          processoAtual.vara = linhaLimpa;
-        }
-
-        if (linhaLimpa.includes('Distribuído em')) {
-          processoAtual.dataDistribuicao = linhaLimpa;
-        }
-
-        if (linhaLimpa.includes('Último movimento:')) {
-          processoAtual.ultimoMovimento = linhaLimpa;
-        }
-
-        // Detectar partes (X na linha indica autor X réu)
-        if (linhaLimpa.includes(' X ') && linhaLimpa.length > 20) {
-          processoAtual.partes = linhaLimpa;
-        }
-      }
-    }
-
-    // Adicionar último processo
-    if (processoAtual) {
-      processos.push(processoAtual);
-    }
-
-    // Limpar textoCompleto (juntar em string única)
-    return processos.map(p => ({
-      ...p,
-      textoCompleto: p.textoCompleto.join(' | ')
-    }));
-  }, regiao);
-}
-
-/**
- * Verifica se existe próxima página na paginação
- */
-async function temProximaPagina(page) {
-  return await page.evaluate(() => {
-    const pageText = document.body.innerText;
-    // Procurar por indicadores de paginação como "2 3 »" ou "Próxima"
-    return pageText.includes('»') || pageText.includes('›');
-  });
-}
-
-/**
- * Clica no botão de próxima página
- */
-async function irParaProximaPagina(page) {
-  await page.evaluate(() => {
-    // Procurar por link/botão de próxima página
-    const links = Array.from(document.querySelectorAll('a'));
-    const proximaLink = links.find(link =>
-      link.textContent.includes('»') ||
-      link.textContent.includes('›') ||
-      link.getAttribute('title')?.toLowerCase().includes('próxima')
-    );
-
-    if (proximaLink) {
-      proximaLink.click();
-    }
-  });
-
-  await delay(3000);
-}
-
-/**
- * Raspa todos os processos de uma região específica
- */
-async function rasparRegiao(page, regiao) {
-  console.error(`\n📦 Raspando região: ${regiao.nome} (${regiao.quantidade} processos)`);
-
-  let todosProcessos = [];
-  let paginaAtual = 1;
-
-  try {
-    // Expandir região
-    console.error('   🔽 Expandindo região...');
-    await page.evaluate((nomeRegiao) => {
-      const elements = Array.from(document.querySelectorAll('*'));
-      const regiaoElement = elements.find(el =>
-        el.textContent.includes(nomeRegiao) &&
-        el.querySelector && el.querySelector('a[href="#"]')
-      );
-
-      if (regiaoElement) {
-        const expandLink = regiaoElement.querySelector('a[href="#"]');
-        if (expandLink) expandLink.click();
-      }
-    }, regiao.nome);
-
+    // CORREÇÃO: Usar Promise.all para aguardar a requisição AJAX
+    await Promise.all([
+      page.click(acervoSelector),
+      page.waitForResponse(res => res.url().includes('advogado.seam') && res.status() === 200, { timeout: 30000 })
+    ]);
+    
+    console.error('✅ Clique em Acervo enviado');
+    await delay(3000); // Delay extra para renderização
+  } else {
+    console.error('✅ Tab Acervo já está ativa');
     await delay(2000);
+  }
+  
+  // CORREÇÃO: Esperar seletor robusto da árvore da sidebar
+  const sidebarTreeSelector = 'div[id="formAbaAcervo:trAc"]';
+  console.error('Aguardando sidebar de regiões carregar...');
+  await page.waitForSelector(sidebarTreeSelector, { visible: true, timeout: 15000 }); 
+  
+  console.error('✅ Acervo e Sidebar carregados!\n');
+}
 
-    // Clicar em "Caixa de entrada"
-    console.error('   📥 Clicando em Caixa de entrada...');
-    await page.evaluate(() => {
-      const links = Array.from(document.querySelectorAll('a'));
-      const caixaLink = links.find(link =>
-        link.textContent.includes('Caixa de entrada')
-      );
 
-      if (caixaLink) caixaLink.click();
+// -----------------------------------------------------------------------------
+// FUNÇÕES DE RASPAGEM ANTIGAS E FRÁGEIS (REMOVIDAS)
+// - obterRegioes()
+// - rasparRegiao()
+// - temProximaPagina()
+// - irParaProximaPagina()
+//
+// FUNÇÃO DE EXTRAÇÃO ANTIGA (SUBSTITUÍDA)
+// - extrairProcessosDaPagina()
+// -----------------------------------------------------------------------------
+
+
+/**
+ * NOVO: Extrai processos da página atual usando seletores de CSS robustos.
+ * Substitui a versão antiga baseada em regex e innerText.
+ */
+async function extrairProcessosDaPagina(page, nomeRegiao) {
+  return await page.evaluate((regiao) => {
+    const processos = [];
+    // Seletor CORRETO para o <tbody> da tabela de processos
+    const rows = document.querySelectorAll('tbody[id="formAcervo:tbProcessos:tb"] > tr.rich-table-row');
+    
+    rows.forEach(row => {
+      const processoInfo = { 
+        regiao: regiao,
+        numero: null,
+        partes: null,
+        vara: null,
+        dataDistribuicao: null,
+        ultimoMovimento: null,
+        textoCompleto: null
+      };
+      
+      // Seletor CORRETO para o Número do Processo
+      const numeroEl = row.querySelector('a.numero-processo-acervo > span.text-bold');
+      if (numeroEl) processoInfo.numero = numeroEl.innerText.trim();
+
+      // Seletor CORRETO para as Partes
+      const partesEl = row.querySelector('span.nome-parte');
+      if (partesEl) processoInfo.partes = partesEl.innerText.trim();
+      
+      // Seletor CORRETO para o bloco de Informações
+      const infoEl = row.querySelector('div.informacoes-linha-acervo');
+      if (infoEl) {
+        processoInfo.textoCompleto = infoEl.innerText.replace(/\n/g, ' | '); // Limpa newlines
+        
+        // Tenta extrair dados individuais do bloco de info
+        const infoLinhas = infoEl.innerText.split('\n');
+        if (infoLinhas[0]) processoInfo.vara = infoLinhas[0].trim().replace('/', '').trim(); // Remove a barra inicial
+        if (infoLinhas[1]) processoInfo.dataDistribuicao = infoLinhas[1].trim();
+        if (infoLinhas[2]) processoInfo.ultimoMovimento = infoLinhas[2].trim();
+      }
+      
+      if (processoInfo.numero) {
+        processos.push(processoInfo);
+      }
+    });
+    return processos;
+  }, nomeRegiao); // Passa o nome da região para dentro do evaluate
+}
+
+
+/**
+ * NOVO: Substitui `obterRegioes` e `rasparRegiao`.
+ * Contém a lógica de iteração robusta.
+ */
+async function rasparTodasAsRegioes(page) {
+  console.error('🗺️  Iniciando raspagem de todas as regiões...');
+  const todosProcessos = [];
+
+  // Seletor CORRETO para os links das regiões (Nível 1 da árvore)
+  const regionItemSelector = 'div[id="formAbaAcervo:trAc:childs"] > table.rich-tree-node > tbody > tr > td.rich-tree-node-text > a';
+
+  // 1. Obter a contagem de regiões
+  const regionCount = await page.$$eval(regionItemSelector, links => links.length);
+  console.error(`✅ Encontradas ${regionCount} regiões/jurisdições.`);
+
+  // 2. Loop por cada região usando um índice 'i'
+  // (Essencial usar um loop 'for' clássico para re-selecionar os elementos)
+  for (let i = 0; i < regionCount; i++) {
+    
+    // 3. Buscar *novamente* todos os links de região a cada iteração
+    const regionLinks = await page.$$(regionItemSelector);
+    const regionLink = regionLinks[i]; // Pega o link da iteração atual
+    
+    // 4. Obter o nome da região e o ID da tabela pai (para achar o subitem)
+    const regionData = await regionLink.evaluate(el => {
+        const name = el.querySelector('span.nomeTarefa').textContent.trim();
+        // Pega o ID da <table> pai, que é usado para construir o ID do <div> filho
+        const tableId = el.closest('table.rich-tree-node').id; 
+        return { name, tableId };
     });
 
-    await delay(4000);
+    console.error(`\n--- [${i + 1}/${regionCount}] Iniciando Região: ${regionData.name} ---`);
 
-    // Extrair processos página por página
-    while (true) {
-      console.error(`   📄 Extraindo página ${paginaAtual}...`);
-
-      const processosPagina = await extrairProcessosDaPagina(page, regiao.nome);
-      todosProcessos = todosProcessos.concat(processosPagina);
-
-      console.error(`      ✅ ${processosPagina.length} processos extraídos`);
-
-      // Verificar se tem próxima página
-      const temProxima = await temProximaPagina(page);
-      if (!temProxima) {
-        break;
-      }
-
-      // Ir para próxima página
-      await irParaProximaPagina(page);
-      paginaAtual++;
+    // 5. Clicar na Região (Nível 1) para expandir
+    console.error('   🔽 Expandindo região...');
+    await Promise.all([
+      regionLink.click(),
+      page.waitForResponse(res => res.url().includes('advogado.seam'), { timeout: 30000 })
+    ]);
+    
+    // 6. Definir e esperar o seletor da "Caixa de Entrada" (Nível 2)
+    // Seletor CORRETO e DINÂMICO: busca o "Caixa de Entrada" *dentro* do
+    // <div> filho da região que acabamos de clicar.
+    const inboxSelector = `div[id="${regionData.tableId}:childs"] a[id*="::cxItem"]`;
+    
+    let inboxLink;
+    try {
+        console.error('   📥 Aguardando "Caixa de Entrada" aparecer...');
+        inboxLink = await page.waitForSelector(inboxSelector, { visible: true, timeout: 10000 });
+    } catch (e) {
+        console.error(`   ⚠️  Não foi possível encontrar "Caixa de Entrada" para ${regionData.name}. Pulando.`);
+        continue; // Pula para a próxima região
     }
 
-    console.error(`   ✅ Total: ${todosProcessos.length} processos raspados\n`);
+    // 7. Clicar em "Caixa de Entrada" (Nível 2)
+    console.error('   ✅ Clicando em "Caixa de Entrada"');
+    await Promise.all([
+        inboxLink.click(),
+        page.waitForResponse(res => res.url().includes('advogado.seam'), { timeout: 30000 }) 
+    ]);
 
-  } catch (error) {
-    console.error(`   ❌ Erro ao raspar região ${regiao.nome}: ${error.message}\n`);
-  }
+    // 8. Esperar a tabela de processos carregar
+    // Seletor CORRETO para o <tbody> da tabela principal
+    const tableBodySelector = 'tbody[id="formAcervo:tbProcessos:tb"]';
+    try {
+        await page.waitForSelector(tableBodySelector, { visible: true, timeout: 15000 });
+        console.error('   ✅ Tabela de processos carregada.');
+    } catch (e) {
+        console.error(`   ⚠️  Tabela de processos não carregou para ${regionData.name}. Pulando.`);
+        continue;
+    }
+
+    // 9. Iniciar a raspagem da PAGINAÇÃO (Loop Aninhado)
+    let paginaAtual = 1;
+    
+    while (true) {
+        console.error(`      📄 Extraindo página ${paginaAtual}...`);
+        
+        // 10a. Extrair dados da página atual
+        const processosPagina = await extrairProcessosDaPagina(page, regionData.name);
+        todosProcessos.push(...processosPagina);
+        console.error(`         ✅ ${processosPagina.length} processos encontrados nesta página.`);
+
+        // 10b. Verificar e clicar no botão "Próxima Página"
+        // Seletor CORRETO e ROBUSTO para o botão "próxima"
+        const nextButtonSelector = 'td.rich-datascr-button[onclick*="\'page\': \'next\'"]';
+        const nextButton = await page.$(nextButtonSelector);
+        
+        if (nextButton) {
+            console.error('      ▶️  Indo para a próxima página...');
+            await Promise.all([
+                nextButton.click(),
+                page.waitForResponse(res => res.url().includes('advogado.seam'), { timeout: 30000 })
+            ]);
+            // Espera a tabela ser atualizada
+            await page.waitForSelector(tableBodySelector, { visible: true }); 
+            paginaAtual++;
+            await delay(2000); // Delay para garantir renderização
+        } else {
+            console.error('      ⏹️  Não há mais páginas nesta região.');
+            break; // Sai do loop de paginação
+        }
+    } // Fim do loop de paginação (while)
+    
+    console.error(`--- ✅ Concluída Região: ${regionData.name} ---`);
+  } // Fim do loop principal de regiões (for)
 
   return todosProcessos;
 }
+
 
 /**
  * Função principal
  */
 async function rasparAcervoGeralTJMG() {
   console.error('╔═══════════════════════════════════════════════════════════════════╗');
-  console.error('║     RASPAGEM: ACERVO GERAL - PJE TJMG 1º GRAU                    ║');
+  console.error('║     RASPAGEM: ACERVO GERAL - PJE TJMG 1º GRAU (Versão Corrigida)    ║');
   console.error('╚═══════════════════════════════════════════════════════════════════╝\n');
 
   await fs.mkdir(DATA_DIR, { recursive: true });
 
   const browser = await puppeteer.launch({
-    headless: true,
+    headless: true, // Modo produção - sem visualização do browser
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -409,6 +409,11 @@ async function rasparAcervoGeralTJMG() {
 
   const page = await browser.newPage();
 
+  // Configurar headers extras para melhor compatibilidade
+  await page.setExtraHTTPHeaders({
+    'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+  });
+
   try {
     // Passo 1: Login
     await fazerLogin(page);
@@ -416,21 +421,12 @@ async function rasparAcervoGeralTJMG() {
     // Passo 2: Navegar para Acervo
     await navegarParaAcervo(page);
 
-    // Passo 3: Obter lista de regiões
-    const regioes = await obterRegioes(page);
-
-    // Passo 4: Raspar cada região
-    const todosProcessos = [];
-
-    for (const regiao of regioes) {
-      const processosRegiao = await rasparRegiao(page, regiao);
-      todosProcessos.push(...processosRegiao);
-    }
+    // Passo 3: Raspar todas as regiões (nova função robusta)
+    const todosProcessos = await rasparTodasAsRegioes(page);
 
     console.error('\n' + '='.repeat(70));
     console.error('📊 RESUMO FINAL:');
     console.error('='.repeat(70));
-    console.error(`Total de regiões processadas: ${regioes.length}`);
     console.error(`Total de processos extraídos: ${todosProcessos.length}`);
     console.error('='.repeat(70) + '\n');
 
@@ -442,8 +438,6 @@ async function rasparAcervoGeralTJMG() {
         tribunal: 'TJMG',
         grau: '1g',
         totalProcessos: todosProcessos.length,
-        totalRegioes: regioes.length,
-        regioes: regioes,
         processos: todosProcessos
       }, null, 2));
 

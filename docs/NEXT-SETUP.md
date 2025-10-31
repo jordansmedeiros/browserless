@@ -79,10 +79,11 @@ Criados em `lib/types/`:
 Arquivo `.env.example` criado com:
 - `NEXT_PUBLIC_APP_URL`: URL pública do app
 - `NEXT_PUBLIC_APP_NAME`: Nome do app
-- `PJE_CPF`: CPF para login PJE (server-only)
-- `PJE_SENHA`: Senha PJE (server-only)
+- `DATABASE_URL`: URL de conexão do banco (Prisma)
 - `PORT`: Porta do servidor
 - `BROWSERLESS_TOKEN`: Token Browserless
+
+⚠️ **Nota**: `PJE_CPF` e `PJE_SENHA` são **apenas para testes manuais**. O sistema principal usa credenciais do banco de dados configuradas em `/pje/credentials`.
 
 ## Como Usar
 

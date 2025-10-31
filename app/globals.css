@@ -5,10 +5,15 @@
 @layer base {
   :root {
     font-size: 90%; /* Base scale for comfortable UI density */
+    /* Hierarquia de cores de fundo:
+     * --surface: Branco puro – usado para header, sidebar e elementos principais de UI
+     * --background: Cinza claro – usado para áreas de conteúdo (body, main content)
+     * --card: Quase branco – usado para cards e containers que se destacam do background
+     */
     --background: oklch(0.98 0 0);
     --foreground: oklch(0.21 0.03 263.61);
     --surface: oklch(1 0 0);
-    --card: oklch(0.976 0 0);
+    --card: oklch(1 0 0);
     --card-foreground: oklch(0.21 0.03 263.61);
     --popover: oklch(1.00 0 0);
     --popover-foreground: oklch(0.21 0.03 263.61);
@@ -30,7 +35,10 @@
     --chart-3: oklch(0.40 0.16 259.61);
     --chart-4: oklch(0.43 0.16 259.82);
     --chart-5: oklch(0.29 0.07 261.20);
-
+    /* Variáveis de Sidebar (para temas e estados específicos)
+     * Observação: a sidebar padrão deve usar --surface como fundo.
+     * A variável --sidebar-background é reservada para variantes (ex.: floating, inset) ou efeitos pontuais.
+     */
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
@@ -99,6 +107,7 @@
     --shadow-offset-y: 1px;
     --spacing: 0.25rem;
     --tracking-normal: 0em;
+    /* Sidebar background: usar apenas para variantes específicas; a sidebar padrão usa --surface */
     --sidebar-background: 0 0% 96%;
     --header-height: 3.5rem;
   }

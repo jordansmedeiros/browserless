@@ -196,17 +196,18 @@ A maneira mais fácil de usar o sistema é através da **interface web**:
 # 1. Instalar dependências
 npm install
 
-# 2. Configurar credenciais PJE (arquivo .env)
-cp .env.example .env
-# Editar .env com: PJE_CPF, PJE_SENHA, PJE_ID_ADVOGADO
-
-# 3. Configurar banco de dados
+# 2. Configurar banco de dados
 echo 'DATABASE_URL="file:./dev.db"' >> .env
 npx prisma migrate dev
 
-# 4. Iniciar servidor de desenvolvimento
+# 3. Iniciar servidor de desenvolvimento
 npm run dev
 ```
+
+**Depois de iniciar:**
+1. Acesse `http://localhost:3000/pje/credentials`
+2. Configure credenciais PJE via interface web
+3. Apenas para testes manuais: editar `.env` com `PJE_CPF` e `PJE_SENHA`
 
 **Acesso**: [http://localhost:3000](http://localhost:3000)
 

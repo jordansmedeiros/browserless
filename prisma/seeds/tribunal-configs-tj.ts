@@ -160,13 +160,14 @@ export const tribunalConfigsTJSeed: TribunalConfigSeedData[] = [
   },
 
   // TJMG - Minas Gerais (PJE + THEMIS + PJE Turma Recursal)
+  // NOTA: TJMG NÃO possui API REST - usa HTML parsing
   {
     tribunalCodigo: 'TJMG',
     sistema: 'PJE',
     grau: '1g',
     urlBase: 'https://pje.tjmg.jus.br',
     urlLoginSeam: 'https://pje.tjmg.jus.br/pje/login.seam',
-    urlApi: 'https://pje.tjmg.jus.br/pje-comum-api/api',
+    urlApi: null, // TJMG não tem API REST, usa scraping HTML
   },
   {
     tribunalCodigo: 'TJMG',

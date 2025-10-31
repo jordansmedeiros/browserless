@@ -41,10 +41,17 @@ pje-trt/
 
 ## ⚙️ Como Usar
 
-### 1. Configurar Credenciais (OBRIGATÓRIO)
+### 1. Configurar Credenciais
 
-**Todas as credenciais agora são lidas de variáveis de ambiente**. Configure o arquivo `.env` antes de executar qualquer script:
+⚠️ **IMPORTANTE**: O sistema principal usa credenciais do **BANCO DE DADOS**.
 
+**Para uso em produção:**
+1. Acesse: `http://localhost:3000/pje/credentials`
+2. Configure escritório/advogado
+3. Adicione credenciais PJE e associe aos tribunais
+4. O sistema detecta automaticamente `idAdvogado` via JWT após o primeiro login
+
+**Para testes manuais standalone**, você pode configurar `.env`:
 ```bash
 # 1. Copie o arquivo de exemplo (na raiz do projeto)
 cp .env.example .env
@@ -53,7 +60,7 @@ cp .env.example .env
 nano .env  # ou use seu editor preferido
 ```
 
-**Variáveis necessárias no `.env`:**
+**Variáveis para testes:**
 
 ```bash
 # CPF do advogado (apenas números)
@@ -62,11 +69,11 @@ PJE_CPF=12345678900
 # Senha de acesso ao PJE
 PJE_SENHA=sua_senha_aqui
 
-# ID do advogado no sistema PJE
+# ID do advogado (opcional - descoberto automaticamente via JWT)
 PJE_ID_ADVOGADO=29203
 ```
 
-**Como descobrir seu `PJE_ID_ADVOGADO`:**
+**Como descobrir `idAdvogado` manualmente:**
 
 1. Execute o script de login:
    ```bash
@@ -83,7 +90,7 @@ PJE_ID_ADVOGADO=29203
 **Importante:**
 - ⚠️ O arquivo `.env` já está no `.gitignore` - nunca será commitado
 - 🔒 Suas credenciais ficam apenas no seu ambiente local
-- ✅ Se as variáveis não estiverem configuradas, o script mostrará erro claro
+- ✅ `PJE_ID_ADVOGADO` é opcional - o sistema descobre automaticamente via JWT
 
 ### 2. Executar Scripts
 

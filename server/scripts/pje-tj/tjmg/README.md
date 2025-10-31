@@ -32,19 +32,23 @@ pje-tj/tjmg/
 
 ## Configuração
 
-### 1. Variáveis de Ambiente
+### 1. Credenciais (via Sistema Web)
 
-Configure as credenciais no arquivo `.env`:
+⚠️ **IMPORTANTE**: Este script é integrado ao sistema principal que usa credenciais do **BANCO DE DADOS**.
 
+**Para uso em produção:**
+1. Acesse: `http://localhost:3000/pje/credentials`
+2. Configure escritório/advogado
+3. Adicione credenciais PJE e associe aos tribunais
+4. O sistema passa credenciais automaticamente via variáveis de ambiente
+
+**Para testes manuais standalone**, você pode configurar `.env`:
 ```bash
-# Credenciais PJE (obrigatórias)
 PJE_CPF=seu_cpf_sem_pontos
 PJE_SENHA=sua_senha
-
-# URLs (opcional - valores padrão)
-PJE_LOGIN_URL=https://pje.tjmg.jus.br/pje/login.seam
-PJE_BASE_URL=https://pje.tjmg.jus.br
 ```
+
+⚠️ Note que `PJE_ID_ADVOGADO` não é usado para TJMG (apenas para TRT).
 
 ### 2. Dependências
 
