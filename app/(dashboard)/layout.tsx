@@ -16,10 +16,8 @@ export default function DashboardLayout({
         <SiteHeader />
         <div className="flex flex-1">
           <AppSidebar />
-          <SidebarInset>
-            <main className="flex-1 overflow-y-auto p-6">
-              {children}
-            </main>
+          <SidebarInset className="flex-1 overflow-y-auto p-6">
+            {children}
           </SidebarInset>
         </div>
       </SidebarProvider>
