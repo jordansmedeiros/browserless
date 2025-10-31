@@ -100,6 +100,7 @@
     --spacing: 0.25rem;
     --tracking-normal: 0em;
     --sidebar-background: 0 0% 96%;
+    --header-height: 3.5rem;
   }
 
   .dark {

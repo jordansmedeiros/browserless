@@ -11,7 +11,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ "--header-height": "3.5rem" } as React.CSSProperties}>
+    <div className="h-full">
       <SidebarProvider className="flex flex-col">
         <SiteHeader />
         <div className="flex flex-1">
