@@ -28,7 +28,11 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import fs from 'fs/promises';
+import dotenv from 'dotenv';
 import { validarCredenciais } from '../../common/auth-helpers.js';
+
+// Carregar variáveis de ambiente do arquivo .env
+dotenv.config();
 
 puppeteer.use(StealthPlugin());
 
@@ -107,106 +111,21 @@ async function fazerLogin(page) {
   });
   console.error(`🔘 Botão de login: ${JSON.stringify(loginButtonExists)}`);
 
-  // Primeiro tentar com Promise.all
-  let navigationSucceeded = false;
-  try {
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'load', timeout: 60000 }),
-      ssoFrame.click('#kc-login'),
-    ]);
-    console.error('✅ Navegação pós-login concluída');
-    navigationSucceeded = true;
-  } catch (error) {
-    console.error(`⚠️  Timeout/erro na navegação: ${error.message}`);
-    console.error(`📍 URL atual: ${page.url()}`);
+  // Clicar no botão
+  await ssoFrame.click('#kc-login');
+  console.error('✅ Botão clicado');
 
-    // Se falhou, tentar abordagem alternativa: clicar e aguardar
-    if (page.url().includes('login')) {
-      console.error('🔄 Tentando abordagem alternativa: clicar e aguardar...');
+  // ⚠️ COMPORTAMENTO ESPECÍFICO DO TJMG:
+  // Após o clique, NÃO ocorre reload automático. O card de login desaparece,
+  // aparece "bad request", mas tudo fica na mesma URL sem refresh real.
+  // Solução: aguardar 3s e forçar reload manualmente.
+  console.error('⏳ Aguardando 3 segundos antes do reload...');
+  await delay(3000);
 
-      try {
-        // Clicar no botão
-        await ssoFrame.click('#kc-login');
-        console.error('✅ Botão clicado');
-
-        // Aguardar navegação com timeout maior
-        await page.waitForNavigation({ waitUntil: 'load', timeout: 90000 });
-        console.error('✅ Navegação alternativa concluída');
-        navigationSucceeded = true;
-      } catch (altError) {
-        console.error(`⚠️  Abordagem alternativa também falhou: ${altError.message}`);
-      }
-    }
-  }
-
-  await delay(5000);
-
-  // ⚠️ COMPORTAMENTO ESPECÍFICO DO TJMG: Bad Request
-  // IMPORTANTE: Verificar Bad Request ANTES de validar login
-  console.error(`📍 URL pós-login inicial: ${page.url()}`);
-  let pageContent = await page.content();
-
-  if (pageContent.toLowerCase().includes('bad request') || page.url().includes('400')) {
-    console.error('⚠️  Detectado "Bad Request" (esperado no TJMG)');
-    console.error('🔄 Fazendo refresh da página...');
-
-    await page.reload({ waitUntil: 'load', timeout: 60000 });
-    await delay(5000); // Aumentar delay após reload
-
-    console.error('✅ Página recarregada com sucesso!');
-    console.error(`📍 URL após refresh: ${page.url()}`);
-
-    // Atualizar pageContent após reload
-    pageContent = await page.content();
-  }
-
-  // ⚠️ VERIFICAÇÃO FINAL: Login foi bem-sucedido?
-  // Verificar se ainda está na tela de login DEPOIS do tratamento de Bad Request
-  const currentUrl = page.url();
-  console.error(`📍 URL final para verificação: ${currentUrl}`);
-
-  // Verificar se há elementos da página logada (mais confiável que URL)
-  const isLoggedIn = await page.evaluate(() => {
-    // Procurar por indicadores de login bem-sucedido
-    const hasUserName = !!document.querySelector('.btn-info, .user-info, [class*="user"], [class*="usuario"]');
-    const hasMenu = !!document.querySelector('.botao-menu, [class*="menu"]');
-    const hasLoginForm = !!document.querySelector('input[name="username"], #ssoFrame');
-
-    return {
-      hasUserName,
-      hasMenu,
-      hasLoginForm,
-      isLoggedIn: (hasUserName || hasMenu) && !hasLoginForm
-    };
-  });
-
-  console.error(`🔍 Estado da página: ${JSON.stringify(isLoggedIn)}`);
-
-  if (!isLoggedIn.isLoggedIn && (currentUrl.includes('login') || currentUrl.includes('sso'))) {
-    // Capturar screenshot para debug
-    try {
-      await page.screenshot({ path: 'debug-login-failed.png', fullPage: true });
-      console.error('📸 Screenshot salvo em: debug-login-failed.png');
-    } catch (e) {}
-
-    // Verificar se há mensagem de erro no iframe SSO
-    const ssoFrames = page.frames().filter(f => f.url().includes('sso.cloud.pje.jus.br'));
-    if (ssoFrames.length > 0) {
-      const errorMessage = await ssoFrames[0].evaluate(() => {
-        const errorEl = document.querySelector('.alert-error, .kc-feedback-text, #input-error, .error');
-        return errorEl ? errorEl.textContent.trim() : null;
-      });
-
-      if (errorMessage) {
-        console.error(`🔴 Mensagem de erro na página: ${errorMessage}`);
-        throw new Error(`Login falhou: ${errorMessage}`);
-      }
-    }
-
-    throw new Error('Login falhou - ainda na página de login. Verifique as credenciais.');
-  }
-
-  console.error('✅ Login realizado com sucesso!\n');
+  console.error('🔄 Executando reload para completar autenticação...');
+  await page.reload({ waitUntil: 'networkidle2', timeout: 60000 });
+  await delay(3000);
+  console.error('✅ Reload concluído!');
 }
 
 /**
@@ -242,9 +161,8 @@ async function navegarParaAcervo(page) {
     if (painelRepLink) painelRepLink.click();
   });
 
-  // Aguarda navegação
-  await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 });
-  await delay(3000);
+  // Aguardar carregamento (sem waitForNavigation pois pode ser navegação AJAX)
+  await delay(5000);
 
   console.error('✅ Painel do Advogado carregado');
 
