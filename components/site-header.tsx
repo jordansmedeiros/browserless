@@ -4,7 +4,7 @@ import * as React from "react"
 
 import Link from "next/link"
 
-import { SearchForm } from "@/components/search-form"
+
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -43,7 +43,7 @@ export function SiteHeader() {
             ))}
           </BreadcrumbList>
         </Breadcrumb>
-        <SearchForm className="w-full sm:ml-auto sm:w-auto" />
+        
       </div>
     </header>
   )
