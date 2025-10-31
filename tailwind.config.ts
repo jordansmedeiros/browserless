@@ -22,6 +22,7 @@ const config: Config = {
   			border: 'var(--color-border)',
   			input: 'var(--color-input)',
   			ring: 'var(--color-ring)',
+      surface: 'var(--color-surface)',
   			background: 'var(--color-background)',
   			foreground: 'var(--color-foreground)',
   			primary: {

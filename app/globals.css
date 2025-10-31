@@ -52,6 +52,7 @@
     /* Mapeamentos de cores para Tailwind */
     --color-background: var(--background);
     --color-foreground: var(--foreground);
+    --color-surface: var(--surface);
     --color-card: var(--card);
     --color-card-foreground: var(--card-foreground);
     --color-popover: var(--popover);
@@ -148,6 +149,7 @@
     /* Mapeamentos de cores para Tailwind */
     --color-background: var(--background);
     --color-foreground: var(--foreground);
+    --color-surface: var(--surface);
     --color-card: var(--card);
     --color-card-foreground: var(--card-foreground);
     --color-popover: var(--popover);
