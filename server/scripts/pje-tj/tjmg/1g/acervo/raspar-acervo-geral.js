@@ -405,6 +405,9 @@ async function rasparAcervoGeralTJMG() {
 
   // Configurar perfil persistente para garantir cookies funcionem
   const userDataDir = `${DATA_DIR}/chrome-profile`;
+  
+  // Criar diretório se não existir
+  await fs.mkdir(userDataDir, { recursive: true });
 
   const browser = await puppeteer.launch({
     headless: true, // Modo produção - sem visualização do browser
@@ -413,8 +416,9 @@ async function rasparAcervoGeralTJMG() {
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-blink-features=AutomationControlled',
-      '--disable-web-security', // Permite cookies cross-origin se necessário
-      '--disable-features=IsolateOrigins,site-per-process', // Permite cookies compartilhados
+      // IMPORTANTE: Remover flags que podem interferir com cookies
+      // '--disable-web-security', // REMOVIDO - interfere com cookies
+      // '--disable-features=IsolateOrigins,site-per-process', // REMOVIDO
     ],
   });
 
