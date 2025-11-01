@@ -15,6 +15,7 @@ import { type LogEntry } from '@/lib/services/scrape-logger';
 import { useJobLogs } from '@/hooks';
 import { ScrapeJobStatus } from '@/lib/types/scraping';
 import { TerminalMonitorFallback } from './terminal-monitor-fallback';
+import { useBoolean } from '@/hooks/use-boolean';
 
 interface TerminalMonitorProps {
   /** Scrape job ID */
@@ -26,9 +27,9 @@ interface TerminalMonitorProps {
 }
 
 export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: TerminalMonitorProps) {
-  const [autoScroll, setAutoScroll] = useState(true);
-  const [hasReceivedLogs, setHasReceivedLogs] = useState(false);
-  const [showConnectionWarning, setShowConnectionWarning] = useState(false);
+  const autoScroll = useBoolean(true);
+  const hasReceivedLogs = useBoolean(false);
+  const showConnectionWarning = useBoolean(false);
 
   const terminalRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -39,7 +40,7 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
   // Hook usa endpoint consolidado para stats + SSE para logs em tempo real
   const { logs, connectionStatus, stats, scrollToBottom: hookScrollToBottom, downloadLogs: hookDownloadLogs, reconnect } = useJobLogs(jobId, {
     enabled: isRunning,
-    autoScroll,
+    autoScroll: autoScroll.value,
   });
 
   // Use initialLogs if logs are empty (for historical viewing)
@@ -52,31 +53,31 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
 
   // Determine if we should show fallback component
   // Show fallback when: SSE is disabled OR (connection error AND no logs received AND job is running)
-  const shouldShowFallback = sseDisabled || (connectionStatus === 'error' && !hasReceivedLogs && isJobRunning);
+  const shouldShowFallback = sseDisabled || (connectionStatus === 'error' && !hasReceivedLogs.value && isJobRunning);
 
   // Track if logs have been received
   useEffect(() => {
     if (logs.length > 0) {
-      setHasReceivedLogs(true);
-      setShowConnectionWarning(false);
+      hasReceivedLogs.setTrue();
+      showConnectionWarning.setFalse();
     }
-  }, [logs.length]);
+  }, [logs.length, hasReceivedLogs, showConnectionWarning]);
 
   // Show warning if job is running but no logs after 10 seconds
   useEffect(() => {
-    if (!isJobRunning || hasReceivedLogs) {
-      setShowConnectionWarning(false);
+    if (!isJobRunning || hasReceivedLogs.value) {
+      showConnectionWarning.setFalse();
       return;
     }
 
     const timer = setTimeout(() => {
-      if (!hasReceivedLogs && isJobRunning) {
-        setShowConnectionWarning(true);
+      if (!hasReceivedLogs.value && isJobRunning) {
+        showConnectionWarning.setTrue();
       }
     }, 10000); // 10 seconds
 
     return () => clearTimeout(timer);
-  }, [isJobRunning, hasReceivedLogs]);
+  }, [isJobRunning, hasReceivedLogs, showConnectionWarning]);
 
   // Detect manual scroll to disable auto-scroll
   const handleScroll = () => {
@@ -85,8 +86,8 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 10; // 10px threshold
 
-    if (autoScroll && !isAtBottom) {
-      setAutoScroll(false);
+    if (autoScroll.value && !isAtBottom) {
+      autoScroll.setFalse();
     }
   };
 
@@ -94,7 +95,7 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
   const scrollToBottom = () => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
-      setAutoScroll(true);
+      autoScroll.setTrue();
     }
     hookScrollToBottom();
   };
@@ -219,7 +220,7 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
       )}
 
       {/* Connection Warning - No logs after 10 seconds */}
-      {showConnectionWarning && (
+      {showConnectionWarning.value && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -275,7 +276,7 @@ export function TerminalMonitor({ jobId, isRunning = false, initialLogs = [] }: 
         </Terminal>
 
         {/* Scroll to bottom button */}
-        {!autoScroll && (
+        {!autoScroll.value && (
           <Button
             size="sm"
             variant="secondary"

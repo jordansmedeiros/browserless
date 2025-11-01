@@ -2,12 +2,13 @@
 
 import { Search } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState, useCallback, useRef, useEffect } from "react"
+import { useState, useCallback, useRef } from "react"
 
 import { mainNavItems } from "@/config/navigation"
 import { Label } from "@/components/ui/label"
 import { SidebarInput } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
+import { useOnClickOutside } from "@/hooks/use-on-click-outside"
 
 export function SearchForm({ ...props }: React.ComponentProps<"form">) {
   const router = useRouter()
@@ -87,20 +88,9 @@ export function SearchForm({ ...props }: React.ComponentProps<"form">) {
   }, [searchQuery])
 
   // Handle click outside to close results
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        resultsRef.current &&
-        !resultsRef.current.contains(event.target as Node) &&
-        !inputRef.current?.contains(event.target as Node)
-      ) {
-        setShowResults(false)
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
+  useOnClickOutside([resultsRef, inputRef], () => {
+    setShowResults(false)
+  })
 
   // Handle form submit
   const handleSubmit = useCallback((event: React.FormEvent<HTMLFormElement>) => {
