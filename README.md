@@ -980,6 +980,6 @@ Para problemas da plataforma Browserless:
 
 <div align="center">
   <p><strong>Última atualização</strong>: Outubro 2025</p>
-  <p>Feito com ❤️ pela Sinesys/p>
+  <p>Feito com ❤️ pela Sinesys</p>
   <p>Baseado em <a href="https://github.com/browserless/browserless">Browserless</a> por <a href="https://browserless.io">browserless.io</a></p>
 </div>
