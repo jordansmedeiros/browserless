@@ -288,8 +288,10 @@ async function rasparTodosOsExpedientes(page) {
 
     // 5. Clicar na Região (Nível 2) para expandir
     console.error('   🔽 Expandindo região...');
-    await regionLink.click();
-    await delay(2000); // Aguardar expansão da região
+    await Promise.all([
+        regionLink.click(),
+        page.waitForResponse(res => res.url().includes('advogado.seam'), { timeout: 30000 })
+    ]);
 
     // 6. Definir e esperar o seletor da "Caixa de Entrada" (Nível 3)
     // Seletor CORRETO para "Caixa de Entrada" de Expedientes
