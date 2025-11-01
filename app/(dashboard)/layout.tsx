@@ -7,7 +7,6 @@ import {
 
 export const iframeHeight = "800px"
 
-
 export default function DashboardLayout({
   children,
 }: {
@@ -27,5 +26,5 @@ export default function DashboardLayout({
         </div>
       </SidebarProvider>
     </div>
-  );
+  )
 }
