@@ -43,8 +43,10 @@ export function ResultsJSONView({ job, allProcesses }: ResultsJSONViewProps) {
   const highlightedJSON = useMemo(() => {
     if (!searchTerm.trim()) return formattedJSON;
 
-    const regex = new RegExp(`(${searchTerm})`, 'gi');
-    return formattedJSON.replace(regex, '<mark class="bg-yellow-300 dark:bg-yellow-700">$1</mark>');
+    // Escape special regex characters in search term
+    const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedTerm})`, 'gi');
+    return formattedJSON.replace(regex, '<mark class="bg-highlight text-highlight-foreground">$1</mark>');
   }, [formattedJSON, searchTerm]);
 
   // Handle copy
@@ -85,7 +87,7 @@ export function ResultsJSONView({ job, allProcesses }: ResultsJSONViewProps) {
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 flex items-center gap-2">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-foreground/70" />
             <Input
               placeholder="Buscar no JSON..."
               value={searchTerm}
@@ -128,16 +130,16 @@ export function ResultsJSONView({ job, allProcesses }: ResultsJSONViewProps) {
       </div>
 
       {/* JSON Display */}
-      <Card>
-        <div className="p-4 max-h-[600px] overflow-auto">
-          <pre className="text-sm font-mono">
+      <Card className="bg-card border-border">
+        <div className="max-h-[600px] overflow-auto">
+          <pre className="text-sm font-mono text-foreground bg-muted p-4 rounded-md">
             <code dangerouslySetInnerHTML={{ __html: highlightedJSON }} />
           </pre>
         </div>
       </Card>
 
       {/* Stats */}
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <div className="flex items-center justify-between text-sm text-muted-foreground font-medium">
         <div>
           Tamanho: {(new Blob([formattedJSON]).size / 1024).toFixed(2)} KB
         </div>

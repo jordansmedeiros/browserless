@@ -192,6 +192,77 @@ export const SCRAPE_STATUS_LABELS: Record<ScrapeJobStatus, string> = {
 };
 
 /**
+ * Família de tribunal
+ */
+export enum TribunalFamily {
+  TRT = 'TRT',
+  TJ = 'TJ',
+  TRF = 'TRF',
+  SUPERIOR = 'SUPERIOR',
+}
+
+/**
+ * Mapeamento de tipos de raspagem por família de tribunal
+ * Usado para exibir nomenclatura específica de cada tribunal
+ */
+export const SCRAPE_TYPE_LABELS_BY_FAMILY: Record<TribunalFamily, Record<ScrapeType, string>> = {
+  [TribunalFamily.TRT]: {
+    [ScrapeType.ACERVO_GERAL]: 'Acervo Geral',
+    [ScrapeType.PENDENTES]: 'Pendentes de Manifestação',
+    [ScrapeType.ARQUIVADOS]: 'Arquivados',
+    [ScrapeType.MINHA_PAUTA]: 'Minha Pauta',
+  },
+  [TribunalFamily.TJ]: {
+    [ScrapeType.ACERVO_GERAL]: 'Acervo',
+    [ScrapeType.PENDENTES]: 'Expedientes',
+    [ScrapeType.ARQUIVADOS]: 'Arquivados',
+    [ScrapeType.MINHA_PAUTA]: 'Pauta de Audiência',
+  },
+  [TribunalFamily.TRF]: {
+    [ScrapeType.ACERVO_GERAL]: 'Acervo Geral',
+    [ScrapeType.PENDENTES]: 'Pendentes',
+    [ScrapeType.ARQUIVADOS]: 'Arquivados',
+    [ScrapeType.MINHA_PAUTA]: 'Pauta',
+  },
+  [TribunalFamily.SUPERIOR]: {
+    [ScrapeType.ACERVO_GERAL]: 'Acervo',
+    [ScrapeType.PENDENTES]: 'Pendentes',
+    [ScrapeType.ARQUIVADOS]: 'Arquivados',
+    [ScrapeType.MINHA_PAUTA]: 'Pauta',
+  },
+};
+
+/**
+ * Descrições detalhadas por tipo e família
+ */
+export const SCRAPE_TYPE_DESCRIPTIONS: Record<TribunalFamily, Record<ScrapeType, string>> = {
+  [TribunalFamily.TRT]: {
+    [ScrapeType.PENDENTES]: 'Processos com pendências de manifestação e prazos a cumprir',
+    [ScrapeType.ACERVO_GERAL]: 'Todos os processos ativos do advogado',
+    [ScrapeType.ARQUIVADOS]: 'Processos arquivados e finalizados',
+    [ScrapeType.MINHA_PAUTA]: 'Audiências e sessões agendadas',
+  },
+  [TribunalFamily.TJ]: {
+    [ScrapeType.PENDENTES]: 'Expedientes pendentes de análise',
+    [ScrapeType.ACERVO_GERAL]: 'Acervo completo de processos',
+    [ScrapeType.ARQUIVADOS]: 'Processos arquivados',
+    [ScrapeType.MINHA_PAUTA]: 'Pautas de audiência agendadas',
+  },
+  [TribunalFamily.TRF]: {
+    [ScrapeType.PENDENTES]: 'Processos pendentes',
+    [ScrapeType.ACERVO_GERAL]: 'Acervo geral',
+    [ScrapeType.ARQUIVADOS]: 'Processos arquivados',
+    [ScrapeType.MINHA_PAUTA]: 'Pautas agendadas',
+  },
+  [TribunalFamily.SUPERIOR]: {
+    [ScrapeType.PENDENTES]: 'Processos pendentes',
+    [ScrapeType.ACERVO_GERAL]: 'Acervo geral',
+    [ScrapeType.ARQUIVADOS]: 'Processos arquivados',
+    [ScrapeType.MINHA_PAUTA]: 'Pautas agendadas',
+  },
+};
+
+/**
  * ScheduledScrape com relações incluídas
  */
 export interface ScheduledScrapeWithRelations extends ScheduledScrape {
@@ -270,4 +341,73 @@ export interface PaginatedScheduledScrapes {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+/**
+ * Processo unificado - normalizado agregando campos de todas as tabelas
+ */
+export interface ProcessoUnificado {
+  id: string; // UUID do registro
+  idPje: number | null; // ID único no sistema PJE (null para TJMG que não tem idPje)
+  numeroProcesso: string; // número CNJ
+  tribunalConfigId: string; // UUID do TribunalConfig
+  tribunalCodigo: string; // ex: "TRT3", "TJMG"
+  tribunalNome: string;
+  grau: string; // "1g", "2g", "unico"
+  sistema: string; // "PJE", "EPROC", etc
+  tipoRaspagem: ScrapeType;
+  subtipoRaspagem: string | null;
+  classeJudicial: string | null;
+  orgaoJulgador: string | null; // descricaoOrgaoJulgador ou siglaOrgaoJulgador
+  nomeParteAutora: string | null;
+  nomeParteRe: string | null; // ou partes para TJMG
+  dataAutuacao: Date | null;
+  dataUltimaAtualizacao: Date; // createdAt ou updatedAt
+  scrapeJobId: string;
+  scrapeExecutionId: string;
+  origem: 'PendentesManifestacao' | 'Processos' | 'ProcessosArquivados' | 'MinhaPauta' | 'ProcessosTJMG';
+  metadados: Record<string, any> | null; // campos específicos de cada tipo
+}
+
+/**
+ * Filtros para listagem de processos
+ */
+export interface ListProcessosFilters {
+  tribunalConfigIds?: string[]; // filtrar por tribunais específicos
+  scrapeTypes?: ScrapeType[]; // filtrar por tipos de raspagem
+  startDate?: Date; // data inicial de criação
+  endDate?: Date; // data final de criação
+  searchTerm?: string; // busca textual em numeroProcesso, partes, órgão
+  sortBy?: 'dataAutuacao' | 'dataUltimaAtualizacao' | 'numeroProcesso'; // campo para ordenação
+  sortDirection?: 'asc' | 'desc';
+  page?: number; // página atual, default 1
+  pageSize?: number; // itens por página, default 50
+  tribunalFamily?: TribunalFamily; // filtrar por família de tribunal
+}
+
+/**
+ * Interface para configuração de colunas por tipo de processo
+ */
+export interface ColumnConfig {
+  key: string;
+  label: string;
+  sortable: boolean;
+  width?: string;
+  formatter?: (value: any, processo: ProcessoUnificado) => string;
+}
+
+/**
+ * Resultado paginado de processos únicos
+ */
+export interface PaginatedProcessos {
+  processos: ProcessoUnificado[];
+  total: number; // total de processos únicos
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  stats: {
+    porTribunal: Record<string, number>; // contagem por tribunal
+    porTipo: Record<ScrapeType, number>; // contagem por tipo
+    ultimaAtualizacao: Date | null; // data da última raspagem
+  };
 }

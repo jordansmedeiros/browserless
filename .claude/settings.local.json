@@ -62,7 +62,20 @@
       "Bash(wc:*)",
       "Bash(ping:*)",
       "Bash(powershell -Command \"Test-NetConnection apps-postgres.platform.sinesys.app -Port 15432 | Select-Object ComputerName, RemoteAddress, RemotePort, TcpTestSucceeded\")",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(npx puppeteer:*)",
+      "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678aA@\" PJE_LOGIN_URL=\"https://pje.tjmg.jus.br/pje/login.seam\" PJE_BASE_URL=\"https://pje.tjmg.jus.br\" PJE_OUTPUT_FILE=\"\" timeout 30 node:*)",
+      "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678aA@\" PJE_LOGIN_URL=\"https://pje.tjmg.jus.br/pje/login.seam\" PJE_BASE_URL=\"https://pje.tjmg.jus.br\" PJE_OUTPUT_FILE=\"\" timeout 60 node:*)",
+      "Bash(echo:*)",
+      "Bash(timeout 10 bash:*)",
+      "Bash(timeout 60 bash -c \"node server/scripts/pje-tj/tjes/common/test-captcha-solver.js\":*)",
+      "Bash(ffmpeg:*)",
+      "Bash(timeout 120 bash:*)",
+      "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678aA@\" PJE_OUTPUT_FILE=\"\" timeout 180 bash -c \"node server/scripts/pje-tj/tjes/1g/acervo/raspar-acervo-tjes.js\")",
+      "Bash(git log:*)",
+      "WebSearch",
+      "Bash(test:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []

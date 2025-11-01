@@ -25,20 +25,11 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
 puppeteer.use(StealthPlugin());
 
-const args = process.argv.slice(2);
-let CPF = args[0] || process.env.PJE_CPF;
-let SENHA = args[1] || process.env.PJE_SENHA;
-
-if (!CPF || !SENHA) {
-  console.error('\n' + '='.repeat(70));
-  console.error('❌ ERRO: Credenciais PJE não fornecidas');
-  console.error('='.repeat(70));
-  console.error('\n💡 Como usar este script:');
-  console.error('  node server/scripts/pje-tj/tjmg/common/login.js <CPF> <SENHA>');
-  console.error('  Exemplo: node server/scripts/pje-tj/tjmg/common/login.js 12345678900 minhasenha\n');
-  console.error('='.repeat(70) + '\n');
-  process.exit(1);
-}
+// ============================================================================
+// CREDENCIAIS - CONFIGURE AQUI (HARDCODED)
+// ============================================================================
+const CPF = '07529294610'; // SUBSTITUA PELO SEU CPF
+const SENHA = '12345678aA@'; // SUBSTITUA PELA SUA SENHA
 
 const PJE_LOGIN_URL = 'https://pje.tjmg.jus.br/pje/login.seam';
 

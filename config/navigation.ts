@@ -5,6 +5,7 @@ import {
   FileText,
   HelpCircle,
   Github,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react"
 
@@ -34,6 +35,12 @@ export const mainNavItems: NavItem[] = [
     url: "/pje/scrapes",
     icon: List,
     description: "Visualizar e gerenciar raspagens",
+  },
+  {
+    title: "Agendamentos",
+    url: "/pje/agendamentos",
+    icon: CalendarClock,
+    description: "Gerenciar agendamentos de raspagens",
   },
   {
     title: "Processos",

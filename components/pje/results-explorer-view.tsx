@@ -140,7 +140,7 @@ export function ResultsExplorerView({ job, allProcesses }: ResultsExplorerViewPr
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 flex items-center gap-2">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-foreground/70" />
             <Input
               placeholder="Buscar processos..."
               value={searchTerm}
@@ -175,7 +175,7 @@ export function ResultsExplorerView({ job, allProcesses }: ResultsExplorerViewPr
 
       {/* Explorer Tree */}
       <Card className="p-4">
-        <div className="space-y-2">
+        <div className="space-y-2" role="tree">
           {filteredTree.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               Nenhum resultado encontrado.
@@ -185,11 +185,15 @@ export function ResultsExplorerView({ job, allProcesses }: ResultsExplorerViewPr
               const isExpanded = expandedNodes.has(node.executionId);
 
               return (
-                <div key={node.executionId} className="border rounded-lg">
+                <div key={node.executionId} className="border rounded-lg" role="group">
                   {/* Tribunal Header */}
                   <button
+                    type="button"
                     onClick={() => toggleNode(node.executionId)}
-                    className="w-full flex items-center gap-2 p-3 hover:bg-accent transition-colors"
+                    className="w-full flex items-center gap-2 p-3 hover:bg-muted-emphasis transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+                    role="treeitem"
+                    aria-level={1}
+                    aria-expanded={isExpanded}
                   >
                     {isExpanded ? (
                       <ChevronDown className="h-4 w-4 shrink-0" />
@@ -199,7 +203,7 @@ export function ResultsExplorerView({ job, allProcesses }: ResultsExplorerViewPr
                     {isExpanded ? (
                       <FolderOpen className="h-4 w-4 shrink-0 text-primary" />
                     ) : (
-                      <Folder className="h-4 w-4 shrink-0 text-primary" />
+                      <Folder className="h-4 w-4 shrink-0 text-primary/70" />
                     )}
                     <span className="font-medium flex-1 text-left">{node.tribunal}</span>
                     <Badge variant="secondary">{node.processes.length} processos</Badge>
@@ -207,7 +211,7 @@ export function ResultsExplorerView({ job, allProcesses }: ResultsExplorerViewPr
 
                   {/* Processes List */}
                   {isExpanded && (
-                    <div className="border-t bg-muted/30">
+                    <div className="border-t bg-muted-emphasis/50 border-l-2 border-primary/20 ml-6" role="group">
                       {node.processes.map((process, idx) => {
                         const processId = `${node.executionId}-${idx}`;
                         const isProcessExpanded = expandedNodes.has(processId);
@@ -216,15 +220,19 @@ export function ResultsExplorerView({ job, allProcesses }: ResultsExplorerViewPr
                           <div key={processId} className="border-b last:border-b-0">
                             {/* Process Header */}
                             <button
+                              type="button"
                               onClick={() => toggleProcess(processId)}
-                              className="w-full flex items-center gap-2 p-3 pl-12 hover:bg-accent transition-colors text-sm"
+                              className="w-full flex items-center gap-2 p-3 pl-12 hover:bg-muted-emphasis transition-colors text-sm focus-visible:ring-2 focus-visible:ring-ring"
+                              role="treeitem"
+                              aria-level={2}
+                              aria-expanded={isProcessExpanded}
                             >
                               {isProcessExpanded ? (
                                 <ChevronDown className="h-3 w-3 shrink-0" />
                               ) : (
                                 <ChevronRight className="h-3 w-3 shrink-0" />
                               )}
-                              <FileText className="h-3 w-3 shrink-0 text-blue-500" />
+                              <FileText className="h-3 w-3 shrink-0 text-info" />
                               <span className="flex-1 text-left font-mono">
                                 {process.numeroProcesso}
                               </span>
@@ -232,8 +240,8 @@ export function ResultsExplorerView({ job, allProcesses }: ResultsExplorerViewPr
 
                             {/* Process Details */}
                             {isProcessExpanded && (
-                              <div className="p-4 pl-16 bg-background">
-                                <pre className="text-xs font-mono overflow-x-auto p-3 bg-muted rounded">
+                              <div className="p-4 pl-16 bg-card border border-border">
+                                <pre className="text-xs font-mono text-foreground overflow-x-auto p-3 bg-muted rounded border border-border">
                                   {JSON.stringify(process.data, null, 2)}
                                 </pre>
                               </div>

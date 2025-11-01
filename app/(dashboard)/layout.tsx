@@ -5,19 +5,24 @@ import {
   SidebarInset,
 } from '@/components/ui/sidebar';
 
+export const iframeHeight = "800px"
+
+
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="h-full">
+    <div className="[--header-height:calc(--spacing(14))]">
       <SidebarProvider className="flex flex-col">
         <SiteHeader />
         <div className="flex flex-1">
           <AppSidebar />
-          <SidebarInset className="flex-1 overflow-y-auto p-6">
-            {children}
+          <SidebarInset>
+            <div className="flex flex-1 flex-col gap-4 p-4">
+              {children}
+            </div>
           </SidebarInset>
         </div>
       </SidebarProvider>

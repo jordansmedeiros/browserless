@@ -11,7 +11,9 @@ import {
   ScrapeJobStatus,
   ScrapeType,
   ScrapeSubType,
+  TribunalFamily,
 } from '@/lib/types';
+import { getTribunalFamily } from '@/lib/utils/tribunal-helpers';
 // Types puros podem ser importados como type-only
 import type {
   LoginResult,
@@ -37,6 +39,9 @@ import type {
   UpdateScheduledScrapeInput,
   ScheduledScrapeWithRelations,
   PaginatedScheduledScrapes,
+  ListProcessosFilters,
+  PaginatedProcessos,
+  ProcessoUnificado,
 } from '@/lib/types';
 import { z } from 'zod';
 import { decompressJSON } from '@/lib/utils/compression';
@@ -45,6 +50,7 @@ import { sanitizeError, maskCPF } from '@/lib/utils/sanitization';
 import { validateCronExpression, getNextRunTime } from '@/lib/utils/cron-helpers.server';
 import { addSchedule, updateSchedule, removeSchedule, pauseSchedule, resumeSchedule } from '@/lib/services/scheduled-scrape-service';
 import { SCHEDULED_SCRAPES_CONFIG, isSupportedTimezone } from '@/config/scraping';
+import { loadProcessosFromExecution, loadAllProcessosFromJob, normalizeProcessoToUnificado } from '@/lib/services/scrape-data-loader';
 
 // Lazy load Prisma to avoid edge runtime issues
 async function getPrisma() {
@@ -823,8 +829,10 @@ export async function listTribunalConfigsAction() {
     });
 
     // Transforma para formato compatível com TribunalConfigConstant
+    // Inclui UUID real para uso em filtros que requerem UUID
     const configsFormatted = configs.map((config) => ({
       id: `${config.tribunal.codigo}-${config.sistema}-${config.grau}`,
+      uuid: config.id, // UUID real do banco para uso em filtros
       codigo: config.tribunal.codigo,
       sistema: config.sistema,
       grau: config.grau,
@@ -1342,10 +1350,15 @@ export async function createScrapeJobAction(input: CreateScrapeJobInput) {
       },
     };
   } catch (error) {
-    console.error('[createScrapeJobAction] Erro:', error);
+    console.error('[createScrapeJobAction] ERRO DETALHADO:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined,
+      fullError: error,
+    });
     return {
       success: false,
-      error: 'Erro ao criar job de raspagem',
+      error: `Erro ao criar job de raspagem: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 }
@@ -1576,8 +1589,6 @@ export async function getScrapeExecutionProcessesAction(
   scrapeType: string
 ) {
   try {
-    const { loadProcessosFromExecution } = await import('@/lib/services/scrape-data-loader');
-    const { ScrapeType } = await import('@/lib/types/scraping');
     const prisma = await getPrisma();
 
     // Validate scrape type
@@ -1604,6 +1615,7 @@ export async function getScrapeExecutionProcessesAction(
 
     // Load processes using hybrid strategy
     const processos = await loadProcessosFromExecution(
+      prisma,
       executionId,
       scrapeType as ScrapeType,
       execution.resultData
@@ -1628,7 +1640,6 @@ export async function getScrapeExecutionProcessesAction(
  */
 export async function getScrapeJobProcessesAction(jobId: string) {
   try {
-    const { loadAllProcessosFromJob } = await import('@/lib/services/scrape-data-loader');
     const prisma = await getPrisma();
 
     // Get job with executions
@@ -1654,6 +1665,7 @@ export async function getScrapeJobProcessesAction(jobId: string) {
 
     // Load all processes using hybrid strategy
     const processos = await loadAllProcessosFromJob(
+      prisma,
       job.executions,
       job.scrapeType as any
     );
@@ -1667,6 +1679,584 @@ export async function getScrapeJobProcessesAction(jobId: string) {
     return {
       success: false,
       error: 'Erro ao carregar processos',
+    };
+  }
+}
+
+/**
+ * Schema de validação para listagem de processos
+ */
+const listProcessosSchema = z.object({
+  tribunalConfigIds: z.array(z.string().uuid()).optional(),
+  scrapeTypes: z.array(z.enum(['acervo_geral', 'pendentes', 'arquivados', 'minha_pauta'])).optional(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  searchTerm: z.string().min(2, 'Busca deve ter ao menos 2 caracteres').optional(),
+  sortBy: z.enum(['dataAutuacao', 'dataUltimaAtualizacao', 'numeroProcesso']).optional(),
+  sortDirection: z.enum(['asc', 'desc']).optional(),
+  page: z.number().int().positive().default(1),
+  pageSize: z.number().int().min(10).max(200).default(50),
+  tribunalFamily: z.enum(['TRT', 'TJ', 'TRF', 'SUPERIOR']).optional(),
+});
+
+/**
+ * Helper para normalizar número CNJ removendo caracteres não numéricos para comparação
+ */
+function normalizeCNJ(num: string): string {
+  return num.replace(/\D/g, '');
+}
+
+/**
+ * Server Action: List Processos
+ * Agrega processos únicos de 5 tabelas diferentes, identificados por idPje + tribunalConfigId
+ */
+export async function listProcessosAction(filters?: ListProcessosFilters): Promise<{
+  success: boolean;
+  data?: PaginatedProcessos;
+  error?: string;
+}> {
+  const startTime = Date.now();
+  
+  try {
+    const prisma = await getPrisma();
+
+    // Validação de entrada
+    const validation = listProcessosSchema.safeParse(filters || {});
+    if (!validation.success) {
+      console.error('[listProcessosAction] Validação falhou:', validation.error.issues);
+      return {
+        success: false,
+        error: validation.error.issues[0]?.message || 'Dados inválidos',
+        data: {
+          processos: [],
+          total: 0,
+          page: 1,
+          pageSize: 50,
+          totalPages: 0,
+          stats: {
+            porTribunal: {},
+            porTipo: {} as Record<ScrapeType, number>,
+            ultimaAtualizacao: null,
+          },
+        },
+      };
+    }
+
+    const validatedFilters = validation.data;
+    console.log('[listProcessosAction] Iniciando listagem com filtros:', validatedFilters);
+
+    // Construir filtros base comuns a todas as tabelas
+    const whereBase: any = {};
+    const scrapeExecutionFilters: any = {};
+
+    // Filtro por data de criação da execução
+    if (validatedFilters.startDate || validatedFilters.endDate) {
+      scrapeExecutionFilters.createdAt = {};
+      if (validatedFilters.startDate) {
+        scrapeExecutionFilters.createdAt.gte = validatedFilters.startDate;
+      }
+      if (validatedFilters.endDate) {
+        scrapeExecutionFilters.createdAt.lte = validatedFilters.endDate;
+      }
+    }
+
+    // Filtro por tribunal
+    if (validatedFilters.tribunalConfigIds && validatedFilters.tribunalConfigIds.length > 0) {
+      scrapeExecutionFilters.tribunalConfigId = {
+        in: validatedFilters.tribunalConfigIds,
+      };
+    }
+
+    // Filtro por tipo de raspagem - aninhar scrapeJob dentro de is
+    if (validatedFilters.scrapeTypes && validatedFilters.scrapeTypes.length > 0) {
+      scrapeExecutionFilters.scrapeJob = {
+        is: {
+          scrapeType: {
+            in: validatedFilters.scrapeTypes,
+          },
+        },
+      };
+    }
+
+    // Filtro por família de tribunal
+    if (validatedFilters.tribunalFamily) {
+      console.log(`[listProcessosAction] Aplicando filtro por família: ${validatedFilters.tribunalFamily}`);
+      
+      let configIds: string[] = [];
+      
+      // Buscar todos os tribunalConfigs da família
+      if (validatedFilters.tribunalFamily === 'SUPERIOR') {
+        // Para SUPERIOR, usar lista específica de códigos
+        const superiorCodes = ['TST', 'STJ', 'STF'];
+        const tribunaisQuery = await prisma.tribunal.findMany({
+          where: {
+            codigo: { in: superiorCodes }
+          },
+          select: { id: true }
+        });
+        
+        const tribunalIds = tribunaisQuery.map(t => t.id);
+        
+        // Buscar configs desses tribunais
+        const configs = await prisma.tribunalConfig.findMany({
+          where: { tribunalId: { in: tribunalIds } },
+          select: { id: true }
+        });
+        
+        configIds = configs.map(c => c.id);
+      } else {
+        // Para TRT, TJ, TRF, usar startsWith
+        const prefix = validatedFilters.tribunalFamily;
+        const tribunaisQuery = await prisma.tribunal.findMany({
+          where: {
+            codigo: {
+              startsWith: prefix
+            }
+          },
+          select: { id: true }
+        });
+        
+        const tribunalIds = tribunaisQuery.map(t => t.id);
+        
+        // Buscar configs desses tribunais
+        const configs = await prisma.tribunalConfig.findMany({
+          where: { tribunalId: { in: tribunalIds } },
+          select: { id: true }
+        });
+        
+        configIds = configs.map(c => c.id);
+      }
+      
+      // Aplicar filtro
+      if (scrapeExecutionFilters.tribunalConfigId) {
+        // Intersecção com filtro existente
+        const existing = Array.isArray(scrapeExecutionFilters.tribunalConfigId.in) 
+          ? scrapeExecutionFilters.tribunalConfigId.in 
+          : [scrapeExecutionFilters.tribunalConfigId.in];
+        const finalIds = existing.filter(id => configIds.includes(id));
+        
+        // Comentário 6: Se array final estiver vazio, retornar imediatamente
+        if (finalIds.length === 0) {
+          console.log('[listProcessosAction] Nenhum tribunal encontrado após interseção, retornando lista vazia');
+          return {
+            success: true,
+            data: {
+              processos: [],
+              total: 0,
+              page: validatedFilters.page,
+              pageSize: validatedFilters.pageSize,
+              totalPages: 0,
+              stats: {
+                porTribunal: {},
+                porTipo: {} as Record<ScrapeType, number>,
+                ultimaAtualizacao: null,
+              },
+            },
+          };
+        }
+        
+        scrapeExecutionFilters.tribunalConfigId = {
+          in: finalIds
+        };
+      } else {
+        // Comentário 6: Se configIds estiver vazio, retornar imediatamente
+        if (configIds.length === 0) {
+          console.log('[listProcessosAction] Nenhum tribunal encontrado para a família, retornando lista vazia');
+          return {
+            success: true,
+            data: {
+              processos: [],
+              total: 0,
+              page: validatedFilters.page,
+              pageSize: validatedFilters.pageSize,
+              totalPages: 0,
+              stats: {
+                porTribunal: {},
+                porTipo: {} as Record<ScrapeType, number>,
+                ultimaAtualizacao: null,
+              },
+            },
+          };
+        }
+        
+        scrapeExecutionFilters.tribunalConfigId = { in: configIds };
+      }
+    }
+
+    // Só adicionar scrapeExecution ao whereBase se houver filtros
+    if (Object.keys(scrapeExecutionFilters).length > 0) {
+      whereBase.scrapeExecution = { is: scrapeExecutionFilters };
+    }
+
+    // Selecionar apenas campos necessários para reduzir payload
+    const selectRelations = {
+      scrapeExecution: {
+        select: {
+          id: true,
+          createdAt: true,
+          scrapeJobId: true,
+          tribunalConfig: {
+            select: {
+              id: true,
+              grau: true,
+              sistema: true,
+              tribunal: {
+                select: {
+                  codigo: true,
+                  nome: true,
+                },
+              },
+            },
+          },
+          scrapeJob: {
+            select: {
+              scrapeType: true,
+              scrapeSubType: true,
+            },
+          },
+        },
+      },
+    };
+
+    // Query agregada por tabela - executar em paralelo
+    console.log('[listProcessosAction] Executando queries em paralelo...');
+    const queryStartTime = Date.now();
+
+    const [
+      pendentesManifestacao,
+      processos,
+      processosArquivados,
+      minhaPauta,
+      processosTJMG,
+    ] = await Promise.all([
+      // PendentesManifestacao
+      prisma.pendentesManifestacao.findMany({
+        where: {
+          ...whereBase,
+          ...(validatedFilters.searchTerm
+            ? {
+                OR: [
+                  { numeroProcesso: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { nomeParteAutora: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { nomeParteRe: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { descricaoOrgaoJulgador: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { siglaOrgaoJulgador: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          idPje: true,
+          numeroProcesso: true,
+          dataAutuacao: true,
+          nomeParteAutora: true,
+          nomeParteRe: true,
+          classeJudicial: true,
+          descricaoOrgaoJulgador: true,
+          siglaOrgaoJulgador: true,
+          dataCienciaParte: true,
+          dataPrazoLegalParte: true,
+          prazoVencido: true,
+          idDocumento: true,
+          updatedAt: true,
+          createdAt: true,
+          ...selectRelations,
+        },
+        take: 10000, // Limitar resultados aos 10000 mais recentes por tabela (ordenado por updatedAt desc)
+        orderBy: { updatedAt: 'desc' },
+      }),
+
+      // Processos
+      prisma.processos.findMany({
+        where: {
+          ...whereBase,
+          ...(validatedFilters.searchTerm
+            ? {
+                OR: [
+                  { numeroProcesso: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { nomeParteAutora: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { nomeParteRe: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { descricaoOrgaoJulgador: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { siglaOrgaoJulgador: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          idPje: true,
+          numeroProcesso: true,
+          dataAutuacao: true,
+          nomeParteAutora: true,
+          nomeParteRe: true,
+          classeJudicial: true,
+          descricaoOrgaoJulgador: true,
+          siglaOrgaoJulgador: true,
+          metadados: true,
+          updatedAt: true,
+          createdAt: true,
+          ...selectRelations,
+        },
+        take: 10000,
+        orderBy: { updatedAt: 'desc' },
+      }),
+
+      // ProcessosArquivados
+      prisma.processosArquivados.findMany({
+        where: {
+          ...whereBase,
+          ...(validatedFilters.searchTerm
+            ? {
+                OR: [
+                  { numeroProcesso: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { nomeParteAutora: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { nomeParteRe: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { descricaoOrgaoJulgador: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { siglaOrgaoJulgador: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          idPje: true,
+          numeroProcesso: true,
+          dataAutuacao: true,
+          nomeParteAutora: true,
+          nomeParteRe: true,
+          classeJudicial: true,
+          descricaoOrgaoJulgador: true,
+          siglaOrgaoJulgador: true,
+          metadados: true,
+          updatedAt: true,
+          createdAt: true,
+          ...selectRelations,
+        },
+        take: 10000,
+        orderBy: { updatedAt: 'desc' },
+      }),
+
+      // MinhaPauta
+      prisma.minhaPauta.findMany({
+        where: {
+          ...whereBase,
+          ...(validatedFilters.searchTerm
+            ? {
+                OR: [
+                  { nrProcesso: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { tipoDescricao: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { urlAudienciaVirtual: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          idPje: true,
+          nrProcesso: true,
+          dataInicio: true,
+          dataFim: true,
+          urlAudienciaVirtual: true,
+          tipoDescricao: true,
+          tipoCodigo: true,
+          processoMetadados: true,
+          poloAtivo: true,
+          poloPassivo: true,
+          metadados: true,
+          updatedAt: true,
+          createdAt: true,
+          ...selectRelations,
+        },
+        take: 10000,
+        orderBy: { updatedAt: 'desc' },
+      }),
+
+      // ProcessosTJMG
+      prisma.processosTJMG.findMany({
+        where: {
+          ...whereBase,
+          ...(validatedFilters.searchTerm
+            ? {
+                OR: [
+                  { numero: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { partes: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                  { vara: { contains: validatedFilters.searchTerm, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          numero: true,
+          regiao: true,
+          tipo: true,
+          partes: true,
+          vara: true,
+          dataDistribuicao: true,
+          ultimoMovimento: true,
+          updatedAt: true,
+          createdAt: true,
+          ...selectRelations,
+        },
+        take: 10000,
+        orderBy: { updatedAt: 'desc' },
+      }),
+    ]);
+
+    const queryTime = Date.now() - queryStartTime;
+    console.log(`[listProcessosAction] Queries concluídas em ${queryTime}ms`);
+    console.log(`[listProcessosAction] Resultados: Pendentes=${pendentesManifestacao.length}, Processos=${processos.length}, Arquivados=${processosArquivados.length}, MinhaPauta=${minhaPauta.length}, TJMG=${processosTJMG.length}`);
+
+    // Normalização e deduplicação
+    console.log('[listProcessosAction] Normalizando e deduplicando processos...');
+    const normalizeStartTime = Date.now();
+    
+    const processosUnificadosMap = new Map<string, ProcessoUnificado>();
+
+    // Normalizar cada resultado
+    for (const p of pendentesManifestacao) {
+      const normalizado = normalizeProcessoToUnificado(p, p.scrapeExecution as any, 'PendentesManifestacao');
+      const chave = `${normalizado.tribunalConfigId}-${normalizado.idPje}`;
+      
+      // Se mesmo processo aparecer em múltiplas execuções, manter o mais recente
+      const existente = processosUnificadosMap.get(chave);
+      if (!existente || normalizado.dataUltimaAtualizacao > existente.dataUltimaAtualizacao) {
+        processosUnificadosMap.set(chave, normalizado);
+      }
+    }
+
+    for (const p of processos) {
+      const normalizado = normalizeProcessoToUnificado(p, p.scrapeExecution as any, 'Processos');
+      const chave = `${normalizado.tribunalConfigId}-${normalizado.idPje}`;
+      
+      const existente = processosUnificadosMap.get(chave);
+      if (!existente || normalizado.dataUltimaAtualizacao > existente.dataUltimaAtualizacao) {
+        processosUnificadosMap.set(chave, normalizado);
+      }
+    }
+
+    for (const p of processosArquivados) {
+      const normalizado = normalizeProcessoToUnificado(p, p.scrapeExecution as any, 'ProcessosArquivados');
+      const chave = `${normalizado.tribunalConfigId}-${normalizado.idPje}`;
+      
+      const existente = processosUnificadosMap.get(chave);
+      if (!existente || normalizado.dataUltimaAtualizacao > existente.dataUltimaAtualizacao) {
+        processosUnificadosMap.set(chave, normalizado);
+      }
+    }
+
+    for (const p of minhaPauta) {
+      const normalizado = normalizeProcessoToUnificado(p, p.scrapeExecution as any, 'MinhaPauta');
+      const chave = `${normalizado.tribunalConfigId}-${normalizado.idPje}`;
+      
+      const existente = processosUnificadosMap.get(chave);
+      if (!existente || normalizado.dataUltimaAtualizacao > existente.dataUltimaAtualizacao) {
+        processosUnificadosMap.set(chave, normalizado);
+      }
+    }
+
+    for (const p of processosTJMG) {
+      const normalizado = normalizeProcessoToUnificado(p, p.scrapeExecution as any, 'ProcessosTJMG');
+      // Para TJMG, usar número do processo como chave já que idPje pode ser 0
+      const chave = `${normalizado.tribunalConfigId}-${normalizado.numeroProcesso}`;
+      
+      const existente = processosUnificadosMap.get(chave);
+      if (!existente || normalizado.dataUltimaAtualizacao > existente.dataUltimaAtualizacao) {
+        processosUnificadosMap.set(chave, normalizado);
+      }
+    }
+
+    const normalizeTime = Date.now() - normalizeStartTime;
+    console.log(`[listProcessosAction] Normalização concluída em ${normalizeTime}ms, processos únicos: ${processosUnificadosMap.size}`);
+
+    // Converter Map para Array
+    let processosUnificados = Array.from(processosUnificadosMap.values());
+
+    // Ordenação
+    const sortBy = validatedFilters.sortBy || 'dataUltimaAtualizacao';
+    const sortDirection = validatedFilters.sortDirection || 'desc';
+
+    console.log(`[listProcessosAction] Ordenando por ${sortBy} ${sortDirection}...`);
+    processosUnificados.sort((a, b) => {
+      let comparison = 0;
+
+      if (sortBy === 'dataAutuacao') {
+        const dateA = a.dataAutuacao?.getTime() || 0;
+        const dateB = b.dataAutuacao?.getTime() || 0;
+        comparison = dateA - dateB;
+      } else if (sortBy === 'dataUltimaAtualizacao') {
+        comparison = a.dataUltimaAtualizacao.getTime() - b.dataUltimaAtualizacao.getTime();
+      } else if (sortBy === 'numeroProcesso') {
+        // Normalizar antes de comparar para ordenação consistente
+        comparison = normalizeCNJ(a.numeroProcesso).localeCompare(normalizeCNJ(b.numeroProcesso));
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+    // Estatísticas (calcular antes da paginação)
+    const stats = {
+      porTribunal: {} as Record<string, number>,
+      porTipo: {} as Record<ScrapeType, number>,
+      ultimaAtualizacao: null as Date | null,
+    };
+
+    for (const processo of processosUnificados) {
+      // Por tribunal
+      stats.porTribunal[processo.tribunalCodigo] = (stats.porTribunal[processo.tribunalCodigo] || 0) + 1;
+      
+      // Por tipo
+      stats.porTipo[processo.tipoRaspagem] = (stats.porTipo[processo.tipoRaspagem] || 0) + 1;
+      
+      // Última atualização
+      if (!stats.ultimaAtualizacao || processo.dataUltimaAtualizacao > stats.ultimaAtualizacao) {
+        stats.ultimaAtualizacao = processo.dataUltimaAtualizacao;
+      }
+    }
+
+    // Paginação
+    const page = validatedFilters.page;
+    const pageSize = validatedFilters.pageSize;
+    const total = processosUnificados.length;
+    const skip = (page - 1) * pageSize;
+    
+    console.log(`[listProcessosAction] Aplicando paginação: página ${page}, tamanho ${pageSize}, skip ${skip}`);
+    processosUnificados = processosUnificados.slice(skip, skip + pageSize);
+
+    const totalTime = Date.now() - startTime;
+    console.log(`[listProcessosAction] Concluído em ${totalTime}ms (queries: ${queryTime}ms, normalização: ${normalizeTime}ms)`);
+
+    const result: PaginatedProcessos = {
+      processos: processosUnificados,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+      stats,
+    };
+
+    return {
+      success: true,
+      data: result,
+    };
+  } catch (error) {
+    console.error('[listProcessosAction] Erro:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao listar processos',
+      data: {
+        processos: [],
+        total: 0,
+        page: 1,
+        pageSize: 50,
+        totalPages: 0,
+        stats: {
+          porTribunal: {},
+          porTipo: {} as Record<ScrapeType, number>,
+          ultimaAtualizacao: null,
+        },
+      },
     };
   }
 }

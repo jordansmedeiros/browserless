@@ -28,6 +28,21 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -35,6 +50,9 @@ import {
   ArrowUpDown,
   Search,
   X,
+  Columns,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import type { ScrapeJobWithRelations } from '@/lib/types/scraping';
 
@@ -63,10 +81,93 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
+  // Initialize visible columns from localStorage or use priority columns
+  const getInitialVisibleColumns = (): Set<string> => {
+    // Detect tribunal type
+    if (allProcesses.length === 0) return new Set();
+    
+    const columnsSet = new Set<string>();
+    allProcesses.forEach((process) => {
+      Object.keys(process).forEach((key) => columnsSet.add(key));
+    });
+    const isTJMG = columnsSet.has('regiao');
+    const storageKey = `pje-table-columns-${isTJMG ? 'tjmg' : 'default'}`;
+    
+    // Try to load from localStorage
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return new Set(parsed);
+        }
+      }
+    } catch (error) {
+      // If parsing fails, use default
+    }
+    
+    // Default to priority columns
+    const priorityColumns = isTJMG
+      ? ['numero', 'regiao', 'tipo', 'partes', 'vara']
+      : ['numeroProcesso', 'polo', 'natureza', 'assunto'];
+    
+    const filteredPriorityColumns = priorityColumns.filter((col) => columnsSet.has(col));
+    
+    // Fallback: if no priority columns exist but there are columns available, show first 4
+    if (filteredPriorityColumns.length === 0 && columnsSet.size > 0) {
+      return new Set(Array.from(columnsSet).slice(0, 4));
+    }
+    
+    return new Set(filteredPriorityColumns);
+  };
+
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => getInitialVisibleColumns());
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstRenderRef = useRef(true);
+
   // Clear selection when filters or sorting changes
   useEffect(() => {
     setSelectedRows(new Set());
   }, [searchTerm, sortColumn, sortDirection]);
+
+  // Persist visible columns to localStorage with debounce
+  useEffect(() => {
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+      return;
+    }
+
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Detect tribunal type
+    if (allProcesses.length === 0) return;
+    
+    const columnsSet = new Set<string>();
+    allProcesses.forEach((process) => {
+      Object.keys(process).forEach((key) => columnsSet.add(key));
+    });
+    const isTJMG = columnsSet.has('regiao');
+    const storageKey = `pje-table-columns-${isTJMG ? 'tjmg' : 'default'}`;
+
+    // Debounce save to localStorage
+    debounceTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(Array.from(visibleColumns)));
+      } catch (error) {
+        // Handle localStorage errors (e.g., quota exceeded)
+        console.warn('Failed to save column preferences:', error);
+      }
+    }, 500);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [visibleColumns, allProcesses]);
 
   // Filter processes by search term
   const filteredProcesses = useMemo(() => {
@@ -138,7 +239,49 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
 
     const otherColumns = Array.from(columnsSet).filter((col) => !priorityColumns.includes(col));
 
-    return [...priorityColumns.filter((col) => columnsSet.has(col)), ...otherColumns];
+    const allColumns = [...priorityColumns.filter((col) => columnsSet.has(col)), ...otherColumns];
+    
+    // Filter by visible columns
+    const displayedColumns = allColumns.filter((col) => visibleColumns.has(col));
+    
+    return { allColumns, displayedColumns };
+  }, [allProcesses, visibleColumns]);
+
+  // Sync visible columns when columns change (edge case handling)
+  useEffect(() => {
+    const columnsSet = new Set<string>();
+    allProcesses.forEach((process) => {
+      Object.keys(process).forEach((key) => columnsSet.add(key));
+    });
+    
+    // Remove columns from visibleColumns that no longer exist
+    const newVisibleColumns = new Set(visibleColumns);
+    let hasChanges = false;
+    
+    visibleColumns.forEach((col) => {
+      if (!columnsSet.has(col)) {
+        newVisibleColumns.delete(col);
+        hasChanges = true;
+      }
+    });
+    
+    // If visibleColumns is empty after cleanup, restore defaults
+    if (newVisibleColumns.size === 0 && columnsSet.size > 0) {
+      const isTJMG = columnsSet.has('regiao');
+      const priorityColumns = isTJMG
+        ? ['numero', 'regiao', 'tipo', 'partes', 'vara']
+        : ['numeroProcesso', 'polo', 'natureza', 'assunto'];
+      priorityColumns.forEach((col) => {
+        if (columnsSet.has(col)) {
+          newVisibleColumns.add(col);
+        }
+      });
+      hasChanges = true;
+    }
+    
+    if (hasChanges) {
+      setVisibleColumns(newVisibleColumns);
+    }
   }, [allProcesses]);
 
   // Handle sort
@@ -198,6 +341,45 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
     setSelectedRows(newSelected);
   };
 
+  // Toggle column visibility
+  const toggleColumn = (column: string) => {
+    const newVisibleColumns = new Set(visibleColumns);
+    
+    if (newVisibleColumns.has(column)) {
+      // Don't allow hiding the last column
+      if (newVisibleColumns.size === 1) {
+        return; // Keep at least one column visible
+      }
+      newVisibleColumns.delete(column);
+    } else {
+      newVisibleColumns.add(column);
+    }
+    
+    setVisibleColumns(newVisibleColumns);
+  };
+
+  // Toggle all columns (show all or only essentials)
+  const toggleAllColumns = (show: boolean) => {
+    if (allProcesses.length === 0) return;
+    
+    const columnsSet = new Set<string>();
+    allProcesses.forEach((process) => {
+      Object.keys(process).forEach((key) => columnsSet.add(key));
+    });
+    const isTJMG = columnsSet.has('regiao');
+    
+    if (show) {
+      // Show all columns
+      setVisibleColumns(columnsSet);
+    } else {
+      // Show only priority columns
+      const priorityColumns = isTJMG
+        ? ['numero', 'regiao', 'tipo', 'partes', 'vara']
+        : ['numeroProcesso', 'polo', 'natureza', 'assunto'];
+      setVisibleColumns(new Set(priorityColumns.filter((col) => columnsSet.has(col))));
+    }
+  };
+
   // Format cell value
   const formatCellValue = (value: any): string => {
     if (value === null || value === undefined) return '-';
@@ -213,8 +395,30 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
       natureza: 'Natureza',
       assunto: 'Assunto',
       movimentacao: 'Movimentação',
+      numero: 'Número do Processo',
+      regiao: 'Região',
+      tipo: 'Tipo',
+      partes: 'Partes',
+      vara: 'Vara',
+      dataDistribuicao: 'Data de Distribuição',
+      ultimoMovimento: 'Último Movimento',
     };
-    return labels[column] || column;
+    return labels[column] || (column.charAt(0).toUpperCase() + column.slice(1));
+  };
+
+  // Get priority columns for current tribunal type
+  const getPriorityColumns = (): string[] => {
+    if (allProcesses.length === 0) return [];
+    
+    const columnsSet = new Set<string>();
+    allProcesses.forEach((process) => {
+      Object.keys(process).forEach((key) => columnsSet.add(key));
+    });
+    const isTJMG = columnsSet.has('regiao');
+    
+    return isTJMG
+      ? ['numero', 'regiao', 'tipo', 'partes', 'vara']
+      : ['numeroProcesso', 'polo', 'natureza', 'assunto'];
   };
 
   if (allProcesses.length === 0) {
@@ -225,13 +429,18 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
     );
   }
 
+  const priorityColumns = getPriorityColumns();
+  const allColumns = columns.allColumns || [];
+  const displayedColumns = columns.displayedColumns || [];
+
   return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between gap-4">
+    <TooltipProvider>
+      <div className="space-y-4">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between gap-4">
         <div className="flex-1 flex items-center gap-2">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-foreground/70" />
             <Input
               placeholder="Buscar em todos os campos..."
               value={searchTerm}
@@ -259,7 +468,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground whitespace-nowrap">Linhas por página:</span>
+          <span className="text-sm text-foreground/70 whitespace-nowrap">Linhas por página:</span>
           <Select value={String(pageSize)} onValueChange={(value) => {
             setPageSize(Number(value));
             setCurrentPage(1);
@@ -274,13 +483,54 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
               <SelectItem value="200">200</SelectItem>
             </SelectContent>
           </Select>
+          <div className="h-6 w-px bg-border" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" aria-label="Selecionar colunas visíveis" aria-expanded={false}>
+                <Columns className="h-4 w-4 mr-2" />
+                Colunas ({visibleColumns.size}/{allColumns.length})
+                {visibleColumns.size < allColumns.length && (
+                  <Badge variant="secondary" className="ml-2">
+                    {allColumns.length - visibleColumns.size}
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel>Selecionar Colunas</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => toggleAllColumns(true)}>
+                <Eye className="h-4 w-4 mr-2" />
+                Mostrar Todas
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toggleAllColumns(false)}>
+                <EyeOff className="h-4 w-4 mr-2" />
+                Apenas Essenciais
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {allColumns.map((column) => (
+                <DropdownMenuCheckboxItem
+                  key={column}
+                  checked={visibleColumns.has(column)}
+                  onCheckedChange={() => toggleColumn(column)}
+                >
+                  {getColumnLabel(column)}
+                  {priorityColumns.includes(column) && (
+                    <Badge variant="outline" className="ml-2 text-xs">
+                      Essencial
+                    </Badge>
+                  )}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
       {/* Table */}
       <div
         ref={tableContainerRef}
-        className="rounded-md border overflow-auto bg-card"
+        className="rounded-md border border-border overflow-x-auto overflow-y-auto bg-card"
         style={{ height: paginatedProcesses.length > 50 ? '600px' : 'auto' }}
       >
         <Table noWrapper>
@@ -302,7 +552,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
-              {columns.map((column) => (
+              {displayedColumns.map((column) => (
                 <TableHead
                   key={column}
                   className="whitespace-nowrap"
@@ -328,7 +578,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
           <TableBody style={paginatedProcesses.length > 50 ? { position: 'relative' } : undefined}>
             {paginatedProcesses.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={columns.length + 1} className="text-center h-24">
+                <TableCell colSpan={displayedColumns.length + 1} className="text-center h-24">
                   <p className="text-muted-foreground">Nenhum resultado encontrado.</p>
                 </TableCell>
               </TableRow>
@@ -338,7 +588,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
                 {/* Spacer para altura total */}
                 <TableRow>
                   <TableCell
-                    colSpan={columns.length + 1}
+                    colSpan={displayedColumns.length + 1}
                     style={{
                       height: `${rowVirtualizer.getTotalSize()}px`,
                       padding: 0,
@@ -355,7 +605,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
                   return (
                     <TableRow
                       key={globalIndex}
-                      className="hover:bg-muted"
+                      className="hover:bg-muted-emphasis"
                       style={{
                         position: 'absolute',
                         top: 0,
@@ -370,11 +620,21 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
                           onCheckedChange={() => handleRowSelect(globalIndex)}
                         />
                       </TableCell>
-                      {columns.map((column) => (
-                        <TableCell key={column} className="max-w-md truncate" title={formatCellValue(process[column])}>
-                          {formatCellValue(process[column])}
-                        </TableCell>
-                      ))}
+                      {displayedColumns.map((column) => {
+                        const cellValue = formatCellValue(process[column]);
+                        return (
+                          <TableCell key={column} className="min-w-[100px] max-w-[300px] truncate text-foreground">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="truncate block">{cellValue}</span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-md">
+                                <p className="break-words">{cellValue}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TableCell>
+                        );
+                      })}
                     </TableRow>
                   );
                 })}
@@ -384,18 +644,28 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
               paginatedProcesses.map((process, index) => {
                 const globalIndex = (currentPage - 1) * pageSize + index;
                 return (
-                  <TableRow key={globalIndex} className="hover:bg-muted">
+                  <TableRow key={globalIndex} className="hover:bg-muted-emphasis">
                     <TableCell>
                       <Checkbox
                         checked={selectedRows.has(globalIndex)}
                         onCheckedChange={() => handleRowSelect(globalIndex)}
                       />
                     </TableCell>
-                    {columns.map((column) => (
-                      <TableCell key={column} className="max-w-md truncate" title={formatCellValue(process[column])}>
-                        {formatCellValue(process[column])}
-                      </TableCell>
-                    ))}
+                    {displayedColumns.map((column) => {
+                      const cellValue = formatCellValue(process[column]);
+                      return (
+                        <TableCell key={column} className="min-w-[100px] max-w-[300px] truncate text-foreground">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="truncate block">{cellValue}</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-md">
+                              <p className="break-words">{cellValue}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                      );
+                    })}
                   </TableRow>
                 );
               })
@@ -407,7 +677,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
       {/* Pagination */}
       <div className="flex items-center justify-between">
         <div
-          className="text-sm text-muted-foreground"
+          className="text-sm text-muted-foreground font-medium"
           aria-live="polite"
           aria-atomic="true"
         >
@@ -456,6 +726,7 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
           </Button>
         </div>
       </div>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }

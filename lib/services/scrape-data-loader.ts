@@ -5,19 +5,32 @@
  * 2. Fallback para resultData comprimido se as tabelas estiverem vazias
  */
 
-import { prisma } from '@/lib/db';
-import { ScrapeType } from '@/lib/types/scraping';
+import type { PrismaClient } from '@prisma/client';
+import { ScrapeType, type ProcessoUnificado } from '@/lib/types/scraping';
 import { decompressJSON } from '@/lib/utils/compression';
+import type {
+  PendentesManifestacao,
+  Processos,
+  ProcessosArquivados,
+  MinhaPauta,
+  ProcessosTJMG,
+  ScrapeExecution,
+  TribunalConfig,
+  Tribunal,
+  ScrapeJob,
+} from '@prisma/client';
 
 /**
  * Carrega processos de uma execução específica usando estratégia híbrida
  *
+ * @param prisma - Instância do PrismaClient
  * @param executionId - ID da execução
  * @param scrapeType - Tipo de raspagem
  * @param resultData - Dados comprimidos (opcional, usado como fallback)
  * @returns Array de processos normalizados
  */
 export async function loadProcessosFromExecution(
+  prisma: PrismaClient,
   executionId: string,
   scrapeType: ScrapeType,
   resultData?: string | null
@@ -26,7 +39,7 @@ export async function loadProcessosFromExecution(
 
   // Estratégia 1: Carregar das tabelas específicas (preferencial)
   try {
-    const processosFromTables = await loadFromTypeSpecificTable(executionId, scrapeType);
+    const processosFromTables = await loadFromTypeSpecificTable(prisma, executionId, scrapeType);
 
     if (processosFromTables.length > 0) {
       console.log(`[DataLoader] ✓ Carregados ${processosFromTables.length} processos das tabelas específicas`);
@@ -63,21 +76,22 @@ export async function loadProcessosFromExecution(
  * Carrega processos das tabelas específicas baseado no tipo de raspagem
  */
 async function loadFromTypeSpecificTable(
+  prisma: PrismaClient,
   executionId: string,
   scrapeType: ScrapeType
 ): Promise<any[]> {
   switch (scrapeType) {
     case ScrapeType.PENDENTES:
-      return await loadPendentesManifestacao(executionId);
+      return await loadPendentesManifestacao(prisma, executionId);
 
     case ScrapeType.ACERVO_GERAL:
-      return await loadProcessosAcervoGeral(executionId);
+      return await loadProcessosAcervoGeral(prisma, executionId);
 
     case ScrapeType.ARQUIVADOS:
-      return await loadProcessosArquivados(executionId);
+      return await loadProcessosArquivados(prisma, executionId);
 
     case ScrapeType.MINHA_PAUTA:
-      return await loadMinhaPauta(executionId);
+      return await loadMinhaPauta(prisma, executionId);
 
     default:
       console.warn(`[DataLoader] Tipo de raspagem não suportado: ${scrapeType}`);
@@ -88,7 +102,7 @@ async function loadFromTypeSpecificTable(
 /**
  * Carrega processos pendentes de manifestação
  */
-async function loadPendentesManifestacao(executionId: string): Promise<any[]> {
+async function loadPendentesManifestacao(prisma: PrismaClient, executionId: string): Promise<any[]> {
   const processos = await prisma.pendentesManifestacao.findMany({
     where: { scrapeExecutionId: executionId },
     orderBy: { dataPrazoLegalParte: 'asc' },
@@ -128,7 +142,7 @@ async function loadPendentesManifestacao(executionId: string): Promise<any[]> {
  * Carrega processos do acervo geral
  * Detecta automaticamente se é TJMG ou TRT baseado nos dados disponíveis
  */
-async function loadProcessosAcervoGeral(executionId: string): Promise<any[]> {
+async function loadProcessosAcervoGeral(prisma: PrismaClient, executionId: string): Promise<any[]> {
   // Primeiro tenta carregar do TJMG (se houver dados)
   const processosTJMG = await prisma.processosTJMG.findMany({
     where: { scrapeExecutionId: executionId },
@@ -186,7 +200,7 @@ async function loadProcessosAcervoGeral(executionId: string): Promise<any[]> {
 /**
  * Carrega processos arquivados
  */
-async function loadProcessosArquivados(executionId: string): Promise<any[]> {
+async function loadProcessosArquivados(prisma: PrismaClient, executionId: string): Promise<any[]> {
   const processos = await prisma.processosArquivados.findMany({
     where: { scrapeExecutionId: executionId },
     orderBy: { dataArquivamento: 'desc' },
@@ -222,7 +236,7 @@ async function loadProcessosArquivados(executionId: string): Promise<any[]> {
 /**
  * Carrega processos da minha pauta (audiências/sessões)
  */
-async function loadMinhaPauta(executionId: string): Promise<any[]> {
+async function loadMinhaPauta(prisma: PrismaClient, executionId: string): Promise<any[]> {
   const processos = await prisma.minhaPauta.findMany({
     where: { scrapeExecutionId: executionId },
     orderBy: { dataInicio: 'asc' },
@@ -285,11 +299,13 @@ async function processConcurrently<T, R>(
 /**
  * Carrega todos os processos de todas as execuções de um job
  *
+ * @param prisma - Instância do PrismaClient
  * @param executions - Array de execuções do job
  * @param scrapeType - Tipo de raspagem
  * @returns Array consolidado de todos os processos
  */
 export async function loadAllProcessosFromJob(
+  prisma: PrismaClient,
   executions: Array<{ id: string; resultData?: string | null }>,
   scrapeType: ScrapeType
 ): Promise<any[]> {
@@ -302,6 +318,7 @@ export async function loadAllProcessosFromJob(
   const processArrays = await processConcurrently(
     executions,
     (execution) => loadProcessosFromExecution(
+      prisma,
       execution.id,
       scrapeType,
       execution.resultData
@@ -315,4 +332,164 @@ export async function loadAllProcessosFromJob(
   console.log(`[DataLoader] Total de ${allProcesses.length} processos carregados de ${executions.length} execuções`);
   console.log(`[DataLoader] Carregamento com concorrência limitada concluído`);
   return allProcesses;
+}
+
+/**
+ * Tipo auxiliar para ScrapeExecution com relações incluídas
+ */
+type ScrapeExecutionWithRelations = ScrapeExecution & {
+  scrapeJobId: string;
+  tribunalConfig: TribunalConfig & {
+    tribunal: Tribunal;
+  };
+  scrapeJob: ScrapeJob & {
+    scrapeType: string;
+    scrapeSubType: string | null;
+  };
+  createdAt: Date;
+};
+
+/**
+ * Normaliza processo de qualquer tabela para formato ProcessoUnificado
+ *
+ * @param processo - Registro de qualquer tabela de processos
+ * @param scrapeExecution - Execução com relações incluídas
+ * @param origem - Tabela de origem do processo
+ * @returns Processo normalizado no formato unificado
+ */
+export function normalizeProcessoToUnificado(
+  processo: PendentesManifestacao | Processos | ProcessosArquivados | MinhaPauta | ProcessosTJMG,
+  scrapeExecution: ScrapeExecutionWithRelations,
+  origem: 'PendentesManifestacao' | 'Processos' | 'ProcessosArquivados' | 'MinhaPauta' | 'ProcessosTJMG'
+): ProcessoUnificado {
+  const tribunalConfig = scrapeExecution.tribunalConfig;
+  const tribunal = tribunalConfig.tribunal;
+
+  // Extrair campos comuns independente da tabela
+  let idPje: number | null;
+  let numeroProcesso: string;
+  let dataAutuacao: Date | null = null;
+  let nomeParteAutora: string | null = null;
+  let nomeParteRe: string | null = null;
+  let orgaoJulgador: string | null = null;
+  let classeJudicial: string | null = null;
+  const metadados: Record<string, any> = {};
+
+  // Normalizar campos específicos por tipo de tabela
+  if (origem === 'PendentesManifestacao') {
+    const p = processo as PendentesManifestacao;
+    idPje = p.idPje;
+    numeroProcesso = p.numeroProcesso;
+    dataAutuacao = p.dataAutuacao;
+    nomeParteAutora = p.nomeParteAutora;
+    nomeParteRe = p.nomeParteRe;
+    classeJudicial = p.classeJudicial;
+    orgaoJulgador = p.descricaoOrgaoJulgador || p.siglaOrgaoJulgador || null;
+    
+    // Metadados específicos
+    metadados.dataCienciaParte = p.dataCienciaParte;
+    metadados.dataPrazoLegalParte = p.dataPrazoLegalParte;
+    metadados.prazoVencido = p.prazoVencido;
+    metadados.idDocumento = p.idDocumento;
+  } else if (origem === 'Processos') {
+    const p = processo as Processos;
+    idPje = p.idPje;
+    numeroProcesso = p.numeroProcesso;
+    dataAutuacao = p.dataAutuacao;
+    nomeParteAutora = p.nomeParteAutora;
+    nomeParteRe = p.nomeParteRe;
+    classeJudicial = p.classeJudicial;
+    orgaoJulgador = p.descricaoOrgaoJulgador || p.siglaOrgaoJulgador || null;
+    
+    // Se metadados contém objeto completo, copiar campos relevantes
+    if (p.metadados && typeof p.metadados === 'object') {
+      Object.assign(metadados, p.metadados);
+    }
+  } else if (origem === 'ProcessosArquivados') {
+    const p = processo as ProcessosArquivados;
+    idPje = p.idPje;
+    numeroProcesso = p.numeroProcesso;
+    dataAutuacao = p.dataAutuacao;
+    nomeParteAutora = p.nomeParteAutora;
+    nomeParteRe = p.nomeParteRe;
+    classeJudicial = p.classeJudicial;
+    orgaoJulgador = p.descricaoOrgaoJulgador || p.siglaOrgaoJulgador || null;
+    
+    // Se metadados contém objeto completo, copiar campos relevantes
+    if (p.metadados && typeof p.metadados === 'object') {
+      Object.assign(metadados, p.metadados);
+    }
+  } else if (origem === 'MinhaPauta') {
+    const p = processo as MinhaPauta;
+    idPje = p.idPje;
+    numeroProcesso = p.nrProcesso;
+    dataAutuacao = null; // MinhaPauta não tem dataAutuacao
+    nomeParteAutora = null;
+    nomeParteRe = null;
+    classeJudicial = null;
+    orgaoJulgador = null;
+    
+    // Metadados específicos
+    metadados.dataInicio = p.dataInicio;
+    metadados.dataFim = p.dataFim;
+    metadados.urlAudienciaVirtual = p.urlAudienciaVirtual;
+    metadados.processoMetadados = p.processoMetadados;
+    if (p.metadados && typeof p.metadados === 'object') {
+      Object.assign(metadados, p.metadados);
+    }
+  } else if (origem === 'ProcessosTJMG') {
+    const p = processo as ProcessosTJMG;
+    // ProcessosTJMG não tem idPje - usar null ao invés de 0
+    idPje = null;
+    numeroProcesso = p.numero;
+    dataAutuacao = null;
+    // Extrair partes do campo partes (string)
+    const partesStr = p.partes || '';
+    // Tentar extrair nomeParteAutora e nomeParteRe do texto
+    // Formato típico: "Author X Defendant" ou similar
+    const partesMatch = partesStr.match(/(.+?)\s+(?:vs|X|x|contra)\s+(.+)/i);
+    if (partesMatch) {
+      nomeParteAutora = partesMatch[1].trim() || null;
+      nomeParteRe = partesMatch[2].trim() || null;
+    } else {
+      nomeParteRe = partesStr || null;
+    }
+    classeJudicial = null;
+    orgaoJulgador = p.vara || null;
+    
+    // Metadados específicos
+    metadados.regiao = p.regiao;
+    metadados.tipo = p.tipo;
+    metadados.vara = p.vara;
+    metadados.dataDistribuicao = p.dataDistribuicao;
+    metadados.ultimoMovimento = p.ultimoMovimento;
+  } else {
+    throw new Error(`Tipo de origem desconhecido: ${origem}`);
+  }
+
+  // Normalizar data de última atualização
+  const dataUltimaAtualizacao = (processo as any).updatedAt || (processo as any).createdAt || scrapeExecution.createdAt;
+
+  return {
+    id: processo.id,
+    idPje,
+    numeroProcesso,
+    tribunalConfigId: tribunalConfig.id,
+    tribunalCodigo: tribunal.codigo,
+    tribunalNome: tribunal.nome,
+    grau: tribunalConfig.grau,
+    sistema: tribunalConfig.sistema,
+    tipoRaspagem: scrapeExecution.scrapeJob.scrapeType as ScrapeType,
+    subtipoRaspagem: scrapeExecution.scrapeJob.scrapeSubType || null,
+    classeJudicial,
+    orgaoJulgador,
+    nomeParteAutora,
+    nomeParteRe,
+    dataAutuacao,
+    dataUltimaAtualizacao,
+    scrapeJobId: scrapeExecution.scrapeJobId,
+    scrapeExecutionId: scrapeExecution.id,
+    origem,
+    metadados: Object.keys(metadados).length > 0 ? metadados : null,
+  };
 }
