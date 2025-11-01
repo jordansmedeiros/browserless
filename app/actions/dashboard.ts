@@ -83,20 +83,20 @@ export async function getDashboardStatsAction(): Promise<{
       Array<{ createdAt: Date; tipo: string }>
     >`
       SELECT 
-        createdAt,
+        "createdAt",
         'processo' as tipo
       FROM (
-        SELECT createdAt FROM "PendentesManifestacao" ORDER BY createdAt DESC LIMIT 1
+        (SELECT "createdAt" FROM "PendentesManifestacao" ORDER BY "createdAt" DESC LIMIT 1)
         UNION ALL
-        SELECT createdAt FROM "Processos" ORDER BY createdAt DESC LIMIT 1
+        (SELECT "createdAt" FROM "Processos" ORDER BY "createdAt" DESC LIMIT 1)
         UNION ALL
-        SELECT createdAt FROM "ProcessosArquivados" ORDER BY createdAt DESC LIMIT 1
+        (SELECT "createdAt" FROM "ProcessosArquivados" ORDER BY "createdAt" DESC LIMIT 1)
         UNION ALL
-        SELECT createdAt FROM "MinhaPauta" ORDER BY createdAt DESC LIMIT 1
+        (SELECT "createdAt" FROM "MinhaPauta" ORDER BY "createdAt" DESC LIMIT 1)
         UNION ALL
-        SELECT createdAt FROM "ProcessosTJMG" ORDER BY createdAt DESC LIMIT 1
+        (SELECT "createdAt" FROM "ProcessosTJMG" ORDER BY "createdAt" DESC LIMIT 1)
       ) AS todos_processos
-      ORDER BY createdAt DESC
+      ORDER BY "createdAt" DESC
       LIMIT 1
     `;
 
@@ -290,15 +290,15 @@ export async function getDashboardChartsDataAction(): Promise<{
       const countTotal = await prisma.$queryRaw<Array<{ count: bigint }>>`
         SELECT COUNT(*) as count
         FROM (
-          SELECT id FROM "PendentesManifestacao" WHERE "createdAt" < ${nextDate}
+          (SELECT id FROM "PendentesManifestacao" WHERE "createdAt" < ${nextDate})
           UNION ALL
-          SELECT id FROM "Processos" WHERE "createdAt" < ${nextDate}
+          (SELECT id FROM "Processos" WHERE "createdAt" < ${nextDate})
           UNION ALL
-          SELECT id FROM "ProcessosArquivados" WHERE "createdAt" < ${nextDate}
+          (SELECT id FROM "ProcessosArquivados" WHERE "createdAt" < ${nextDate})
           UNION ALL
-          SELECT id FROM "MinhaPauta" WHERE "createdAt" < ${nextDate}
+          (SELECT id FROM "MinhaPauta" WHERE "createdAt" < ${nextDate})
           UNION ALL
-          SELECT id FROM "ProcessosTJMG" WHERE "createdAt" < ${nextDate}
+          (SELECT id FROM "ProcessosTJMG" WHERE "createdAt" < ${nextDate})
         ) AS todos_processos
       `;
 

@@ -26,12 +26,10 @@ export default function DashboardPage() {
     recentActivity,
     loading,
     error,
-    lastFetch,
-    isPolling,
     refresh,
   } = useDashboardStats({
-    refreshInterval: 10000, // 10 segundos
-    enabled: true,
+    refreshInterval: 10000,
+    enabled: false, // Desabilitar polling automático
   });
 
   // Estados de loading e erro
@@ -52,8 +50,6 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Visão geral do sistema</p>
         </div>
         <RealtimeIndicator
-          isPolling={isPolling}
-          lastUpdate={lastFetch}
           onRefresh={refresh}
           refreshing={loading && !!stats}
         />
