@@ -11,7 +11,15 @@ const nextConfig = {
   },
   // Environment variables prefix for client-side
   env: {
-    NEXT_PUBLIC_APP_NAME: 'Browserless PJE',
+    NEXT_PUBLIC_APP_NAME: 'JusBro',
+  },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      }
+    ],
   },
 };
 

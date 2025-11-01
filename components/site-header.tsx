@@ -21,7 +21,7 @@ export function SiteHeader() {
   const breadcrumbs = useBreadcrumbs()
 
   return (
-    <header className="flex sticky top-0 z-50 w-full items-center border-b bg-background">
+    <header className="fixed top-0 left-0 right-0 z-50 flex items-center border-b bg-white">
       <div className="flex h-14 w-full items-center gap-2 px-4">
         <SidebarTrigger className="h-8 w-8" />
         <Separator orientation="vertical" className="mr-2 h-4" />

@@ -18,4 +18,11 @@ export const prisma =
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
+/**
+ * Get Prisma instance (for server actions)
+ */
+export async function getPrisma() {
+  return prisma;
+}
+
 export default prisma;

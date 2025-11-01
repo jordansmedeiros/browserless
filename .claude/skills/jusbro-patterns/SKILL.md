@@ -1,6 +1,6 @@
 ---
 name: jusbro-patterns
-description: Architectural patterns, code conventions, and best practices for the Jusbro project - a Browserless fork with Next.js dashboard for PJE legal automation.
+description: Architectural patterns, code conventions, and best practices for the Jusbro project - a Browserless fork with Next.js dashboard for legal automation.
 ---
 
 # Jusbro Project Patterns
@@ -11,7 +11,7 @@ This skill enforces project-specific patterns, conventions, and architectural de
 
 Jusbro is a **Browserless fork** with three main components:
 1. **Core Browserless Platform**: Headless browser service
-2. **PJE Legal Automation**: Scripts for Brazilian legal process scraping
+2. ** Legal Automation**: Scripts for Brazilian legal process scraping
 3. **Next.js Dashboard**: Modern UI for credentials and workflow management
 
 ## Tech Stack Summary

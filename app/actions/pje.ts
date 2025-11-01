@@ -52,6 +52,26 @@ import { addSchedule, updateSchedule, removeSchedule, pauseSchedule, resumeSched
 import { SCHEDULED_SCRAPES_CONFIG, isSupportedTimezone } from '@/config/scraping';
 import { loadProcessosFromExecution, loadAllProcessosFromJob, normalizeProcessoToUnificado } from '@/lib/services/scrape-data-loader';
 
+// Tipo auxiliar para scrapeExecution retornado pelo Prisma com select
+type ScrapeExecutionSelectResult = {
+  id: string;
+  createdAt: Date;
+  scrapeJobId: string;
+  tribunalConfig: {
+    id: string;
+    grau: string;
+    sistema: string;
+    tribunal: {
+      codigo: string;
+      nome: string;
+    };
+  };
+  scrapeJob: {
+    scrapeType: string;
+    scrapeSubType: string | null;
+  };
+};
+
 // Lazy load Prisma to avoid edge runtime issues
 async function getPrisma() {
   const { PrismaClient } = await import('@prisma/client');
@@ -1833,7 +1853,7 @@ export async function listProcessosAction(filters?: ListProcessosFilters): Promi
         const existing = Array.isArray(scrapeExecutionFilters.tribunalConfigId.in) 
           ? scrapeExecutionFilters.tribunalConfigId.in 
           : [scrapeExecutionFilters.tribunalConfigId.in];
-        const finalIds = existing.filter(id => configIds.includes(id));
+        const finalIds = existing.filter((id: string) => configIds.includes(id));
         
         // Comentário 6: Se array final estiver vazio, retornar imediatamente
         if (finalIds.length === 0) {
@@ -2116,7 +2136,11 @@ export async function listProcessosAction(filters?: ListProcessosFilters): Promi
 
     // Normalizar cada resultado
     for (const p of pendentesManifestacao) {
-      const normalizado = normalizeProcessoToUnificado(p, p.scrapeExecution as any, 'PendentesManifestacao');
+      const normalizado = normalizeProcessoToUnificado(
+        p as unknown as Parameters<typeof normalizeProcessoToUnificado>[0],
+        p.scrapeExecution as ScrapeExecutionSelectResult as Parameters<typeof normalizeProcessoToUnificado>[1],
+        'PendentesManifestacao'
+      );
       const chave = `${normalizado.tribunalConfigId}-${normalizado.idPje}`;
       
       // Se mesmo processo aparecer em múltiplas execuções, manter o mais recente
@@ -2127,7 +2151,11 @@ export async function listProcessosAction(filters?: ListProcessosFilters): Promi
     }
 
     for (const p of processos) {
-      const normalizado = normalizeProcessoToUnificado(p, p.scrapeExecution as any, 'Processos');
+      const normalizado = normalizeProcessoToUnificado(
+        p as unknown as Parameters<typeof normalizeProcessoToUnificado>[0],
+        p.scrapeExecution as ScrapeExecutionSelectResult as Parameters<typeof normalizeProcessoToUnificado>[1],
+        'Processos'
+      );
       const chave = `${normalizado.tribunalConfigId}-${normalizado.idPje}`;
       
       const existente = processosUnificadosMap.get(chave);
@@ -2137,7 +2165,11 @@ export async function listProcessosAction(filters?: ListProcessosFilters): Promi
     }
 
     for (const p of processosArquivados) {
-      const normalizado = normalizeProcessoToUnificado(p, p.scrapeExecution as any, 'ProcessosArquivados');
+      const normalizado = normalizeProcessoToUnificado(
+        p as unknown as Parameters<typeof normalizeProcessoToUnificado>[0],
+        p.scrapeExecution as ScrapeExecutionSelectResult as Parameters<typeof normalizeProcessoToUnificado>[1],
+        'ProcessosArquivados'
+      );
       const chave = `${normalizado.tribunalConfigId}-${normalizado.idPje}`;
       
       const existente = processosUnificadosMap.get(chave);
@@ -2147,7 +2179,11 @@ export async function listProcessosAction(filters?: ListProcessosFilters): Promi
     }
 
     for (const p of minhaPauta) {
-      const normalizado = normalizeProcessoToUnificado(p, p.scrapeExecution as any, 'MinhaPauta');
+      const normalizado = normalizeProcessoToUnificado(
+        p as unknown as Parameters<typeof normalizeProcessoToUnificado>[0],
+        p.scrapeExecution as ScrapeExecutionSelectResult as Parameters<typeof normalizeProcessoToUnificado>[1],
+        'MinhaPauta'
+      );
       const chave = `${normalizado.tribunalConfigId}-${normalizado.idPje}`;
       
       const existente = processosUnificadosMap.get(chave);
@@ -2157,7 +2193,11 @@ export async function listProcessosAction(filters?: ListProcessosFilters): Promi
     }
 
     for (const p of processosTJMG) {
-      const normalizado = normalizeProcessoToUnificado(p, p.scrapeExecution as any, 'ProcessosTJMG');
+      const normalizado = normalizeProcessoToUnificado(
+        p as unknown as Parameters<typeof normalizeProcessoToUnificado>[0],
+        p.scrapeExecution as ScrapeExecutionSelectResult as Parameters<typeof normalizeProcessoToUnificado>[1],
+        'ProcessosTJMG'
+      );
       // Para TJMG, usar número do processo como chave já que idPje pode ser 0
       const chave = `${normalizado.tribunalConfigId}-${normalizado.numeroProcesso}`;
       

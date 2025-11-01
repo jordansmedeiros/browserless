@@ -130,6 +130,73 @@ Provides specialized knowledge for:
 
 **Use when:** Creating animated components, micro-interactions, page transitions, loading states, or any UI motion design.
 
+### 9. 🎨 tailwind-v4-expert
+**Expert in Tailwind CSS v4.1.16+ with modern syntax**
+
+Provides specialized knowledge for:
+- Tailwind v4 CSS variable syntax (parentheses notation)
+- Project-specific variables (--header-height, --sidebar-width)
+- Responsive layouts with mobile-first approach
+- Dark mode with CSS custom properties
+- shadcn/ui theming integration
+- Performance optimization and tree-shaking
+- Container queries (new in v4)
+- Accessibility patterns (focus states, high contrast)
+- CVA variant management
+- Migration from Tailwind v3 to v4
+
+**Use when:** Writing Tailwind classes, styling components, creating layouts, implementing responsive design, or debugging CSS.
+
+### 10. 🗄️ supabase-fullstack
+**Expert in full-stack development with Supabase**
+
+Provides specialized knowledge for:
+- Supabase client setup (browser and server)
+- Authentication systems (email/password, OAuth, magic links)
+- Database operations with TypeScript types
+- React Query integration for data fetching
+- Real-time subscriptions and presence
+- File storage and uploads
+- Row Level Security (RLS) policies
+- Server Actions with Supabase
+- Protected routes with middleware
+- Supabase UI Library components
+
+**Use when:** Building full-stack apps, implementing auth, creating CRUD operations, adding real-time features, or managing files.
+
+### 11. 💳 stripe-payments
+**Expert in Stripe payment integration and subscription management**
+
+Provides specialized knowledge for:
+- Stripe Checkout integration with Server Actions
+- Webhook handling and signature verification
+- Subscription lifecycle management
+- Customer Portal integration
+- Pricing tables with shadcn/ui
+- Payment error handling and retry logic
+- Database synchronization (Prisma)
+- PCI compliance and security best practices
+- Test mode and production deployment
+- Invoice and billing management
+
+**Use when:** Integrating payments, building subscription systems, handling webhooks, creating pricing pages, or managing billing.
+
+### 12. 🪝 react-hooks
+**Expert in shadcn/ui React hooks library (30+ hooks)**
+
+Provides specialized knowledge for:
+- State Management hooks (useLocalStorage, useBoolean, useCounter, useToggle, useMap, useSessionStorage)
+- Browser API hooks (useMediaQuery, useWindowSize, useDarkMode, useCopyToClipboard, useScript, useScreen, useDocumentTitle, useScrollLock)
+- UI Interaction hooks (useOnClickOutside, useHover, useMousePosition, useClickAnyWhere)
+- Performance hooks (useDebounceValue, useDebounceCallback, useInterval, useTimeout)
+- Advanced Utilities (useEventListener, useIntersectionObserver, useResizeObserver, useCountdown, useEventCallback, useIsClient, useIsMounted, useIsomorphicLayoutEffect, useReadLocalStorage, useStep, useTernaryDarkMode, useUnmount)
+- SSR compatibility patterns for Next.js 16
+- TypeScript types and generic constraints
+- Performance optimization with memoization
+- Accessibility considerations
+
+**Use when:** Implementing React hooks, managing state persistence, handling browser APIs, optimizing performance, or building accessible interactive UIs.
+
 ## How Skills Work
 
 Claude Code automatically:

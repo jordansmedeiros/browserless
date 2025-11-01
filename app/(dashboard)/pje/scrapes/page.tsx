@@ -135,7 +135,8 @@ export default function ScrapesPage() {
   return (
     <div className="space-y-6">
       {/* Main Content Tabs */}
-      <Tabs defaultValue="active" className="space-y-4">
+      <div suppressHydrationWarning>
+        <Tabs defaultValue="active" className="space-y-4">
         {/* Header: Tabs + Controls */}
         <div className="flex items-center justify-between">
           <TabsList>
@@ -182,6 +183,7 @@ export default function ScrapesPage() {
           />
         </TabsContent>
       </Tabs>
+      </div>
 
       {/* New Scrape Job Dialog/Drawer */}
       <ConfigComponent open={showConfigDialog} onOpenChange={handleDialogClose}>

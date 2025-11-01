@@ -465,13 +465,30 @@ async function navegarParaAcervo(page) {
     console.error('✅ Tab Acervo já está ativa');
     await delay(2000);
   }
-  
-  // Esperar seletor da árvore da sidebar
-  const sidebarTreeSelector = 'div[id="formAbaAcervo:trAc"]';
-  console.error('Aguardando sidebar de regiões carregar...');
-  await page.waitForSelector(sidebarTreeSelector, { visible: true, timeout: 15000 }); 
-  
-  console.error('✅ Acervo e Sidebar carregados!\n');
+
+  // TJES: Verificar se há mensagem de "sem processos"
+  console.error('🔍 Verificando se há processos no acervo...');
+
+  const temProcessos = await page.evaluate(() => {
+    // Verificar mensagem de "não encontrados"
+    const mensagemVazia = document.querySelector('#divResultadoMenuContexto .msgCenter h4');
+    if (mensagemVazia && mensagemVazia.innerText.includes('Não foram encontrados registros')) {
+      return false;
+    }
+
+    // Verificar se existe tabela de processos
+    const tabela = document.querySelector('tbody[id="formAcervo:tbProcessos:tb"]');
+    return !!tabela;
+  });
+
+  if (!temProcessos) {
+    console.error('ℹ️  Nenhum processo encontrado no acervo (mensagem do sistema detectada)');
+    console.error('✅ Navegação para Acervo concluída - sem processos\n');
+    return false; // Retorna false para indicar que não há processos
+  }
+
+  console.error('✅ Processos encontrados no acervo!\n');
+  return true; // Retorna true para indicar que há processos
 }
 
 
@@ -661,11 +678,17 @@ async function rasparAcervoGeralTJES() {
     // Passo 2: Fazer o login no SSO (sem F5/reload)
     await fazerLoginSSO(page);
 
-    // Passo 3: Navegar para Acervo
-    await navegarParaAcervo(page);
+    // Passo 3: Navegar para Acervo e verificar se há processos
+    const temProcessos = await navegarParaAcervo(page);
 
-    // Passo 4: Raspar todas as regiões (função idêntica ao TJMG)
-    const todosProcessos = await rasparTodasAsRegioes(page);
+    let todosProcessos = [];
+
+    // Passo 4: Raspar processos apenas se houver
+    if (temProcessos) {
+      todosProcessos = await rasparTodasAsRegioes(page);
+    } else {
+      console.error('⚠️  Pulando raspagem - não há processos no acervo\n');
+    }
 
     console.error('\n' + '='.repeat(70));
     console.error('📊 RESUMO FINAL (TJES):');

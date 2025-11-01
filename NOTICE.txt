@@ -1,5 +1,7 @@
-Browserless
-(c) 2023, browserless.io
+JusBro
+(c) 2025, Sinesys
+
+This project includes code from GitHub repository Browserless. 
 
 This project includes code from GitHub user "wanhose", from their "Cookie
 Dialog Monster" project, under the MIT License.

@@ -147,7 +147,7 @@ const SidebarProvider = React.forwardRef<
               } as React.CSSProperties
             }
             className={cn(
-              "group/sidebar-wrapper flex min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar",
+              "group/sidebar-wrapper flex flex-row min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar",
               className
             )}
             ref={ref}
@@ -328,12 +328,24 @@ const SidebarInset = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"main">
 >(({ className, ...props }, ref) => {
+  const { state, isMobile } = useSidebar()
+  
+  // Como o Sidebar está position: fixed, ele não ocupa espaço no fluxo do documento
+  // O SidebarInset precisa de margin-left para não ficar atrás do sidebar
+  // O SiteHeader também está fixed, então precisa de padding-top para compensar
   return (
     <main
       ref={ref}
       className={cn(
-        "relative flex w-full flex-1 flex-col bg-background",
-        "md:peer-data-[variant=inset]:m-2 md:peer-data-[state=collapsed]:peer-data-[variant=inset]:ml-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow",
+        "relative flex w-full flex-1 flex-col bg-white min-w-0",
+        "transition-[margin-left] duration-200 ease-linear",
+        // Padding-top para compensar o header fixed
+        "pt-(--header-height)",
+        // Em mobile não precisa de margin (sidebar é drawer)
+        // Em desktop, quando expandido, precisa de margin-left igual à largura do sidebar
+        !isMobile && state === "expanded" && "md:ml-(--sidebar-width)",
+        // Quando colapsado, não precisa de margin (sidebar sai da tela ou é muito pequeno)
+        !isMobile && state === "collapsed" && "md:ml-0",
         className
       )}
       {...props}
