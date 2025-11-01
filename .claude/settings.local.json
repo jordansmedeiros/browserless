@@ -78,7 +78,10 @@
       "WebFetch(domain:github.com)",
       "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678aA@\" PJE_OUTPUT_FILE=\"\" timeout 180 bash -c \"node server/scripts/pje-tj/tjes/1g/expedientes/raspar-expedientes.js\")",
       "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678aA@\" PJE_OUTPUT_FILE=\"\" timeout 180 bash -c \"node server/scripts/pje-tj/tjes/1g/pauta-audiencia/raspar-pauta-audiencia.js\")",
-      "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678aA@\" PJE_OUTPUT_FILE=\"\" timeout 120 bash -c \"node server/scripts/pje-tj/tjce/1g/acervo/raspar-acervo-tjce.js\")"
+      "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678aA@\" PJE_OUTPUT_FILE=\"\" timeout 120 bash -c \"node server/scripts/pje-tj/tjce/1g/acervo/raspar-acervo-tjce.js\")",
+      "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678aA@\" PJE_OUTPUT_FILE=\"\" timeout 120 bash -c \"node server/scripts/pje-tj/tjce/1g/expedientes/raspar-expedientes.js\")",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678aA@\" PJE_OUTPUT_FILE=\"\" timeout 120 bash -c \"node server/scripts/pje-tj/tjce/1g/pauta-audiencia/raspar-pauta-audiencia.js\")"
     ],
     "deny": [],
     "ask": []

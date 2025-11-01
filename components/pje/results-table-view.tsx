@@ -7,6 +7,8 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useDebounce } from '@/hooks/use-debounce';
 import {
   Table,
   TableBody,
@@ -81,93 +83,68 @@ export function ResultsTableView({ job, allProcesses }: ResultsTableViewProps) {
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
-  // Initialize visible columns from localStorage or use priority columns
-  const getInitialVisibleColumns = (): Set<string> => {
-    // Detect tribunal type
-    if (allProcesses.length === 0) return new Set();
-    
+  // Detect tribunal type
+  const isTJMG = useMemo(() => {
+    if (allProcesses.length === 0) return false;
+    return allProcesses.some((process) => 'regiao' in process);
+  }, [allProcesses]);
+
+  const storageKey = `pje-table-columns-${isTJMG ? 'tjmg' : 'default'}`;
+
+  // Get default visible columns
+  const getDefaultColumns = (): string[] => {
+    if (allProcesses.length === 0) return [];
+
     const columnsSet = new Set<string>();
     allProcesses.forEach((process) => {
       Object.keys(process).forEach((key) => columnsSet.add(key));
     });
-    const isTJMG = columnsSet.has('regiao');
-    const storageKey = `pje-table-columns-${isTJMG ? 'tjmg' : 'default'}`;
-    
-    // Try to load from localStorage
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          return new Set(parsed);
-        }
-      }
-    } catch (error) {
-      // If parsing fails, use default
-    }
-    
-    // Default to priority columns
+
     const priorityColumns = isTJMG
       ? ['numero', 'regiao', 'tipo', 'partes', 'vara']
       : ['numeroProcesso', 'polo', 'natureza', 'assunto'];
-    
+
     const filteredPriorityColumns = priorityColumns.filter((col) => columnsSet.has(col));
-    
+
     // Fallback: if no priority columns exist but there are columns available, show first 4
     if (filteredPriorityColumns.length === 0 && columnsSet.size > 0) {
-      return new Set(Array.from(columnsSet).slice(0, 4));
+      return Array.from(columnsSet).slice(0, 4);
     }
-    
-    return new Set(filteredPriorityColumns);
+
+    return filteredPriorityColumns;
   };
 
-  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => getInitialVisibleColumns());
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isFirstRenderRef = useRef(true);
+  // Use localStorage hook with Set serialization
+  const [visibleColumnsArray, setVisibleColumnsArray] = useLocalStorage<string[]>(
+    storageKey,
+    getDefaultColumns,
+    {
+      initializeWithValue: false, // SSR-safe
+    }
+  );
+
+  // Convert array to Set for easier manipulation
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => new Set(visibleColumnsArray));
+
+  // Debounce visible columns changes before saving to localStorage
+  const debouncedVisibleColumnsArray = useDebounce(Array.from(visibleColumns), 500);
+
+  // Sync debounced changes to localStorage
+  useEffect(() => {
+    setVisibleColumnsArray(debouncedVisibleColumnsArray);
+  }, [debouncedVisibleColumnsArray, setVisibleColumnsArray]);
+
+  // Sync visibleColumns from localStorage on mount
+  useEffect(() => {
+    if (visibleColumnsArray.length > 0) {
+      setVisibleColumns(new Set(visibleColumnsArray));
+    }
+  }, [visibleColumnsArray]);
 
   // Clear selection when filters or sorting changes
   useEffect(() => {
     setSelectedRows(new Set());
   }, [searchTerm, sortColumn, sortDirection]);
-
-  // Persist visible columns to localStorage with debounce
-  useEffect(() => {
-    if (isFirstRenderRef.current) {
-      isFirstRenderRef.current = false;
-      return;
-    }
-
-    // Clear existing timer
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-
-    // Detect tribunal type
-    if (allProcesses.length === 0) return;
-    
-    const columnsSet = new Set<string>();
-    allProcesses.forEach((process) => {
-      Object.keys(process).forEach((key) => columnsSet.add(key));
-    });
-    const isTJMG = columnsSet.has('regiao');
-    const storageKey = `pje-table-columns-${isTJMG ? 'tjmg' : 'default'}`;
-
-    // Debounce save to localStorage
-    debounceTimerRef.current = setTimeout(() => {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(Array.from(visibleColumns)));
-      } catch (error) {
-        // Handle localStorage errors (e.g., quota exceeded)
-        console.warn('Failed to save column preferences:', error);
-      }
-    }, 500);
-
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, [visibleColumns, allProcesses]);
 
   // Filter processes by search term
   const filteredProcesses = useMemo(() => {

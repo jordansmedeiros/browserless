@@ -6,13 +6,16 @@
 
 'use client';
 
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Check, Copy, ExternalLink } from 'lucide-react';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 export function QuickStart() {
-  const [copied, setCopied] = useState<string | null>(null);
+  const [copyAll, isAllCopied] = useCopyToClipboard();
+  const [copyInstall, isInstallCopied] = useCopyToClipboard();
+  const [copyConfigure, isConfigureCopied] = useCopyToClipboard();
+  const [copyRun, isRunCopied] = useCopyToClipboard();
 
   const codeSnippets = {
     install: `# 1. Clone o repositório
@@ -32,12 +35,6 @@ npx prisma migrate dev`,
 npm run dev
 
 # Acesse: http://localhost:3000`,
-  };
-
-  const copyToClipboard = (text: string, key: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(key);
-    setTimeout(() => setCopied(null), 2000);
   };
 
   return (
@@ -67,13 +64,12 @@ npm run dev
                   size="sm"
                   variant="ghost"
                   onClick={() =>
-                    copyToClipboard(
-                      codeSnippets.install + '\n\n' + codeSnippets.configure,
-                      'all',
+                    copyAll(
+                      codeSnippets.install + '\n\n' + codeSnippets.configure
                     )
                   }
                 >
-                  {copied === 'all' ? (
+                  {isAllCopied ? (
                     <>
                       <Check className="mr-2 h-4 w-4" />
                       Copiado!
@@ -95,11 +91,9 @@ npm run dev
                     size="sm"
                     variant="ghost"
                     className="absolute right-2 top-2"
-                    onClick={() =>
-                      copyToClipboard(codeSnippets.install, 'install')
-                    }
+                    onClick={() => copyInstall(codeSnippets.install)}
                   >
-                    {copied === 'install' ? (
+                    {isInstallCopied ? (
                       <Check className="h-4 w-4" />
                     ) : (
                       <Copy className="h-4 w-4" />
@@ -115,11 +109,9 @@ npm run dev
                     size="sm"
                     variant="ghost"
                     className="absolute right-2 top-2"
-                    onClick={() =>
-                      copyToClipboard(codeSnippets.configure, 'configure')
-                    }
+                    onClick={() => copyConfigure(codeSnippets.configure)}
                   >
-                    {copied === 'configure' ? (
+                    {isConfigureCopied ? (
                       <Check className="h-4 w-4" />
                     ) : (
                       <Copy className="h-4 w-4" />
@@ -135,9 +127,9 @@ npm run dev
                     size="sm"
                     variant="ghost"
                     className="absolute right-2 top-2"
-                    onClick={() => copyToClipboard(codeSnippets.run, 'run')}
+                    onClick={() => copyRun(codeSnippets.run)}
                   >
-                    {copied === 'run' ? (
+                    {isRunCopied ? (
                       <Check className="h-4 w-4" />
                     ) : (
                       <Copy className="h-4 w-4" />

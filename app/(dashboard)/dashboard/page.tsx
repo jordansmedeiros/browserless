@@ -1,57 +1,89 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, LogIn, List, Activity } from 'lucide-react';
+'use client';
+
+/**
+ * Dashboard Page
+ * Página principal do dashboard conectada ao banco de dados
+ */
+
+import { useDashboardStats } from '@/hooks/use-dashboard-stats';
+import { StatsCards } from '@/components/dashboard/stats-cards';
+import {
+  ProcessosPorTribunalChart,
+  ProcessosPorTipoChart,
+  RaspagensPorStatusChart,
+  TendenciaProcessosChart,
+  PerformanceTribunaisChart,
+} from '@/components/dashboard/charts';
+import { RecentActivityComponent } from '@/components/dashboard/recent-activity';
+import { RealtimeIndicator } from '@/components/dashboard/realtime-indicator';
+import { DashboardSkeleton } from '@/components/dashboard/dashboard-skeleton';
+import { DashboardError } from '@/components/dashboard/dashboard-error';
 
 export default function DashboardPage() {
-  const stats = [
-    {
-      title: 'Total de Processos',
-      value: '0',
-      description: 'Processos rastreados',
-      icon: FileText,
-    },
-    {
-      title: 'Últimas Raspagens',
-      value: '0',
-      description: 'Raspagens realizadas',
-      icon: List,
-    },
-    {
-      title: 'Status PJE',
-      value: 'Desconectado',
-      description: 'Faça login para conectar',
-      icon: LogIn,
-    },
-    {
-      title: 'Última Atividade',
-      value: 'Nunca',
-      description: 'Nenhuma atividade registrada',
-      icon: Activity,
-    },
-  ];
+  const {
+    stats,
+    chartsData,
+    recentActivity,
+    loading,
+    error,
+    lastFetch,
+    isPolling,
+    refresh,
+  } = useDashboardStats({
+    refreshInterval: 10000, // 10 segundos
+    enabled: true,
+  });
+
+  // Estados de loading e erro
+  if (loading && !stats && !chartsData) {
+    return <DashboardSkeleton />;
+  }
+
+  if (error) {
+    return <DashboardError error={error} onRetry={refresh} />;
+  }
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.title}
-                </CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">
-                  {stat.description}
-                </p>
-              </CardContent>
-            </Card>
-          );
-        })}
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">Visão geral do sistema</p>
+        </div>
+        <RealtimeIndicator
+          isPolling={isPolling}
+          lastUpdate={lastFetch}
+          onRefresh={refresh}
+          refreshing={loading && !!stats}
+        />
       </div>
+
+      {/* Stats Cards */}
+      <StatsCards stats={stats} loading={loading} />
+
+      {/* Charts Grid */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <ProcessosPorTribunalChart data={chartsData?.processosPorTribunal} loading={loading} />
+        <ProcessosPorTipoChart data={chartsData?.processosPorTipo} loading={loading} />
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <RaspagensPorStatusChart data={chartsData?.raspagensPorStatus} loading={loading} />
+        <TendenciaProcessosChart data={chartsData?.tendenciaProcessos} loading={loading} />
+      </div>
+
+      {/* Performance Chart */}
+      {chartsData?.performanceTribunais &&
+        chartsData.performanceTribunais.length > 0 && (
+          <PerformanceTribunaisChart
+            data={chartsData.performanceTribunais}
+            loading={loading}
+          />
+        )}
+
+      {/* Recent Activity */}
+      <RecentActivityComponent data={recentActivity} loading={loading} />
     </div>
   );
 }

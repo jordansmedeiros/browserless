@@ -18,7 +18,7 @@ import FormData from 'form-data';
 import ffmpegPath from 'ffmpeg-static';
 
 const PJE_LOGIN_URL = 'https://pje.tjes.jus.br/pje/login.seam';
-const N8N_SOLVER_URL = 'https://workflows.platform.sinesys.app/webhook/captcha-solver';
+const N8N_SOLVER_URL = process.env.N8N_SOLVER_URL || 'https://workflows.platform.sinesys.app/webhook/captcha-solver';
 const TEMP_AUDIO_AAC_PATH = path.join(process.cwd(), 'temp_audio_tjes_test.aac');
 const TEMP_AUDIO_MP3_PATH = path.join(process.cwd(), 'temp_audio_tjes_test.mp3');
 

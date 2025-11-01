@@ -30,6 +30,7 @@ const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
+const HEADER_HEIGHT = "3.5rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 type SidebarContextProps = {
@@ -143,6 +144,7 @@ const SidebarProvider = React.forwardRef<
               {
                 "--sidebar-width": SIDEBAR_WIDTH,
                 "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+                "--header-height": HEADER_HEIGHT,
                 ...style,
               } as React.CSSProperties
             }
@@ -328,7 +330,7 @@ const SidebarInset = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"main">
 >(({ className, ...props }, ref) => {
-  const { state, isMobile } = useSidebar()
+  const { state } = useSidebar()
   
   // Como o Sidebar está position: fixed, ele não ocupa espaço no fluxo do documento
   // O SidebarInset precisa de margin-left para não ficar atrás do sidebar
@@ -341,11 +343,10 @@ const SidebarInset = React.forwardRef<
         "transition-[margin-left] duration-200 ease-linear",
         // Padding-top para compensar o header fixed
         "pt-(--header-height)",
-        // Em mobile não precisa de margin (sidebar é drawer)
-        // Em desktop, quando expandido, precisa de margin-left igual à largura do sidebar
-        !isMobile && state === "expanded" && "md:ml-(--sidebar-width)",
-        // Quando colapsado, não precisa de margin (sidebar sai da tela ou é muito pequeno)
-        !isMobile && state === "collapsed" && "md:ml-0",
+        // Em mobile (<768px) não precisa de margin (sidebar é drawer, md: prefix não aplica)
+        // Em desktop (>=768px), aplicar margin baseado no estado do sidebar
+        state === "expanded" && "md:ml-(--sidebar-width)",
+        state === "collapsed" && "md:ml-(--sidebar-width-icon)",
         className
       )}
       {...props}

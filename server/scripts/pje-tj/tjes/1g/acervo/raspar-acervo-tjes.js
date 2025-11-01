@@ -37,7 +37,7 @@ const PJE_LOGIN_URL = 'https://pje.tjes.jus.br/pje/login.seam';
 const PJE_PAINEL_URL = 'https://pje.tjes.jus.br/pje/Painel/painel_usuario/advogado.seam';
 
 // Endpoint do N8N para resolver CAPTCHA via áudio
-const N8N_SOLVER_URL = 'https://workflows.platform.sinesys.app/webhook/captcha-solver';
+const N8N_SOLVER_URL = process.env.N8N_SOLVER_URL || 'https://workflows.platform.sinesys.app/webhook/captcha-solver';
 
 // ATUALIZADO: Diretório de saída
 const DATA_DIR = 'data/pje/tjes/acervo';

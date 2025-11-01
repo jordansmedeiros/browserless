@@ -350,16 +350,39 @@ type ScrapeExecutionWithRelations = ScrapeExecution & {
 };
 
 /**
+ * Tipo compatível com o resultado do Prisma usando select
+ * Permite tipos parciais mas garante campos mínimos necessários
+ */
+type ScrapeExecutionSelectCompatible = {
+  id: string;
+  createdAt: Date;
+  scrapeJobId: string;
+  tribunalConfig: {
+    id: string;
+    grau: string;
+    sistema: string;
+    tribunal: {
+      codigo: string;
+      nome: string;
+    };
+  };
+  scrapeJob: {
+    scrapeType: string;
+    scrapeSubType: string | null;
+  };
+};
+
+/**
  * Normaliza processo de qualquer tabela para formato ProcessoUnificado
  *
  * @param processo - Registro de qualquer tabela de processos
- * @param scrapeExecution - Execução com relações incluídas
+ * @param scrapeExecution - Execução com relações incluídas (aceita tipos completos ou selecionados)
  * @param origem - Tabela de origem do processo
  * @returns Processo normalizado no formato unificado
  */
 export function normalizeProcessoToUnificado(
   processo: PendentesManifestacao | Processos | ProcessosArquivados | MinhaPauta | ProcessosTJMG,
-  scrapeExecution: ScrapeExecutionWithRelations,
+  scrapeExecution: ScrapeExecutionWithRelations | ScrapeExecutionSelectCompatible,
   origem: 'PendentesManifestacao' | 'Processos' | 'ProcessosArquivados' | 'MinhaPauta' | 'ProcessosTJMG'
 ): ProcessoUnificado {
   const tribunalConfig = scrapeExecution.tribunalConfig;

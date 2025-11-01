@@ -2137,8 +2137,8 @@ export async function listProcessosAction(filters?: ListProcessosFilters): Promi
     // Normalizar cada resultado
     for (const p of pendentesManifestacao) {
       const normalizado = normalizeProcessoToUnificado(
-        p as unknown as Parameters<typeof normalizeProcessoToUnificado>[0],
-        p.scrapeExecution as ScrapeExecutionSelectResult as Parameters<typeof normalizeProcessoToUnificado>[1],
+        p,
+        p.scrapeExecution,
         'PendentesManifestacao'
       );
       const chave = `${normalizado.tribunalConfigId}-${normalizado.idPje}`;
@@ -2152,8 +2152,8 @@ export async function listProcessosAction(filters?: ListProcessosFilters): Promi
 
     for (const p of processos) {
       const normalizado = normalizeProcessoToUnificado(
-        p as unknown as Parameters<typeof normalizeProcessoToUnificado>[0],
-        p.scrapeExecution as ScrapeExecutionSelectResult as Parameters<typeof normalizeProcessoToUnificado>[1],
+        p,
+        p.scrapeExecution,
         'Processos'
       );
       const chave = `${normalizado.tribunalConfigId}-${normalizado.idPje}`;
@@ -2166,8 +2166,8 @@ export async function listProcessosAction(filters?: ListProcessosFilters): Promi
 
     for (const p of processosArquivados) {
       const normalizado = normalizeProcessoToUnificado(
-        p as unknown as Parameters<typeof normalizeProcessoToUnificado>[0],
-        p.scrapeExecution as ScrapeExecutionSelectResult as Parameters<typeof normalizeProcessoToUnificado>[1],
+        p,
+        p.scrapeExecution,
         'ProcessosArquivados'
       );
       const chave = `${normalizado.tribunalConfigId}-${normalizado.idPje}`;
@@ -2180,8 +2180,8 @@ export async function listProcessosAction(filters?: ListProcessosFilters): Promi
 
     for (const p of minhaPauta) {
       const normalizado = normalizeProcessoToUnificado(
-        p as unknown as Parameters<typeof normalizeProcessoToUnificado>[0],
-        p.scrapeExecution as ScrapeExecutionSelectResult as Parameters<typeof normalizeProcessoToUnificado>[1],
+        p,
+        p.scrapeExecution,
         'MinhaPauta'
       );
       const chave = `${normalizado.tribunalConfigId}-${normalizado.idPje}`;
@@ -2194,8 +2194,8 @@ export async function listProcessosAction(filters?: ListProcessosFilters): Promi
 
     for (const p of processosTJMG) {
       const normalizado = normalizeProcessoToUnificado(
-        p as unknown as Parameters<typeof normalizeProcessoToUnificado>[0],
-        p.scrapeExecution as ScrapeExecutionSelectResult as Parameters<typeof normalizeProcessoToUnificado>[1],
+        p,
+        p.scrapeExecution,
         'ProcessosTJMG'
       );
       // Para TJMG, usar número do processo como chave já que idPje pode ser 0

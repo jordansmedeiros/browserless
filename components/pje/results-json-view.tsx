@@ -12,6 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Copy, Check, Search, X, ChevronDown, ChevronRight } from 'lucide-react';
 import type { ScrapeJobWithRelations } from '@/lib/types/scraping';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 interface ResultsJSONViewProps {
   job: ScrapeJobWithRelations;
@@ -20,7 +21,7 @@ interface ResultsJSONViewProps {
 
 export function ResultsJSONView({ job, allProcesses }: ResultsJSONViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [copy, isCopied] = useCopyToClipboard();
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
 
   // Create full data object
@@ -50,14 +51,8 @@ export function ResultsJSONView({ job, allProcesses }: ResultsJSONViewProps) {
   }, [formattedJSON, searchTerm]);
 
   // Handle copy
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(formattedJSON);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('[ResultsJSONView] Failed to copy:', error);
-    }
+  const handleCopy = () => {
+    copy(formattedJSON);
   };
 
   // Handle download
@@ -111,7 +106,7 @@ export function ResultsJSONView({ job, allProcesses }: ResultsJSONViewProps) {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleCopy}>
-            {copied ? (
+            {isCopied ? (
               <>
                 <Check className="mr-2 h-4 w-4" />
                 Copiado!

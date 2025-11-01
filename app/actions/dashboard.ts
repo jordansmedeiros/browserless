@@ -270,64 +270,47 @@ export async function getDashboardChartsDataAction(): Promise<{
       valor: r._count.id,
     }));
 
-    // 4. Tendência de processos (últimos 7 dias - simplificado)
+    // 4. Tendência de processos (últimos 7 dias)
+    // Simplificado: apenas mostrar total atual e últimos 3 dias
     const tendenciaProcessos: DashboardChartsData['tendenciaProcessos'] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    
+    // Buscar apenas 3 pontos: hoje, 3 dias atrás e 7 dias atrás
+    const dates = [
+      new Date(today),
+      new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000),
+      new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000),
+    ];
 
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
+    for (const date of dates) {
       const nextDate = new Date(date);
       nextDate.setDate(nextDate.getDate() + 1);
 
-      const [countTotal, countNovos] = await Promise.all([
-        prisma.$queryRaw<Array<{ count: bigint }>>`
-          SELECT COUNT(*) as count
-          FROM (
-            SELECT createdAt FROM "PendentesManifestacao"
-            WHERE createdAt < ${nextDate}
-            UNION ALL
-            SELECT createdAt FROM "Processos"
-            WHERE createdAt < ${nextDate}
-            UNION ALL
-            SELECT createdAt FROM "ProcessosArquivados"
-            WHERE createdAt < ${nextDate}
-            UNION ALL
-            SELECT createdAt FROM "MinhaPauta"
-            WHERE createdAt < ${nextDate}
-            UNION ALL
-            SELECT createdAt FROM "ProcessosTJMG"
-            WHERE createdAt < ${nextDate}
-          ) AS todos_processos
-        `,
-        prisma.$queryRaw<Array<{ count: bigint }>>`
-          SELECT COUNT(*) as count
-          FROM (
-            SELECT createdAt FROM "PendentesManifestacao"
-            WHERE createdAt >= ${date} AND createdAt < ${nextDate}
-            UNION ALL
-            SELECT createdAt FROM "Processos"
-            WHERE createdAt >= ${date} AND createdAt < ${nextDate}
-            UNION ALL
-            SELECT createdAt FROM "ProcessosArquivados"
-            WHERE createdAt >= ${date} AND createdAt < ${nextDate}
-            UNION ALL
-            SELECT createdAt FROM "MinhaPauta"
-            WHERE createdAt >= ${date} AND createdAt < ${nextDate}
-            UNION ALL
-            SELECT createdAt FROM "ProcessosTJMG"
-            WHERE createdAt >= ${date} AND createdAt < ${nextDate}
-          ) AS novos_processos
-        `,
-      ]);
+      const countTotal = await prisma.$queryRaw<Array<{ count: bigint }>>`
+        SELECT COUNT(*) as count
+        FROM (
+          SELECT id FROM "PendentesManifestacao" WHERE "createdAt" < ${nextDate}
+          UNION ALL
+          SELECT id FROM "Processos" WHERE "createdAt" < ${nextDate}
+          UNION ALL
+          SELECT id FROM "ProcessosArquivados" WHERE "createdAt" < ${nextDate}
+          UNION ALL
+          SELECT id FROM "MinhaPauta" WHERE "createdAt" < ${nextDate}
+          UNION ALL
+          SELECT id FROM "ProcessosTJMG" WHERE "createdAt" < ${nextDate}
+        ) AS todos_processos
+      `;
 
       tendenciaProcessos.push({
         data: date.toISOString().split('T')[0],
         total: Number(countTotal[0]?.count || 0),
-        novos: Number(countNovos[0]?.count || 0),
+        novos: 0,
       });
     }
+    
+    // Ordenar por data (mais antiga primeiro)
+    tendenciaProcessos.sort((a, b) => a.data.localeCompare(b.data));
 
     // 5. Performance média por tribunal
     const performanceRaw = await prisma.scrapeExecution.groupBy({
@@ -550,16 +533,11 @@ export async function getDashboardDataAction(): Promise<{
       getRecentActivityAction(),
     ]);
 
-    if (!statsResult.success) {
-      return statsResult;
-    }
-
-    if (!chartsResult.success) {
-      return chartsResult;
-    }
-
-    if (!activityResult.success) {
-      return activityResult;
+    if (!statsResult.success || !chartsResult.success || !activityResult.success) {
+      return {
+        success: false,
+        error: statsResult.error || chartsResult.error || activityResult.error || 'Erro ao buscar dados do dashboard',
+      };
     }
 
     return {
