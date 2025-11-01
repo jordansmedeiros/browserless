@@ -24,7 +24,7 @@ async function testCreateJobViaWizard(page: Page): Promise<TestResult> {
 
   try {
     // Navigate to scrapes page
-    await page.goto(`${BASE_URL}/pje/scrapes`);
+    await page.goto(`${BASE_URL}/scrapes`);
     await page.waitForSelector('text=Nova Raspagem', { timeout: 10000 });
     console.log('✓ Loaded scrapes page');
 
@@ -99,7 +99,7 @@ async function testSSEReconnection(page: Page): Promise<TestResult> {
   const start = performance.now();
 
   try {
-    await page.goto(`${BASE_URL}/pje/scrapes`);
+    await page.goto(`${BASE_URL}/scrapes`);
 
     // Check for any active or recent jobs
     const jobRows = page.locator('[data-testid="job-row"]');
@@ -159,7 +159,7 @@ async function testBackoffPolling(page: Page): Promise<TestResult> {
   const start = performance.now();
 
   try {
-    await page.goto(`${BASE_URL}/pje/scrapes`);
+    await page.goto(`${BASE_URL}/scrapes`);
 
     // Monitor network requests for polling patterns
     const requests: { url: string; timestamp: number }[] = [];
@@ -202,7 +202,7 @@ async function testTableVirtualization(page: Page): Promise<TestResult> {
   const start = performance.now();
 
   try {
-    await page.goto(`${BASE_URL}/pje/scrapes`);
+    await page.goto(`${BASE_URL}/scrapes`);
 
     // Check for completed jobs with results
     const completedJobLinks = page.locator('a[href*="/results"]');
@@ -261,7 +261,7 @@ async function testKeyboardNavigation(page: Page): Promise<TestResult> {
   const start = performance.now();
 
   try {
-    await page.goto(`${BASE_URL}/pje/scrapes`);
+    await page.goto(`${BASE_URL}/scrapes`);
     await page.waitForLoadState('domcontentloaded');
 
     // Test Tab navigation
@@ -286,7 +286,7 @@ async function testAriaAttributes(page: Page): Promise<TestResult> {
   const start = performance.now();
 
   try {
-    await page.goto(`${BASE_URL}/pje/scrapes`);
+    await page.goto(`${BASE_URL}/scrapes`);
     await page.waitForLoadState('domcontentloaded');
 
     // Check for aria-current on active nav link

@@ -147,11 +147,11 @@ npm run dev
                 <div className="mb-2 text-2xl font-bold text-primary">01</div>
                 <h4 className="mb-2 font-semibold">Configurar Credenciais</h4>
                 <p className="mb-4 text-sm text-muted-foreground">
-                  Acesse <code className="rounded bg-muted px-1 py-0.5">/pje/credentials</code> para cadastrar suas
+                  Acesse <code className="rounded bg-muted px-1 py-0.5">/credentials</code> para cadastrar suas
                   credenciais PJE
                 </p>
                 <Button size="sm" variant="outline" asChild className="w-full">
-                  <a href="/pje/credentials">
+                  <a href="/credentials">
                     Gerenciar
                     <ExternalLink className="ml-2 h-4 w-4" />
                   </a>

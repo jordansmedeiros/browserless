@@ -5,15 +5,34 @@
 ```
 browserless/
 │
-├── 📄 README-PJE.md                    # Documentação principal (ponto de entrada)
+├── 📄 docs/pje/README-PJE.md          # Documentação principal (ponto de entrada)
 │
-├── 📁 scripts/pje/                     # Scripts de automação
-│   ├── login.js                        # ✅ Script principal VALIDADO
-│   ├── test-detection.js               # Teste de anti-detecção
-│   └── README.md                       # Documentação completa e detalhada
+├── 📁 server/scripts/                  # Scripts de automação PJE
+│   ├── pje-trt/                        # Scripts TRT (Tribunais Regionais do Trabalho)
+│   │   ├── common/
+│   │   │   ├── login.js                # ✅ Login automatizado (validado)
+│   │   │   └── auth-helpers.js         # Helpers de autenticação
+│   │   ├── acervo/                     # Scripts de acervo geral
+│   │   ├── pendentes/                  # Scripts de processos pendentes
+│   │   ├── arquivados/                 # Scripts de processos arquivados
+│   │   ├── pauta/                      # Scripts de pauta/audiências
+│   │   └── README.md                   # Documentação completa TRT
+│   └── pje-tj/                         # Scripts TJ (Tribunais de Justiça)
+│       ├── tjmg/                       # Tribunal de Justiça de Minas Gerais
+│       │   ├── 1g/
+│       │   │   ├── acervo/
+│       │   │   ├── pendentes/
+│       │   │   └── pauta/
+│       │   └── common/
+│       ├── tjce/                       # Tribunal de Justiça do Ceará
+│       ├── tjdf/                       # Tribunal de Justiça do DF
+│       ├── tjes/                       # Tribunal de Justiça do Espírito Santo
+│       └── README.md                   # Documentação completa TJ
 │
 ├── 📁 docs/pje/                        # Documentação técnica
+│   ├── README-PJE.md                  # Guia principal
 │   ├── ANTI-BOT-DETECTION.md          # Guia de técnicas anti-detecção
+│   ├── APIs.md                        # Referência de APIs
 │   └── ESTRUTURA.md                    # Este arquivo
 │
 └── 📁 screenshots/                     # Evidências e resultados
@@ -33,10 +52,10 @@ browserless/
 ├── ❌ login-pje-debugger.js            # Para debugger (preview ficava em branco)
 ├── ❌ login-pje-local-visual.js        # Versão intermediária (sem botão PDPJ)
 ├── ❌ login-pje-visual-correto.js      # Versão intermediária (HTTP 400)
-├── ❌ login-pje-completo.js            # ✅ MOVIDO para scripts/pje/login.js
-├── ❌ test-anti-detection.js           # ✅ MOVIDO para scripts/pje/test-detection.js
+├── ❌ login-pje-completo.js            # ✅ MOVIDO para server/scripts/pje-trt/common/login.js
+├── ❌ test-anti-detection.js           # ✅ REMOVIDO (não mais necessário)
 │
-├── ❌ README-PJE-LOGIN.md              # ✅ MOVIDO para scripts/pje/README.md
+├── ❌ README-PJE-LOGIN.md              # ✅ MOVIDO para docs/pje/README-PJE.md
 ├── ❌ ANTI-BOT-DETECTION.md            # ✅ MOVIDO para docs/pje/
 ├── ❌ COMO-USAR-DEBUGGER.md            # Obsoleto (debugger não funciona)
 ├── ❌ RESUMO-TESTES.md                 # Obsoleto (info incluída no novo README)
@@ -114,25 +133,28 @@ browserless/
 
 ### Para usuários finais:
 
-1. Leia: [README-PJE.md](../../README-PJE.md) na raiz
-2. Execute: `node scripts/pje/login.js`
+1. Leia: [docs/pje/README-PJE.md](README-PJE.md)
+2. Execute: `node server/scripts/pje-trt/common/login.js`
 3. Veja: Screenshot em `screenshots/pje-login-success.png`
 
 ### Para desenvolvedores:
 
-1. Leia: [scripts/pje/README.md](../scripts/pje/README.md) para documentação completa
-2. Leia: [ANTI-BOT-DETECTION.md](ANTI-BOT-DETECTION.md) para técnicas avançadas
-3. Teste: `node scripts/pje/test-detection.js`
-4. Modifique: Apenas `scripts/pje/login.js`
+1. Leia: [server/scripts/pje-trt/README.md](../../server/scripts/pje-trt/README.md) para documentação completa TRT
+2. Leia: [server/scripts/pje-tj/README.md](../../server/scripts/pje-tj/README.md) para documentação completa TJ
+3. Leia: [ANTI-BOT-DETECTION.md](ANTI-BOT-DETECTION.md) para técnicas avançadas
+4. Modifique: `server/scripts/pje-trt/common/login.js` ou scripts específicos por tribunal
 
 ### Para adicionar novos scripts:
 
 ```bash
-# Criar novo script
-touch scripts/pje/consulta-processos.js
+# Criar novo script TRT
+touch server/scripts/pje-trt/consulta-processos.js
+
+# Criar novo script TJ
+touch server/scripts/pje-tj/tjmg/1g/consulta-processos.js
 
 # Adicionar documentação
-echo "# Consulta de Processos" >> scripts/pje/README.md
+echo "# Consulta de Processos" >> server/scripts/pje-trt/README.md
 
 # Adicionar screenshot de evidência
 mv resultado.png screenshots/pje-consulta-success.png
@@ -149,10 +171,16 @@ mv resultado.png screenshots/pje-consulta-success.png
 - **4 arquivos de documentação** duplicados
 
 ### Depois da Limpeza:
-- **1 arquivo** na raiz (README-PJE.md)
-- **1 script principal** (scripts/pje/login.js)
+- **Documentação principal** em docs/pje/README-PJE.md
+- **Scripts organizados** por tipo de tribunal:
+  - `server/scripts/pje-trt/` - Scripts TRT
+  - `server/scripts/pje-tj/` - Scripts TJ (tjmg, tjce, tjdf, tjes)
 - **1 screenshot** de evidência (screenshots/pje-login-success.png)
-- **2 arquivos de documentação** organizados (scripts/pje/README.md + docs/pje/ANTI-BOT-DETECTION.md)
+- **Documentação organizada** por módulo:
+  - `server/scripts/pje-trt/README.md` - Documentação TRT
+  - `server/scripts/pje-tj/README.md` - Documentação TJ
+  - `docs/pje/ANTI-BOT-DETECTION.md` - Técnicas avançadas
+  - `docs/pje/APIs.md` - Referência de APIs
 
 **Redução**: De 20+ arquivos para 5 arquivos organizados (75% de redução)
 
@@ -169,7 +197,11 @@ node login-pje-completo.js
 
 ### Agora:
 ```bash
-node scripts/pje/login.js
+# Login TRT
+node server/scripts/pje-trt/common/login.js
+
+# Login TJMG
+node server/scripts/pje-tj/tjmg/common/login.js
 ```
 
 **Nota**: O código é EXATAMENTE o mesmo, apenas mudou de lugar.
@@ -199,12 +231,28 @@ node scripts/pje/login.js
 ### Possíveis adições futuras:
 
 ```
-scripts/pje/
-├── login.js                    # ✅ Implementado
-├── test-detection.js           # ✅ Implementado
+server/scripts/pje-trt/
+├── common/
+│   └── login.js               # ✅ Implementado
+├── acervo/                     # ✅ Implementado
+├── pendentes/                  # ✅ Implementado
+├── arquivados/                 # ✅ Implementado
+├── pauta/                      # ✅ Implementado
 ├── consulta-processos.js       # 📝 TODO
 ├── enviar-peticao.js           # 📝 TODO
 └── acompanhar-movimentacao.js  # 📝 TODO
+
+server/scripts/pje-tj/
+├── tjmg/
+│   ├── 1g/
+│   │   ├── acervo/            # ✅ Implementado
+│   │   ├── pendentes/         # ✅ Implementado
+│   │   └── pauta/             # ✅ Implementado
+│   └── common/
+│       └── login.js            # ✅ Implementado
+├── tjce/                       # ✅ Implementado
+├── tjdf/                       # ✅ Implementado
+└── tjes/                       # ✅ Implementado
 
 docs/pje/
 ├── ANTI-BOT-DETECTION.md       # ✅ Implementado

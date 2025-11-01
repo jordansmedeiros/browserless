@@ -66,14 +66,71 @@ function ChartWrapper({ title, description, loading, children }: ChartWrapperPro
  * Cores para os gráficos
  */
 const CHART_COLORS = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
-  'hsl(var(--primary))',
-  'hsl(var(--secondary))',
+  '#3b82f6', // blue
+  '#10b981', // emerald
+  '#f59e0b', // amber
+  '#ef4444', // red
+  '#8b5cf6', // violet
+  '#06b6d4', // cyan
+  '#ec4899', // pink
+  '#f97316', // orange
+  '#14b8a6', // teal
+  '#6366f1', // indigo
 ];
+
+/**
+ * Normalizar nome de tribunal para exibição
+ * Converte nomes longos em versões curtas
+ */
+function normalizeTribunalName(name: string): string {
+  // TRT da N Região -> TRTN
+  const trtMatch = name.match(/TRT da (\d+)[aª]? Região/i);
+  if (trtMatch) {
+    return `TRT${trtMatch[1]}`;
+  }
+
+  // Justiça de [Estado] ou Justiça do Estado de [Estado] -> TJ[SIGLA]
+  const tjMatch = name.match(/Justiça (?:do|de) (?:Estado de )?([A-Za-z]+(?:\s+[A-Za-z]+)*)/i);
+  if (tjMatch) {
+    const estado = tjMatch[1];
+    // Mapear estados comuns
+    const siglas: Record<string, string> = {
+      'Minas Gerais': 'MG',
+      'São Paulo': 'SP',
+      'Rio de Janeiro': 'RJ',
+      'Rio Grande do Sul': 'RS',
+      'Bahia': 'BA',
+      'Paraná': 'PR',
+      'Parana': 'PR',
+      'Santa Catarina': 'SC',
+      'Goiás': 'GO',
+      'Goias': 'GO',
+      'Pernambuco': 'PE',
+      'Ceará': 'CE',
+      'Ceara': 'CE',
+      'Paraíba': 'PB',
+      'Paraiba': 'PB',
+      'Espírito Santo': 'ES',
+      'Espirito Santo': 'ES',
+      'Maranhão': 'MA',
+      'Maranhao': 'MA',
+      'Alagoas': 'AL',
+      'Sergipe': 'SE',
+      'Tocantins': 'TO',
+      'Roraima': 'RR',
+      'Amapá': 'AP',
+      'Amapa': 'AP',
+      'Rondônia': 'RO',
+      'Rondonia': 'RO',
+      'Acre': 'AC',
+      'Distrito Federal': 'DF',
+    };
+    return `TJ${siglas[estado] || estado.substring(0, 2).toUpperCase()}`;
+  }
+
+  // TJMG, TJSP, etc. permanecem como estão
+  return name;
+}
 
 /**
  * Tooltip customizado
@@ -138,6 +195,12 @@ export function ProcessosPorTribunalChart({
     );
   }
 
+  // Normalizar nomes dos tribunais para exibição
+  const normalizedData = data.map((item) => ({
+    ...item,
+    nome: normalizeTribunalName(item.nome),
+  }));
+
   return (
     <ChartWrapper
       title="Processos por Tribunal"
@@ -145,12 +208,12 @@ export function ProcessosPorTribunalChart({
       loading={loading}
     >
       <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={data} layout="vertical" margin={{ left: 80, right: 20 }}>
+        <BarChart data={normalizedData} layout="vertical" margin={{ left: 60, right: 20 }}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis type="number" />
-          <YAxis dataKey="nome" type="category" width={70} />
+          <YAxis dataKey="nome" type="category" width={50} />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="valor" fill="hsl(var(--primary))" radius={[0, 8, 8, 0]} />
+          <Bar dataKey="valor" fill={CHART_COLORS[0]} radius={[0, 8, 8, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </ChartWrapper>
@@ -195,9 +258,9 @@ export function ProcessosPorTipoChart({
             cx="50%"
             cy="50%"
             labelLine={false}
-            label={(entry) => `${entry.nome}: ${entry.valor}`}
+            label={(entry) => `${entry.nome}: ${entry.valor.toLocaleString('pt-BR')}`}
             outerRadius={100}
-            fill="#8884d8"
+            fill={CHART_COLORS[0]}
             dataKey="valor"
           >
             {data.map((entry, index) => (
@@ -248,7 +311,7 @@ export function RaspagensPorStatusChart({
           <XAxis dataKey="nome" />
           <YAxis />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="valor" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+          <Bar dataKey="valor" fill={CHART_COLORS[0]} radius={[8, 8, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </ChartWrapper>
@@ -308,7 +371,7 @@ export function TendenciaProcessosChart({
           <Line
             type="monotone"
             dataKey="total"
-            stroke="hsl(var(--chart-1))"
+            stroke={CHART_COLORS[0]}
             strokeWidth={2}
             dot={{ r: 4 }}
             name="Total"
@@ -316,7 +379,7 @@ export function TendenciaProcessosChart({
           <Line
             type="monotone"
             dataKey="novos"
-            stroke="hsl(var(--chart-2))"
+            stroke={CHART_COLORS[1]}
             strokeWidth={2}
             dot={{ r: 4 }}
             name="Novos"
@@ -352,6 +415,12 @@ export function PerformanceTribunaisChart({
     );
   }
 
+  // Normalizar nomes dos tribunais
+  const normalizedData = data.map((item) => ({
+    ...item,
+    tribunal: normalizeTribunalName(item.tribunal),
+  }));
+
   return (
     <ChartWrapper
       title="Performance por Tribunal"
@@ -359,14 +428,15 @@ export function PerformanceTribunaisChart({
       loading={loading}
     >
       <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <BarChart data={normalizedData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="tribunal" />
+          <XAxis dataKey="tribunal" angle={-30} textAnchor="end" height={80} />
           <YAxis />
           <Tooltip content={<CustomTooltip />} />
           <Legend content={<CustomLegend />} />
-          <Bar dataKey="sucessos" fill="hsl(var(--chart-1))" radius={[8, 8, 0, 0]} name="Sucessos" />
-          <Bar dataKey="falhas" fill="hsl(var(--destructive))" radius={[8, 8, 0, 0]} name="Falhas" />
+          <Bar dataKey="tempoMedio" fill={CHART_COLORS[0]} radius={[8, 8, 0, 0]} name="Tempo Médio (s)" />
+          <Bar dataKey="sucessos" fill={CHART_COLORS[1]} radius={[8, 8, 0, 0]} name="Sucessos" />
+          <Bar dataKey="falhas" fill={CHART_COLORS[2]} radius={[8, 8, 0, 0]} name="Falhas" />
         </BarChart>
       </ResponsiveContainer>
     </ChartWrapper>

@@ -14,20 +14,37 @@ Data: **24 de Outubro de 2025**
 
 ---
 
-## 📂 Estrutura Final
+## 📂 Estrutura Final (ATUALIZADA)
 
 ```
 browserless/
 │
-├── 📄 README-PJE.md                       # Ponto de entrada principal
+├── 📄 docs/pje/README-PJE.md              # Ponto de entrada principal
 │
-├── 📁 scripts/pje/                        # Scripts de automação
-│   ├── login.js                           # ✅ Script validado (USE ESTE)
-│   ├── test-detection.js                  # Teste de anti-detecção
-│   └── README.md                          # Documentação completa (11KB)
+├── 📁 server/scripts/                     # Scripts de automação PJE
+│   ├── pje-trt/                           # Scripts TRT (Tribunais Regionais do Trabalho)
+│   │   ├── common/
+│   │   │   ├── login.js                   # ✅ Login automatizado (validado)
+│   │   │   └── auth-helpers.js            # Helpers de autenticação
+│   │   ├── acervo/                        # Scripts de acervo geral
+│   │   ├── pendentes/                     # Scripts de processos pendentes
+│   │   ├── arquivados/                    # Scripts de processos arquivados
+│   │   └── pauta/                         # Scripts de pauta/audiências
+│   └── pje-tj/                            # Scripts TJ (Tribunais de Justiça)
+│       ├── tjmg/                          # Tribunal de Justiça de Minas Gerais
+│       │   ├── 1g/
+│       │   │   ├── acervo/
+│       │   │   ├── pendentes/
+│       │   │   └── pauta/
+│       │   └── common/
+│       ├── tjce/                          # Tribunal de Justiça do Ceará
+│       ├── tjdf/                          # Tribunal de Justiça do DF
+│       └── tjes/                          # Tribunal de Justiça do Espírito Santo
 │
 ├── 📁 docs/pje/                           # Documentação técnica
+│   ├── README-PJE.md                      # Guia principal
 │   ├── ANTI-BOT-DETECTION.md             # Técnicas avançadas
+│   ├── APIs.md                            # Referência de APIs
 │   └── ESTRUTURA.md                       # Mapa da estrutura
 │
 └── 📁 screenshots/                        # Evidências
@@ -223,10 +240,19 @@ vim scripts/pje/login.js
 ### Nomenclatura de Arquivos:
 
 ```
-scripts/pje/
-├── {funcionalidade}.js           # Script principal
-├── test-{funcionalidade}.js      # Script de teste
-└── README.md                     # Documentação do módulo
+server/scripts/
+├── pje-trt/                      # Scripts TRT
+│   ├── common/                   # Scripts compartilhados
+│   ├── {tipo}/                   # Tipo de scraping (acervo, pendentes, etc)
+│   └── README.md                 # Documentação do módulo
+├── pje-tj/                       # Scripts TJ
+│   ├── {tj}/                     # Tribunal específico (tjmg, tjce, etc)
+│   │   ├── 1g/                   # Primeiro grau
+│   │   │   ├── acervo/
+│   │   │   ├── pendentes/
+│   │   │   └── pauta/
+│   │   └── common/               # Scripts compartilhados do tribunal
+│   └── README.md                 # Documentação do módulo
 
 docs/pje/
 ├── {TOPICO}.md                   # Guia técnico (MAIÚSCULAS)
@@ -239,8 +265,9 @@ screenshots/
 ### Exemplos:
 
 ```
-scripts/pje/login.js
-scripts/pje/test-detection.js
+server/scripts/pje-trt/common/login.js
+server/scripts/pje-trt/acervo/raspar-acervo-geral.js
+server/scripts/pje-tj/tjmg/1g/acervo/raspar-acervo-geral.js
 docs/pje/ANTI-BOT-DETECTION.md
 screenshots/pje-login-success.png
 ```
@@ -259,8 +286,17 @@ node test-anti-detection.js
 
 ### ✅ Agora:
 ```bash
-node scripts/pje/login.js
-node scripts/pje/test-detection.js
+# Login TRT
+node server/scripts/pje-trt/common/login.js
+
+# Login TJMG
+node server/scripts/pje-tj/tjmg/common/login.js
+
+# Raspagem TRT3 Acervo
+node server/scripts/pje-trt/acervo/raspar-acervo-geral.js
+
+# Raspagem TJMG Acervo
+node server/scripts/pje-tj/tjmg/1g/acervo/raspar-acervo-geral.js
 ```
 
 **Nota**: O código é EXATAMENTE o mesmo, apenas mudou de lugar.
@@ -271,8 +307,9 @@ node scripts/pje/test-detection.js
 
 | Arquivo | Propósito | Audiência |
 |---------|-----------|-----------|
-| [README-PJE.md](README-PJE.md) | Visão geral e início rápido | Todos |
-| [scripts/pje/README.md](scripts/pje/README.md) | Documentação completa e detalhada | Desenvolvedores |
+| [docs/pje/README-PJE.md](docs/pje/README-PJE.md) | Visão geral e início rápido | Todos |
+| [server/scripts/pje-trt/README.md](server/scripts/pje-trt/README.md) | Documentação completa TRT | Desenvolvedores |
+| [server/scripts/pje-tj/README.md](server/scripts/pje-tj/README.md) | Documentação completa TJ | Desenvolvedores |
 | [docs/pje/ANTI-BOT-DETECTION.md](docs/pje/ANTI-BOT-DETECTION.md) | Técnicas avançadas de anti-detecção | Avançado |
 | [docs/pje/ESTRUTURA.md](docs/pje/ESTRUTURA.md) | Mapa da estrutura do projeto | Contribuidores |
 

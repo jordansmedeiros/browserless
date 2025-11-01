@@ -60,7 +60,7 @@ export function CredentialSelector({
           Você precisa cadastrar credenciais antes de criar raspagens
         </p>
         <a
-          href="/pje/credentials"
+          href="/credentials"
           className="text-sm text-primary hover:underline"
         >
           Ir para página de credenciais →

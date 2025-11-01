@@ -442,7 +442,7 @@ export async function getCredencialParaTribunalConfig(
     if (credenciaisTribunal.length === 0) {
       const error = new Error(
         `Nenhuma credencial ativa encontrada para este tribunal.\n\n` +
-        `Configure credenciais em: /pje/credentials`
+        `Configure credenciais em: /credentials`
       );
       console.error('[Credential] Erro:', error.message);
       throw error;

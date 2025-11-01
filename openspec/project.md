@@ -193,9 +193,16 @@ npm start            # Start built application
 - **Debug Viewer**: Visual interface showing active sessions
 - **Session Management**: Automatic timeouts and health checks
 
-### PJE (Processo Judicial Eletronico) Automation
+### Sistemas Judiciais Eletrônicos Brasileiros - Automation
 
-**Domain**: Brazilian electronic legal process system (TRT3 - Labor Court)
+**Domain**: Brazilian electronic legal process systems automation. The project supports multiple systems:
+
+- **PJE** (Processo Judicial Eletrônico) - Used by TRTs and some TJs
+- **ESSAGE** - Unified system used by some state courts
+- **E-PROC** - System used by TRFs and some courts
+- **PROJUDE** - System used by some courts
+
+**Note**: This is NOT a PJE-only project. The project is designed to support multiple judicial systems in Brazil.
 
 **Key Challenges**:
 1. **Anti-Bot Detection**: CloudFront WAF detects and blocks automated access
@@ -210,7 +217,7 @@ npm start            # Start built application
 - Realistic Chrome 131 headers
 - Navigator.webdriver obfuscation
 
-**PJE APIs** (documented in `docs/pje/APIs.md`):
+**PJE APIs** (documented in `docs/pje/APIs.md`) - Note: These are PJE-specific APIs. Other systems (ESSAGE, E-PROC, PROJUDE) may have different API structures:
 - Authentication via SSO: `https://sso.cloud.pje.jus.br`
 - Base URL: `https://pje.trt3.jus.br`
 - Profile API: `/pje-seguranca/api/token/perfis`
@@ -325,13 +332,14 @@ GET /pje-comum-api/api/paineladvogado/{id}/processos
 
 ### Key Documentation
 - [README.md](README.md) - Main project documentation
-- [README-PJE.md](README-PJE.md) - PJE automation quick start
+- [docs/pje/README-PJE.md](docs/pje/README-PJE.md) - PJE automation quick start
 - [server/scripts/pje-trt/README.md](server/scripts/pje-trt/README.md) - TRT automation overview
+- [server/scripts/pje-tj/README.md](server/scripts/pje-tj/README.md) - TJ automation overview
 - [server/scripts/pje-trt/trt3/README.md](server/scripts/pje-trt/trt3/README.md) - TRT3-specific scraping flows
 - [docs/pje/APIs.md](docs/pje/APIs.md) - PJE API reference
 - [docs/pje/ANTI-BOT-DETECTION.md](docs/pje/ANTI-BOT-DETECTION.md) - Anti-detection techniques
 - [docs/pje/ESTRUTURA.md](docs/pje/ESTRUTURA.md) - Module structure map
-- [ESTRUTURA-ORGANIZADA.md](ESTRUTURA-ORGANIZADA.md) - Project reorganization history
+- [docs/ESTRUTURA-ORGANIZADA.md](docs/ESTRUTURA-ORGANIZADA.md) - Project reorganization history
 
 ### Configuration Files
 - [package.json](package.json) - Dependencies, scripts, and Playwright version matrix

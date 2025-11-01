@@ -22,10 +22,14 @@ npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
 ### 2. Executar
 
 ```bash
-node scripts/pje/login.js
+# Login TRT
+node server/scripts/pje-trt/common/login.js
+
+# Login TJMG
+node server/scripts/pje-tj/tjmg/common/login.js
 ```
 
-Veja a [documentação completa](scripts/pje/README.md) para mais detalhes.
+Veja a [documentação completa TRT](server/scripts/pje-trt/README.md) ou [documentação TJ](server/scripts/pje-tj/README.md) para mais detalhes.
 
 ---
 
@@ -33,18 +37,28 @@ Veja a [documentação completa](scripts/pje/README.md) para mais detalhes.
 
 ```
 browserless/
-├── scripts/pje/              # ✅ Scripts principais (USE ESTES)
-│   ├── login.js             # Script de login (VALIDADO)
-│   ├── test-detection.js    # Teste de anti-detecção
-│   └── README.md            # Documentação completa
+├── server/scripts/          # ✅ Scripts principais (USE ESTES)
+│   ├── pje-trt/             # Scripts TRT (Tribunais Regionais do Trabalho)
+│   │   ├── common/
+│   │   │   └── login.js     # Script de login (VALIDADO)
+│   │   ├── acervo/          # Scripts de acervo geral
+│   │   ├── pendentes/       # Scripts de processos pendentes
+│   │   ├── arquivados/      # Scripts de processos arquivados
+│   │   └── pauta/           # Scripts de pauta/audiências
+│   └── pje-tj/              # Scripts TJ (Tribunais de Justiça)
+│       ├── tjmg/            # Tribunal de Justiça de Minas Gerais
+│       ├── tjce/            # Tribunal de Justiça do Ceará
+│       ├── tjdf/            # Tribunal de Justiça do DF
+│       └── tjes/            # Tribunal de Justiça do Espírito Santo
 │
 ├── docs/pje/                # Documentação técnica
-│   └── ANTI-BOT-DETECTION.md
+│   ├── README-PJE.md        # Este arquivo
+│   ├── ANTI-BOT-DETECTION.md
+│   ├── APIs.md
+│   └── ESTRUTURA.md
 │
-├── screenshots/             # Evidências
-│   └── pje-login-success.png
-│
-└── README-PJE.md           # Este arquivo
+└── screenshots/             # Evidências
+    └── pje-login-success.png
 ```
 
 ---
@@ -121,7 +135,7 @@ browserless/
 
 ### 🧙 Como Usar o Wizard de Scraping
 
-1. Acesse a página de scraping: `/pje/scrapes`
+1. Acesse a página de scraping: `/scrapes`
 2. Clique em **"Novo Scraping"**
 3. **Etapa 1 - Selecionar Tribunais**:
    - Use a busca para filtrar tribunais por nome ou código
@@ -159,9 +173,9 @@ browserless/
 ### 📊 Como Usar o Visualizador de Resultados
 
 **Acessar Resultados**:
-1. Vá para `/pje/scrapes`
+1. Vá para `/scrapes`
 2. Clique em **"Ver Detalhes"** em um job concluído
-3. Ou acesse diretamente: `/pje/scrapes/[job-id]`
+3. Ou acesse diretamente: `/scrapes/[job-id]`
 
 **Visualização em Tabela**:
 - Clique em cabeçalhos de coluna para ordenar
@@ -214,8 +228,10 @@ browserless/
 
 ## 📚 Documentação
 
-- **[scripts/pje/README.md](scripts/pje/README.md)** - Documentação completa e detalhada
-- **[docs/pje/ANTI-BOT-DETECTION.md](docs/pje/ANTI-BOT-DETECTION.md)** - Técnicas de anti-detecção
+- **[server/scripts/pje-trt/README.md](server/scripts/pje-trt/README.md)** - Documentação completa TRT
+- **[server/scripts/pje-tj/README.md](server/scripts/pje-tj/README.md)** - Documentação completa TJ
+- **[docs/pje/ANTI-BOT-DETECTION.md](ANTI-BOT-DETECTION.md)** - Técnicas de anti-detecção
+- **[docs/pje/APIs.md](APIs.md)** - Referência de APIs
 
 ---
 
@@ -225,7 +241,7 @@ browserless/
 
 **Erro 403 (CloudFront)**
 - Aguarde 5-10 minutos entre tentativas
-- Execute primeiro: `node scripts/pje/test-detection.js`
+- Verifique as credenciais e tente novamente
 
 **Módulo não encontrado**
 ```bash
@@ -239,7 +255,7 @@ npm install puppeteer
 
 ### Mais ajuda
 
-Veja a [documentação completa](scripts/pje/README.md) para mais soluções.
+Veja a [documentação completa TRT](server/scripts/pje-trt/README.md) ou [documentação TJ](server/scripts/pje-tj/README.md) para mais soluções.
 
 ---
 

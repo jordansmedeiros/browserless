@@ -19,11 +19,11 @@
 - [Sobre o Projeto](#-sobre-o-projeto)
 - [Funcionalidades](#-funcionalidades)
   - [Interface Web Next.js](#-interface-web-nextjs) ⭐ **NOVO**
-  - [Automação PJE](#-automação-pje-trt3)
+  - [Automação de Sistemas Judiciais](#-automação-de-sistemas-judiciais)
   - [Plataforma Browserless](#-plataforma-browserless)
 - [Início Rápido](#-início-rápido)
   - [Interface Web: Setup e Uso](#interface-web-setup-e-uso) ⭐ **NOVO**
-  - [PJE: Login Automatizado](#pje-login-automatizado)
+  - [Sistemas Judiciais: Login Automatizado](#sistemas-judiciais-login-automatizado)
   - [Browserless: Servidor Headless](#browserless-servidor-headless)
 - [Estrutura do Projeto](#-estrutura-do-projeto)
 - [Documentação](#-documentação)
@@ -39,16 +39,37 @@ Este projeto combina duas funcionalidades principais:
 
 ### 1. 🏛️ Raspagem automatizada de dados processuais
 
-Sistema completo de automação para **todos os 24 TRTs** (Tribunais Regionais do Trabalho) do Brasil com capacidades de:
+Plataforma completa de automação para **sistemas judiciais eletrônicos brasileiros** com suporte a múltiplos sistemas e tribunais:
 
-- **🎯 Suporte Multi-TRT**: Todos os 24 TRTs + 1º e 2º grau (48 configurações)
-- **Login automatizado** com bypass de detecção de bots (CloudFront WAF)
-- **Raspagem de processos** via APIs REST descobertas e documentadas
-- **Extração de dados** de processos judiciais (acervo geral, pendentes, arquivados)
+#### 🎯 Escopo do Projeto
+
+**Sistemas Suportados**:
+- **PJE** (Processo Judicial Eletrônico) - usado por TRTs e alguns TJs
+- **ESAJ** (sistema unificado de alguns tribunais)
+- **E-PROC** (sistema usado por TRFs e alguns tribunais)
+- **PROJUDI** (sistema usado por alguns tribunais)
+
+**Tribunais Suportados** (atual e planejado):
+- ✅ **TRTs** (Tribunais Regionais do Trabalho) - 24 TRTs via PJE
+- ✅ **TJs** (Tribunais de Justiça) - em implementação (TJMG, TJCE, TJDF, TJES já suportados)
+- 🔜 **TRFs** (Tribunais Regionais Federais) - planejado
+- 🔜 **Tribunais Superiores** (TST, STJ, STF) - planejado
+
+#### ✨ Funcionalidades
+
+- **🎯 Suporte Multi-Sistema**: Arquitetura preparada para múltiplos sistemas judiciais
+- **Multi-Tribunal**: Suporte para diferentes tipos de tribunais (TRT, TJ, TRF, Superiores)
+- **Login automatizado** com bypass de detecção de bots (CloudFront WAF, CAPTCHA, etc.)
+- **Raspagem de processos** via APIs REST (quando disponíveis) ou parsing de HTML
+- **Extração de dados** de processos judiciais (acervo geral, pendentes, arquivados, pauta)
 - **Anti-detecção avançada** usando Puppeteer Stealth Plugin
 - **Type-safe**: TypeScript com validação em tempo de compilação
 
-**Status**: ✅ Funcionando e validado com 24 TRTs (24/10/2025)
+**Status Atual**: 
+- ✅ TRTs: Funcionando e validado com 24 TRTs (24/10/2025)
+- ✅ TJs: TJMG, TJCE, TJDF, TJES implementados e testados
+- 🔜 TRFs: Em planejamento
+- 🔜 Tribunais Superiores: Em planejamento
 
 📖 **[Documentação Completa Multi-TRT](docs/MULTI-TRT-SUPPORT.md)**
 
@@ -68,7 +89,7 @@ Infraestrutura de navegadores headless baseada no projeto [Browserless](https://
 
 ### 🌐 Interface Web Next.js
 
-**Nova interface web moderna** para automação PJE com dashboard interativo:
+**Nova interface web moderna** para automação de sistemas judiciais com dashboard interativo:
 
 #### ✨ Características Principais
 - **Next.js 16** com App Router e React 19
@@ -83,8 +104,8 @@ Infraestrutura de navegadores headless baseada no projeto [Browserless](https://
   - Suporte a escritórios com múltiplos advogados
   - Advogados autônomos (sem escritório)
   - Múltiplas senhas por advogado
-  - Associação flexível de credenciais a tribunais
-  - Auto-detecção do ID do advogado no PJE
+  - Associação flexível de credenciais a tribunais e sistemas
+  - Auto-detecção do ID do advogado (PJE e outros sistemas)
   - Teste de credenciais com rate limiting
 - ✅ **Interface de Scraping Completa** - Sistema de raspagem com monitoramento em tempo real
   - Configuração visual de jobs de scraping
@@ -104,10 +125,13 @@ Infraestrutura de navegadores headless baseada no projeto [Browserless](https://
 #### 🏗️ Arquitetura
 ```
 Frontend (Next.js)    ←→    Backend (Puppeteer)
-├─ React 19                  ├─ PJE Scripts
-├─ Server Actions            ├─ Anti-detecção
-├─ Prisma Client             └─ Browserless Core
-└─ Shadcn/ui
+├─ React 19                  ├─ Scripts Judiciais
+├─ Server Actions            │  ├─ PJE (TRT, TJ)
+├─ Prisma Client             │  ├─ ESAJ
+└─ Shadcn/ui                 │  ├─ E-PROC
+                             │  └─ PROJUDI
+                             ├─ Anti-detecção
+                             └─ Browserless Core
 ```
 
 **Status**: ✅ Funcionando em desenvolvimento (http://localhost:3000)
@@ -205,27 +229,26 @@ npm run dev
 ```
 
 **Depois de iniciar:**
-1. Acesse `http://localhost:3000/pje/credentials`
-2. Configure credenciais PJE via interface web
-3. Apenas para testes manuais: editar `.env` com `PJE_CPF` e `PJE_SENHA`
+1. Acesse `http://localhost:3000/credentials`
+2. Configure credenciais dos sistemas judiciais via interface web
+3. Apenas para testes manuais: editar `.env` com credenciais
 
 **Acesso**: [http://localhost:3000](http://localhost:3000)
 
 #### 🎯 Usando a Interface
 
 1. **Dashboard** (`/dashboard`) - Visão geral com estatísticas
-2. **Login PJE** (`/pje/login`) - Fazer login no PJE via formulário
-3. **Processos** (`/pje/processos`) - Visualizar processos (em desenvolvimento)
-4. **Raspagens** (`/pje/scrapes`) - Histórico de raspagens (em desenvolvimento)
+2. **Credenciais** (`/credentials`) - Gerenciar credenciais de acesso
+3. **Processos** (`/processos`) - Visualizar processos (em desenvolvimento)
+4. **Raspagens** (`/scrapes`) - Gerenciar raspagens e histórico
+5. **Agendamentos** (`/agendamentos`) - Agendar raspagens automáticas
 
-#### 💡 Exemplo de Login
+#### 💡 Exemplo de Configuração
 
-1. Acesse http://localhost:3000/pje/login
-2. Digite seu CPF (apenas números)
-3. Digite sua senha do PJE
-4. Clique em "Fazer Login"
-5. Aguarde 10-30 segundos (comportamento humano)
-6. Veja o perfil do usuário retornado!
+1. Acesse http://localhost:3000/credentials
+2. Configure suas credenciais (escritório, advogado, senhas)
+3. Associe credenciais aos tribunais e sistemas desejados
+4. Teste as credenciais antes de usar em produção
 
 **Vantagens**:
 - ✅ Interface visual moderna
@@ -236,11 +259,11 @@ npm run dev
 
 ---
 
-### PJE: Configuração de Credenciais
+### Sistemas Judiciais: Configuração de Credenciais
 
 **🎯 Método Recomendado: Interface Web**
 
-O sistema usa **gerenciamento de credenciais via interface web**:
+O sistema usa **gerenciamento de credenciais via interface web** para todos os sistemas (PJE, ESSAGE, E-PROC, PROJUDE):
 
 1. **Inicie o servidor de desenvolvimento**:
    ```bash
@@ -249,13 +272,13 @@ O sistema usa **gerenciamento de credenciais via interface web**:
 
 2. **Acesse o gerenciamento de credenciais**:
    ```
-   http://localhost:3000/pje/credentials
+   http://localhost:3000/credentials
    ```
 
 3. **Configure suas credenciais**:
    - Crie um escritório (opcional) ou cadastre-se como advogado autônomo
    - Adicione seus dados (nome, OAB, CPF)
-   - Cadastre suas senhas e associe aos tribunais
+   - Cadastre suas senhas e associe aos tribunais e sistemas
    - Teste as credenciais antes de usar
 
 **Vantagens**:
@@ -268,11 +291,11 @@ O sistema usa **gerenciamento de credenciais via interface web**:
 
 ---
 
-### PJE: Interface de Scraping
+### Sistemas Judiciais: Interface de Scraping
 
 **🎯 Método Recomendado: Interface Web de Scraping**
 
-O sistema agora possui uma **interface completa de scraping** com gerenciamento de jobs, monitoramento em tempo real e histórico:
+O sistema possui uma **interface completa de scraping** para todos os sistemas judiciais (PJE, ESSAGE, E-PROC, PROJUDE) com gerenciamento de jobs, monitoramento em tempo real e histórico:
 
 1. **Inicie o servidor de desenvolvimento**:
    ```bash
@@ -281,7 +304,7 @@ O sistema agora possui uma **interface completa de scraping** com gerenciamento 
 
 2. **Acesse a interface de scraping**:
    ```
-   http://localhost:3000/pje/scrapes
+   http://localhost:3000/scrapes
    ```
 
 #### ✨ Funcionalidades da Interface
@@ -393,16 +416,23 @@ node server/scripts/pje-trt/common/login.js <CPF> <SENHA>
 
 **Importante**:
 - ⚠️ O sistema principal **NÃO USA** variáveis de ambiente
-- 🔒 Configure credenciais em `/pje/credentials` para uso em produção
+- 🔒 Configure credenciais em `/credentials` para uso em produção
 
-### PJE: Login Automatizado
+### Sistemas Judiciais: Login Automatizado
+
+**Exemplos para diferentes sistemas:**
 
 ```bash
 # 1. Instalar dependências (se ainda não instalou)
 npm install
 
-# 2. Executar script de login (certifique-se de ter configurado o .env)
-node scripts/pje-trt/common/login.js
+# 2. Login PJE (TRT)
+node server/scripts/pje-trt/common/login.js
+
+# 3. Login PJE (TJMG)
+node server/scripts/pje-tj/tjmg/common/login.js
+
+# Nota: Scripts para outros sistemas (ESSAGE, E-PROC, PROJUDE) estarão disponíveis conforme implementação
 ```
 
 O navegador abrirá automaticamente e você verá:
@@ -414,14 +444,14 @@ O navegador abrirá automaticamente e você verá:
 
 **Resultado**: Screenshot salvo no diretório raiz
 
-### PJE: Raspagem de Processos
+### Sistemas Judiciais: Raspagem de Processos
 
 **🎯 Método Recomendado: Interface Web**
 
-Use a interface web para iniciar raspagens (em desenvolvimento):
+Use a interface web para iniciar raspagens em todos os sistemas suportados:
 
 ```
-http://localhost:3000/pje/scraping
+http://localhost:3000/scrapes
 ```
 
 O sistema busca automaticamente as credenciais do banco de dados para cada tribunal.
@@ -429,8 +459,9 @@ O sistema busca automaticamente as credenciais do banco de dados para cada tribu
 **Resultado**: Arquivos JSON salvos em `data/pje/trt3/1g/`
 
 **Troubleshooting**:
-- ⚠️ **Credenciais não encontradas**: Configure em http://localhost:3000/pje/credentials
-- 📖 Sistema busca credenciais do banco de dados automaticamente
+- ⚠️ **Credenciais não encontradas**: Configure em http://localhost:3000/credentials
+- 📖 Sistema busca credenciais do banco de dados automaticamente para cada tribunal/sistema
+- 📋 Certifique-se de associar credenciais ao sistema correto (PJE, ESAJ, E-PROC, PROJUDI)
 
 ### Browserless: Servidor Headless
 
@@ -486,8 +517,8 @@ console.log(await page.title());
 browserless/
 │
 ├── 📄 README.md                          # Este arquivo
-├── 📄 README-PJE.md                      # Guia rápido PJE
-├── 📄 IMPLEMENTACAO-COMPLETA.md          # ⭐ Documentação da implementação Next.js
+├── 📄 docs/pje/README-PJE.md             # Guia rápido PJE
+├── 📄 docs/ESTRUTURA-ORGANIZADA.md        # Histórico de reorganização
 ├── 📄 package.json                       # Dependências e scripts
 ├── 📄 tsconfig.json                      # Configuração TypeScript (frontend)
 ├── 📄 next.config.mjs                    # ⭐ Configuração Next.js
@@ -502,10 +533,10 @@ browserless/
 │   └── (dashboard)/                      # Grupo de rotas do dashboard
 │       ├── layout.tsx                    # Layout com sidebar/header
 │       ├── dashboard/page.tsx            # Dashboard principal
-│       └── pje/
-│           ├── login/page.tsx            # Formulário de login
-│           ├── processos/page.tsx        # Lista de processos
-│           └── scrapes/page.tsx          # Histórico de raspagens
+│       ├── credentials/page.tsx          # Gerenciamento de credenciais
+│       ├── scrapes/page.tsx              # Interface de raspagens
+│       ├── processos/page.tsx            # Consulta de processos
+│       └── agendamentos/page.tsx         # Agendamentos de raspagens
 │
 ├── 📁 components/                        # ⭐ Componentes React
 │   ├── layout/
@@ -532,14 +563,21 @@ browserless/
 │   │   └── ...
 │   ├── build/                            # JavaScript compilado
 │   │   └── ...
-│   └── scripts/                          # Scripts de automação PJE
-│       └── pje-trt/                      # Scripts PJE TRT3
-│           ├── common/login.js           # Login automatizado (validado)
-│           └── trt3/1g/
-│               ├── acervo/raspar-acervo-geral.js
-│               ├── pendentes/raspar-pendentes-sem-prazo.js
-│               ├── arquivados/raspar-arquivados.js
-│               └── pauta/raspar-minha-pauta.js
+│   └── scripts/                          # Scripts de automação de sistemas judiciais
+│       ├── pje-trt/                      # Scripts PJE TRT (Tribunais Regionais do Trabalho)
+│       │   ├── common/login.js           # Login automatizado (validado)
+│       │   ├── acervo/                   # Scripts de acervo geral
+│       │   ├── pendentes/                # Scripts de processos pendentes
+│       │   ├── arquivados/               # Scripts de processos arquivados
+│       │   └── pauta/                    # Scripts de pauta/audiências
+│       ├── pje-tj/                       # Scripts PJE TJ (Tribunais de Justiça - sistema PJE)
+│       │   ├── tjmg/                     # Tribunal de Justiça de Minas Gerais
+│       │   ├── tjce/                     # Tribunal de Justiça do Ceará
+│       │   ├── tjdf/                    # Tribunal de Justiça do DF
+│       │   └── tjes/                     # Tribunal de Justiça do Espírito Santo
+│       ├── eproc-trf/                    # 🔜 Scripts E-PROC TRF (em planejamento)
+│       ├── essage-tj/                    # 🔜 Scripts ESSAGE TJ (em planejamento)
+│       └── projude-tj/                   # 🔜 Scripts PROJUDE TJ (em planejamento)
 │
 ├── 📁 prisma/                            # ⭐ Banco de dados
 │   ├── schema.prisma                     # Schema do banco
@@ -576,17 +614,19 @@ browserless/
 
 ## 📚 Documentação
 
-### 🏛️ Documentação PJE
+### 🏛️ Documentação de Sistemas Judiciais
 
 | Arquivo | Descrição | Público-Alvo |
 |---------|-----------|--------------|
-| **[README-PJE.md](README-PJE.md)** | Guia de início rápido para automação PJE | Iniciantes |
-| **[scripts/pje/README.md](scripts/pje/README.md)** | Documentação completa e detalhada do módulo | Desenvolvedores |
-| **[scripts/pje/README-RASPAGEM.md](scripts/pje/README-RASPAGEM.md)** | Guia completo de raspagem de processos | Desenvolvedores |
+| **[docs/pje/README-PJE.md](docs/pje/README-PJE.md)** | Guia de início rápido para automação PJE | Iniciantes |
+| **[server/scripts/pje-trt/README.md](server/scripts/pje-trt/README.md)** | Documentação completa do módulo TRT (PJE) | Desenvolvedores |
+| **[server/scripts/pje-tj/README.md](server/scripts/pje-tj/README.md)** | Documentação do módulo TJ (PJE) | Desenvolvedores |
 | **[docs/pje/APIs.md](docs/pje/APIs.md)** | Referência completa das APIs do PJE descobertas | Avançado |
 | **[docs/pje/ANTI-BOT-DETECTION.md](docs/pje/ANTI-BOT-DETECTION.md)** | Técnicas avançadas de anti-detecção | Avançado |
 | **[docs/pje/ESTRUTURA.md](docs/pje/ESTRUTURA.md)** | Mapa da estrutura do módulo PJE | Contribuidores |
-| **[ESTRUTURA-ORGANIZADA.md](ESTRUTURA-ORGANIZADA.md)** | Histórico de reorganização do projeto | Referência |
+| **[docs/ESTRUTURA-ORGANIZADA.md](docs/ESTRUTURA-ORGANIZADA.md)** | Histórico de reorganização do projeto | Referência |
+
+**Nota Terminológica**: Este projeto suporta múltiplos sistemas judiciais brasileiros. O **PJE** é um dos sistemas suportados (usado por TRTs e alguns TJs). Outros sistemas como **ESAJ**, **E-PROC** e **PROJUDI** estão em planejamento ou implementação.
 
 ### 🌐 Documentação Browserless
 
@@ -896,16 +936,18 @@ chore(deps): atualizar puppeteer para v24.26
 
 ## 📞 Suporte
 
-### PJE Issues
+### Sistemas Judiciais - Issues
 
-Para problemas relacionados ao módulo PJE, consulte:
-- [scripts/pje/README.md](scripts/pje/README.md) - Troubleshooting completo
-- [docs/pje/APIs.md](docs/pje/APIs.md) - Referência de APIs
+Para problemas relacionados aos sistemas judiciais, consulte:
+- [server/scripts/pje-trt/README.md](server/scripts/pje-trt/README.md) - Troubleshooting completo TRT (PJE)
+- [server/scripts/pje-tj/README.md](server/scripts/pje-tj/README.md) - Troubleshooting completo TJ (PJE)
+- [docs/pje/APIs.md](docs/pje/APIs.md) - Referência de APIs PJE
 
 **Problemas comuns**:
-- Erro 403: CloudFront bloqueou, aguarde 5-10 minutos
+- Erro 403: CloudFront bloqueou (PJE), aguarde 5-10 minutos
 - Erro 401: Sessão expirou, faça login novamente
 - 0 processos: Verifique ID do advogado nos logs
+- Credenciais não funcionam: Certifique-se de usar o sistema correto (PJE vs ESSAGE vs E-PROC)
 
 ### Browserless Issues
 
@@ -922,9 +964,12 @@ Para problemas da plataforma Browserless:
 - **Upstream**: [github.com/browserless/browserless](https://github.com/browserless/browserless)
 - **Documentação**: Veja [seção Documentação](#-documentação) acima
 
-### PJE
-- **PJE TRT3**: [pje.trt3.jus.br](https://pje.trt3.jus.br)
-- **SSO PDPJ**: [sso.cloud.pje.jus.br](https://sso.cloud.pje.jus.br)
+### Sistemas Judiciais Brasileiros
+- **PJE**: [pje.trt3.jus.br](https://pje.trt3.jus.br) (usado por TRTs e alguns TJs)
+- **SSO PDPJ**: [sso.cloud.pje.jus.br](https://sso.cloud.pje.jus.br) (sistema de autenticação PJE)
+- **ESSAGE**: Sistema usado por alguns tribunais de justiça
+- **E-PROC**: Sistema usado por TRFs e alguns tribunais
+- **PROJUDE**: Sistema usado por alguns tribunais
 
 ### Browserless
 - **Site oficial**: [browserless.io](https://browserless.io)

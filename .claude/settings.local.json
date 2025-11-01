@@ -84,7 +84,14 @@
       "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678aA@\" PJE_OUTPUT_FILE=\"\" timeout 120 bash -c \"node server/scripts/pje-tj/tjce/1g/pauta-audiencia/raspar-pauta-audiencia.js\")",
       "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678aA@\" PJE_OUTPUT_FILE=\"\" timeout 120 bash -c \"node server/scripts/pje-tj/tjdf/1g/acervo/raspar-acervo-tjdf.js\")",
       "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678aA@\" PJE_OUTPUT_FILE=\"\" timeout 120 bash -c \"node server/scripts/pje-tj/tjdf/1g/expedientes/raspar-expedientes.js\")",
-      "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678aA@\" PJE_OUTPUT_FILE=\"\" timeout 120 bash -c \"node server/scripts/pje-tj/tjdf/1g/pauta-audiencia/raspar-pauta-audiencia.js\")"
+      "Bash(PJE_CPF=\"07529294610\" PJE_SENHA=\"12345678aA@\" PJE_OUTPUT_FILE=\"\" timeout 120 bash -c \"node server/scripts/pje-tj/tjdf/1g/pauta-audiencia/raspar-pauta-audiencia.js\")",
+      "Bash(for tj in tjmg tjes tjce tjdf)",
+      "Bash(do)",
+      "Bash(if [ -d \"$tj/1g/pauta-audiencia\" ])",
+      "Bash(then)",
+      "Bash(fi)",
+      "Bash(if [ -d \"$tj/1g/expedientes\" ])",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []
